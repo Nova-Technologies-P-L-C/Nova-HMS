@@ -1,0 +1,23 @@
+{
+  "name": "@my-better-t-app/infra",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "dev": "alchemy dev",
+    "deploy": "alchemy deploy",
+    "destroy": "alchemy destroy"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "4.0.0-rc.112",
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@my-better-t-app/config": "*",
+    "alchemy": "2.0.0-beta.75",
+    "effect": "4.0.0-rc.112",
+    "typescript": "^6.0.3"
+  }
+}
