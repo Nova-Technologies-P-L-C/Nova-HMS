@@ -7,6 +7,7 @@
     "check-types": "tsc -b",
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "start": "node dist/index.mjs",
+    "dev": "tsx watch src/index.ts",
     "dev:bare": "tsx watch src/index.ts"
   },
   "dependencies": {

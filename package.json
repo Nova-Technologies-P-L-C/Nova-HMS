@@ -18,7 +18,7 @@
     "db:migrate": "turbo run db:migrate -F @my-better-t-app/db --",
     "db:local": "turbo run db:local -F @my-better-t-app/db --",
     "deploy": "turbo run deploy -F @my-better-t-app/infra --",
-    "destroy": "turbo run destroy -F @my-better-t-app/infra --"
+    "destroy": "turbo run destroy -F @my-better-t-app/infra --"                                                                                                                                                                                                                                                                                                                                                                                                                                   
   },
   "dependencies": {
     "@my-better-t-app/env": "*",

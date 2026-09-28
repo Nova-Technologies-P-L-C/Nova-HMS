@@ -53,10 +53,19 @@ export const queryClient = new QueryClient({
   }),
 });
 
+function getTenantId(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("nova_tenant_id") ?? "";
+}
+
 const trpcClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: `${getServerUrl(env.NEXT_PUBLIC_SERVER_URL)}/trpc`,
+      headers() {
+        const tenantId = getTenantId();
+        return tenantId ? { "x-tenant-id": tenantId } : {};
+      },
       fetch(url, options) {
         return fetch(url, {
           ...options,

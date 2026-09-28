@@ -1,10 +1,664 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated"
+  provider     = "prisma-client"
+  output       = "../generated"
   moduleFormat = "esm"
-  runtime = "nodejs"
+  runtime      = "nodejs"
 }
 
 datasource db {
   provider = "sqlite"
+}
+
+// ─── TENANT ───────────────────────────────────────────────
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  region       String   @default("")
+  facilityType String   @default("hospital")
+  plan         String   @default("basic")
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userRoles      UserTenantRole[]
+  patients       Patient[]
+  visits         Visit[]
+  appointments   Appointment[]
+  inventoryItems InventoryItem[]
+  locations      InventoryLocation[]
+  suppliers      Supplier[]
+  requisitions   Requisition[]
+  cycleCounts    CycleCount[]
+  invoices       Invoice[]
+  cbhiClaims     CBHIClaim[]
+  feeWaivers     FeeWaiver[]
+  referrals      Referral[]
+  beds           Bed[]
+  admissions     Admission[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  featureFlags   FeatureFlag[]
+  stockMovements StockMovement[]
+
+  @@map("tenant")
+}
+
+// ─── USER TENANT ROLE ─────────────────────────────────────
+model UserTenantRole {
+  id       String @id @default(cuid())
+  userId   String
+  tenantId String
+  role     String
+  status   String @default("active")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@map("user_tenant_role")
+}
+
+// ─── PATIENT ──────────────────────────────────────────────
+model Patient {
+  id         String   @id @default(cuid())
+  tenantId   String
+  healthId   String   @unique
+  nameEn     String
+  nameAm     String   @default("")
+  dob        String
+  sex        String
+  phone      String   @default("")
+  kebele     String   @default("")
+  cbhiStatus Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  visits       Visit[]
+  allergies    Allergy[]
+  appointments Appointment[]
+  admissions   Admission[]
+
+  @@index([tenantId])
+  @@map("patient")
+}
+
+// ─── ALLERGY ──────────────────────────────────────────────
+model Allergy {
+  id        String   @id @default(cuid())
+  patientId String
+  substance String
+  reaction  String   @default("")
+  severity  String   @default("moderate")
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("allergy")
+}
+
+// ─── VISIT ────────────────────────────────────────────────
+model Visit {
+  id         String    @id @default(cuid())
+  tenantId   String
+  patientId  String
+  type       String    @default("opd")
+  status     String    @default("open")
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  ticket        OPDTicket?
+  vitals        VitalSigns[]
+  notes         ClinicalNote[]
+  diagnoses     Diagnosis[]
+  labOrders     LabOrder[]
+  prescriptions Prescription[]
+  invoice       Invoice?
+  referrals     Referral[]
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@map("visit")
+}
+
+// ─── OPD TICKET ───────────────────────────────────────────
+model OPDTicket {
+  id           String    @id @default(cuid())
+  tenantId     String
+  visitId      String    @unique
+  ticketNumber String
+  status       String    @default("waiting")
+  issuedAt     DateTime  @default(now())
+  calledAt     DateTime?
+  completedAt  DateTime?
+  waitMinutes  Int?
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@index([tenantId])
+  @@map("opd_ticket")
+}
+
+// ─── APPOINTMENT ──────────────────────────────────────────
+model Appointment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  patientId String
+  doctor    String
+  dept      String
+  date      String
+  time      String
+  status    String   @default("scheduled")
+  createdAt DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId])
+  @@map("appointment")
+}
+
+// ─── VITAL SIGNS ──────────────────────────────────────────
+model VitalSigns {
+  id          String   @id @default(cuid())
+  visitId     String
+  recordedBy  String
+  recordedAt  DateTime @default(now())
+  bpSystolic  Int?
+  bpDiastolic Int?
+  heartRate   Int?
+  temperature Float?
+  spo2        Int?
+  weight      Float?
+  height      Float?
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@map("vital_signs")
+}
+
+// ─── CLINICAL NOTE ────────────────────────────────────────
+model ClinicalNote {
+  id             String   @id @default(cuid())
+  visitId        String
+  authorId       String
+  noteType       String   @default("consultation")
+  chiefComplaint String   @default("")
+  history        String   @default("")
+  examination    String   @default("")
+  assessment     String   @default("")
+  plan           String   @default("")
+  createdAt      DateTime @default(now())
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@map("clinical_note")
+}
+
+// ─── DIAGNOSIS ────────────────────────────────────────────
+model Diagnosis {
+  id          String   @id @default(cuid())
+  visitId     String
+  icdCode     String
+  description String
+  notes       String   @default("")
+  diagnosedBy String
+  diagnosedAt DateTime @default(now())
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@map("diagnosis")
+}
+
+// ─── LAB ORDER ────────────────────────────────────────────
+model LabOrder {
+  id         String    @id @default(cuid())
+  tenantId   String
+  visitId    String
+  orderedBy  String
+  testName   String
+  priority   String    @default("routine")
+  indication String    @default("")
+  status     String    @default("pending")
+  orderedAt  DateTime  @default(now())
+
+  visit  Visit       @relation(fields: [visitId], references: [id])
+  result LabResult?
+
+  @@index([tenantId])
+  @@map("lab_order")
+}
+
+// ─── LAB RESULT ───────────────────────────────────────────
+model LabResult {
+  id             String   @id @default(cuid())
+  labOrderId     String   @unique
+  enteredBy      String
+  enteredAt      DateTime @default(now())
+  resultsJson    String   @default("[]")
+  interpretation String   @default("")
+
+  labOrder LabOrder @relation(fields: [labOrderId], references: [id])
+
+  @@map("lab_result")
+}
+
+// ─── PRESCRIPTION ─────────────────────────────────────────
+model Prescription {
+  id           String   @id @default(cuid())
+  tenantId     String
+  visitId      String
+  prescribedBy String
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+
+  visit Visit              @relation(fields: [visitId], references: [id])
+  lines PrescriptionLine[]
+
+  @@index([tenantId])
+  @@map("prescription")
+}
+
+// ─── PRESCRIPTION LINE ────────────────────────────────────
+model PrescriptionLine {
+  id             String    @id @default(cuid())
+  prescriptionId String
+  itemId         String
+  itemName       String
+  dose           String
+  frequency      String
+  durationDays   Int
+  status         String    @default("pending")
+  dispensedAt    DateTime?
+  dispensedBy    String?
+  batchId        String?
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@map("prescription_line")
+}
+
+// ─── INVENTORY ITEM ───────────────────────────────────────
+model InventoryItem {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  nameAm     String   @default("")
+  category   String
+  uomBase    String
+  uomBox     String   @default("box")
+  uomBoxQty  Int      @default(1)
+  rop        Int      @default(0)
+  maxLevel   Int      @default(0)
+  supplierId String?
+  status     String   @default("ok")
+  createdAt  DateTime @default(now())
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  supplier      Supplier?           @relation(fields: [supplierId], references: [id])
+  batches       InventoryBatch[]
+  locationStock LocationStock[]
+  movements     StockMovement[]
+  consumption   ConsumptionRecord[]
+  reqLines      RequisitionLine[]
+  countLines    CycleCountLine[]
+
+  @@index([tenantId])
+  @@map("inventory_item")
+}
+
+// ─── INVENTORY BATCH ──────────────────────────────────────
+model InventoryBatch {
+  id           String   @id @default(cuid())
+  itemId       String
+  tenantId     String
+  lotNumber    String
+  qty          Int      @default(0)
+  expiryDate   String
+  receivedDate String
+  supplierId   String?
+  locationId   String
+  status       String   @default("active")
+
+  item     InventoryItem     @relation(fields: [itemId], references: [id])
+  location InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@index([tenantId])
+  @@map("inventory_batch")
+}
+
+// ─── INVENTORY LOCATION ───────────────────────────────────
+model InventoryLocation {
+  id        String @id @default(cuid())
+  tenantId  String
+  name      String
+  type      String @default("pharmacy")
+  managerId String @default("")
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  stock     LocationStock[]
+  batches   InventoryBatch[]
+  movements StockMovement[]
+
+  @@index([tenantId])
+  @@map("inventory_location")
+}
+
+// ─── LOCATION STOCK ───────────────────────────────────────
+model LocationStock {
+  id         String @id @default(cuid())
+  itemId     String
+  locationId String
+  tenantId   String
+  qty        Int    @default(0)
+
+  item     InventoryItem     @relation(fields: [itemId], references: [id])
+  location InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@unique([itemId, locationId])
+  @@map("location_stock")
+}
+
+// ─── STOCK MOVEMENT ───────────────────────────────────────
+model StockMovement {
+  id           String   @id @default(cuid())
+  tenantId     String
+  itemId       String
+  batchId      String?
+  type         String
+  qty          Int
+  locationId   String
+  toLocationId String?
+  reference    String   @default("")
+  note         String   @default("")
+  userId       String
+  createdAt    DateTime @default(now())
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  item     InventoryItem     @relation(fields: [itemId], references: [id])
+  location InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@index([tenantId])
+  @@index([itemId])
+  @@map("stock_movement")
+}
+
+// ─── CONSUMPTION RECORD ───────────────────────────────────
+model ConsumptionRecord {
+  id       String @id @default(cuid())
+  itemId   String
+  tenantId String
+  month    String
+  qty      Int    @default(0)
+
+  item InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@unique([itemId, tenantId, month])
+  @@map("consumption_record")
+}
+
+// ─── SUPPLIER ─────────────────────────────────────────────
+model Supplier {
+  id        String @id @default(cuid())
+  tenantId  String
+  name      String
+  fullName  String @default("")
+  contact   String @default("")
+  phone     String @default("")
+  leadDays  Int    @default(14)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  items        InventoryItem[]
+  requisitions Requisition[]
+
+  @@index([tenantId])
+  @@map("supplier")
+}
+
+// ─── REQUISITION ──────────────────────────────────────────
+model Requisition {
+  id            String   @id @default(cuid())
+  tenantId      String
+  supplierId    String
+  type          String   @default("routine")
+  status        String   @default("pending")
+  requestedBy   String
+  approvedBy    String?
+  justification String   @default("")
+  createdAt     DateTime @default(now())
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  supplier Supplier        @relation(fields: [supplierId], references: [id])
+  lines    RequisitionLine[]
+
+  @@index([tenantId])
+  @@map("requisition")
+}
+
+// ─── REQUISITION LINE ─────────────────────────────────────
+model RequisitionLine {
+  id            String  @id @default(cuid())
+  requisitionId String
+  itemId        String
+  qtyRequested  Int
+  unitCost      Float   @default(0)
+
+  requisition Requisition   @relation(fields: [requisitionId], references: [id])
+  item        InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@map("requisition_line")
+}
+
+// ─── CYCLE COUNT ──────────────────────────────────────────
+model CycleCount {
+  id          String   @id @default(cuid())
+  tenantId    String
+  conductedBy String
+  status      String   @default("in-progress")
+  date        DateTime @default(now())
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  lines  CycleCountLine[]
+
+  @@map("cycle_count")
+}
+
+// ─── CYCLE COUNT LINE ─────────────────────────────────────
+model CycleCountLine {
+  id             String  @id @default(cuid())
+  cycleCountId   String
+  itemId         String
+  systemQty      Int
+  countedQty     Int
+  variance       Int
+  varianceReason String  @default("")
+  lossCategory   String  @default("")
+
+  cycleCount CycleCount    @relation(fields: [cycleCountId], references: [id])
+  item       InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@map("cycle_count_line")
+}
+
+// ─── INVOICE ──────────────────────────────────────────────
+model Invoice {
+  id        String    @id @default(cuid())
+  tenantId  String
+  visitId   String    @unique
+  patientId String
+  status    String    @default("pending")
+  total     Float     @default(0)
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  visit     Visit        @relation(fields: [visitId], references: [id])
+  lines     InvoiceLine[]
+  cbhiClaim CBHIClaim?
+  feeWaiver FeeWaiver?
+
+  @@index([tenantId])
+  @@map("invoice")
+}
+
+// ─── INVOICE LINE ─────────────────────────────────────────
+model InvoiceLine {
+  id          String @id @default(cuid())
+  invoiceId   String
+  description String
+  qty         Int    @default(1)
+  unitPrice   Float
+  total       Float
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("invoice_line")
+}
+
+// ─── CBHI CLAIM ───────────────────────────────────────────
+model CBHIClaim {
+  id              String    @id @default(cuid())
+  tenantId        String
+  invoiceId       String    @unique
+  patientId       String
+  amount          Float
+  status          String    @default("submitted")
+  submittedAt     DateTime  @default(now())
+  resolvedAt      DateTime?
+  rejectionReason String    @default("")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@map("cbhi_claim")
+}
+
+// ─── FEE WAIVER ───────────────────────────────────────────
+model FeeWaiver {
+  id          String    @id @default(cuid())
+  tenantId    String
+  invoiceId   String    @unique
+  patientId   String
+  amount      Float
+  reason      String
+  requestedBy String
+  approvedBy  String?
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@map("fee_waiver")
+}
+
+// ─── REFERRAL ─────────────────────────────────────────────
+model Referral {
+  id              String    @id @default(cuid())
+  tenantId        String
+  visitId         String
+  patientId       String
+  fromFacility    String
+  toFacility      String
+  reason          String
+  clinicalSummary String    @default("")
+  urgency         String    @default("routine")
+  type            String    @default("out")
+  status          String    @default("pending")
+  createdBy       String
+  confirmedBy     String?
+  createdAt       DateTime  @default(now())
+  confirmedAt     DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  visit  Visit  @relation(fields: [visitId], references: [id])
+
+  @@index([tenantId])
+  @@map("referral")
+}
+
+// ─── BED ──────────────────────────────────────────────────
+model Bed {
+  id       String @id @default(cuid())
+  tenantId String
+  ward     String
+  room     String
+  status   String @default("available")
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  admissions Admission[]
+
+  @@index([tenantId])
+  @@map("bed")
+}
+
+// ─── ADMISSION ────────────────────────────────────────────
+model Admission {
+  id           String    @id @default(cuid())
+  tenantId     String
+  patientId    String
+  bedId        String
+  admittedAt   DateTime  @default(now())
+  dischargedAt DateTime?
+  status       String    @default("active")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+  bed     Bed     @relation(fields: [bedId], references: [id])
+
+  @@index([tenantId])
+  @@map("admission")
+}
+
+// ─── NOTIFICATION ─────────────────────────────────────────
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  type      String   @default("in-app")
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, userId])
+  @@map("notification")
+}
+
+// ─── AUDIT LOG ────────────────────────────────────────────
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  action    String
+  entity    String
+  entityId  String   @default("")
+  metadata  String   @default("{}")
+  ipAddress String   @default("")
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("audit_log")
+}
+
+// ─── FEATURE FLAG ─────────────────────────────────────────
+model FeatureFlag {
+  id       String  @id @default(cuid())
+  tenantId String
+  flag     String
+  enabled  Boolean @default(false)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, flag])
+  @@map("feature_flag")
 }
