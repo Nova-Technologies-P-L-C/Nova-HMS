@@ -21,6 +21,9 @@ model Tenant {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  cardFeeAmount       Float    @default(50.0)
+  specialistFeeAmount Float    @default(150.0)
+
   userRoles      UserTenantRole[]
   patients       Patient[]
   visits         Visit[]
@@ -31,6 +34,7 @@ model Tenant {
   requisitions   Requisition[]
   cycleCounts    CycleCount[]
   invoices       Invoice[]
+  receipts       PaymentReceipt[]
   cbhiClaims     CBHIClaim[]
   feeWaivers     FeeWaiver[]
   referrals      Referral[]
@@ -74,11 +78,12 @@ model Patient {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
   visits       Visit[]
   allergies    Allergy[]
   appointments Appointment[]
   admissions   Admission[]
+  receipts     PaymentReceipt[]
 
   @@index([tenantId])
   @@map("patient")
@@ -118,6 +123,7 @@ model Visit {
   prescriptions Prescription[]
   invoice       Invoice?
   referrals     Referral[]
+  receipts      PaymentReceipt[]
 
   @@index([tenantId])
   @@index([patientId])
@@ -134,7 +140,12 @@ model OPDTicket {
   issuedAt     DateTime  @default(now())
   calledAt     DateTime?
   completedAt  DateTime?
-  waitMinutes  Int?
+  waitMinutes   Int?
+  feeAmount     Float     @default(50.0)
+  paymentStatus String    @default("unpaid")
+  paidAt        DateTime?
+  receiptNumber String    @default("")
+  paymentMethod String    @default("")
 
   visit Visit @relation(fields: [visitId], references: [id])
 
@@ -222,8 +233,13 @@ model LabOrder {
   testName   String
   priority   String    @default("routine")
   indication String    @default("")
-  status     String    @default("pending")
-  orderedAt  DateTime  @default(now())
+  status        String    @default("pending")
+  price         Float     @default(120.0)
+  paymentStatus String    @default("unpaid")
+  paidAt        DateTime?
+  receiptNumber String    @default("")
+  paymentMethod String    @default("")
+  orderedAt     DateTime  @default(now())
 
   visit  Visit       @relation(fields: [visitId], references: [id])
   result LabResult?
@@ -271,6 +287,12 @@ model PrescriptionLine {
   dose           String
   frequency      String
   durationDays   Int
+  unitPrice      Float     @default(45.0)
+  totalPrice     Float     @default(45.0)
+  paymentStatus  String    @default("unpaid")
+  paidAt         DateTime?
+  receiptNumber  String    @default("")
+  paymentMethod  String    @default("")
   status         String    @default("pending")
   dispensedAt    DateTime?
   dispensedBy    String?
@@ -662,3 +684,28 @@ model FeatureFlag {
   @@unique([tenantId, flag])
   @@map("feature_flag")
 }
+
+// ─── PAYMENT RECEIPT ─────────────────────────────────────
+model PaymentReceipt {
+  id            String   @id @default(cuid())
+  tenantId      String
+  receiptNumber String   @unique
+  patientId     String
+  visitId       String
+  category      String   // card_fee, lab, pharmacy, total_invoice
+  amount        Float
+  paymentMethod String   // cash, telebirr, cbe_birr, card, cbhi, waiver
+  collectedBy   String   @default("")
+  reference     String   @default("")
+  notes         String   @default("")
+  createdAt     DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+  visit   Visit   @relation(fields: [visitId], references: [id])
+
+  @@index([tenantId])
+  @@index([visitId])
+  @@map("payment_receipt")
+}
+

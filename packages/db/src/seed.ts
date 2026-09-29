@@ -129,27 +129,75 @@ async function main() {
 
   // Visits + OPD tickets
   const visitData = [
-    { id: "visit-p1", patientId: "pat-p1", type: "opd", status: "open", ticket: "A-001", ticketStatus: "being-seen" },
-    { id: "visit-p2", patientId: "pat-p2", type: "opd", status: "open", ticket: "A-002", ticketStatus: "waiting" },
-    { id: "visit-p3", patientId: "pat-p3", type: "opd", status: "open", ticket: "A-003", ticketStatus: "waiting" },
-    { id: "visit-p4", patientId: "pat-p4", type: "opd", status: "open", ticket: "A-004", ticketStatus: "done" },
-    { id: "visit-p5", patientId: "pat-p5", type: "opd", status: "open", ticket: "A-005", ticketStatus: "waiting" },
-    { id: "visit-p6", patientId: "pat-p6", type: "emergency", status: "open", ticket: "A-006", ticketStatus: "urgent" },
+    { id: "visit-p1", patientId: "pat-p1", type: "opd", status: "open", ticket: "A-001", ticketStatus: "being-seen", paymentStatus: "cbhi_covered", fee: 50 },
+    { id: "visit-p2", patientId: "pat-p2", type: "opd", status: "ready_for_billing", ticket: "A-002", ticketStatus: "done", paymentStatus: "paid", fee: 50, receiptNumber: "RCP-2026-00001", paymentMethod: "telebirr" },
+    { id: "visit-p3", patientId: "pat-p3", type: "opd", status: "open", ticket: "A-003", ticketStatus: "waiting", paymentStatus: "cbhi_covered", fee: 50 },
+    { id: "visit-p4", patientId: "pat-p4", type: "opd", status: "open", ticket: "A-004", ticketStatus: "done", paymentStatus: "cbhi_covered", fee: 50 },
+    { id: "visit-p5", patientId: "pat-p5", type: "opd", status: "ready_for_billing", ticket: "A-005", ticketStatus: "done", paymentStatus: "unpaid", fee: 50 },
+    { id: "visit-p6", patientId: "pat-p6", type: "emergency", status: "open", ticket: "E-001", ticketStatus: "urgent", paymentStatus: "emergency_exempt", fee: 100 },
   ];
   for (const v of visitData) {
-    await prisma.visit.upsert({ where: { id: v.id }, update: {}, create: { id: v.id, tenantId: tenant.id, patientId: v.patientId, type: v.type, status: v.status } });
-    await prisma.oPDTicket.upsert({ where: { visitId: v.id }, update: {}, create: { tenantId: tenant.id, visitId: v.id, ticketNumber: v.ticket, status: v.ticketStatus } });
+    await prisma.visit.upsert({ where: { id: v.id }, update: { status: v.status }, create: { id: v.id, tenantId: tenant.id, patientId: v.patientId, type: v.type, status: v.status } });
+    await prisma.oPDTicket.upsert({
+      where: { visitId: v.id },
+      update: {
+        paymentStatus: v.paymentStatus,
+        feeAmount: v.fee,
+        receiptNumber: v.receiptNumber ?? "",
+        paymentMethod: v.paymentMethod ?? (v.paymentStatus === "cbhi_covered" ? "cbhi" : ""),
+        paidAt: v.paymentStatus === "paid" ? new Date() : undefined,
+      },
+      create: {
+        tenantId: tenant.id,
+        visitId: v.id,
+        ticketNumber: v.ticket,
+        status: v.ticketStatus,
+        paymentStatus: v.paymentStatus,
+        feeAmount: v.fee,
+        receiptNumber: v.receiptNumber ?? "",
+        paymentMethod: v.paymentMethod ?? (v.paymentStatus === "cbhi_covered" ? "cbhi" : ""),
+        paidAt: v.paymentStatus === "paid" ? new Date() : undefined,
+      },
+    });
   }
+
+  // Sample receipts for paid card fee
+  await prisma.paymentReceipt.upsert({
+    where: { receiptNumber: "RCP-2026-00001" },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      receiptNumber: "RCP-2026-00001",
+      patientId: "pat-p2",
+      visitId: "visit-p2",
+      category: "card_fee",
+      amount: 50,
+      paymentMethod: "telebirr",
+      collectedBy: "u-girma",
+      reference: "TLB-998241",
+      notes: "Card Fee for Ticket A-002",
+    },
+  });
 
   // Lab orders
   const labData = [
-    { id: "lo-001", visitId: "visit-p1", orderedBy: "u-tigist", testName: "CBC (Complete Blood Count)", priority: "routine", status: "pending" },
-    { id: "lo-002", visitId: "visit-p6", orderedBy: "u-yonas", testName: "Malaria RDT", priority: "urgent", status: "in-progress" },
-    { id: "lo-003", visitId: "visit-p3", orderedBy: "u-tigist", testName: "Fasting Blood Sugar", priority: "routine", status: "completed" },
-    { id: "lo-004", visitId: "visit-p2", orderedBy: "u-yonas", testName: "Urinalysis", priority: "routine", status: "pending" },
+    { id: "lo-001", visitId: "visit-p1", orderedBy: "u-tigist", testName: "CBC (Complete Blood Count)", priority: "routine", status: "pending", price: 150, paymentStatus: "cbhi_covered" },
+    { id: "lo-002", visitId: "visit-p6", orderedBy: "u-yonas", testName: "Malaria RDT", priority: "urgent", status: "in-progress", price: 80, paymentStatus: "emergency_exempt" },
+    { id: "lo-003", visitId: "visit-p3", orderedBy: "u-tigist", testName: "Fasting Blood Sugar", priority: "routine", status: "completed", price: 90, paymentStatus: "cbhi_covered" },
+    { id: "lo-004", visitId: "visit-p2", orderedBy: "u-yonas", testName: "Urinalysis", priority: "routine", status: "completed", price: 70, paymentStatus: "unpaid" },
   ];
   for (const l of labData) {
-    await prisma.labOrder.upsert({ where: { id: l.id }, update: {}, create: { ...l, tenantId: tenant.id } });
+    await prisma.labOrder.upsert({
+      where: { id: l.id },
+      update: {
+        price: l.price,
+        paymentStatus: l.paymentStatus,
+        receiptNumber: l.receiptNumber ?? "",
+        paymentMethod: l.paymentMethod ?? "",
+        paidAt: l.paymentStatus === "paid" ? new Date() : undefined,
+      },
+      create: { ...l, tenantId: tenant.id },
+    });
   }
 
   // Prescriptions
@@ -158,7 +206,12 @@ async function main() {
     update: {},
     create: {
       id: "rx-001", tenantId: tenant.id, visitId: "visit-p1", prescribedBy: "u-tigist", status: "pending",
-      lines: { create: [{ itemId: "item-amox", itemName: "Amoxicillin 500mg caps", dose: "1 cap", frequency: "3x daily", durationDays: 7 }] },
+      lines: {
+        create: [{
+          itemId: "item-amox", itemName: "Amoxicillin 500mg caps", dose: "1 cap", frequency: "3x daily", durationDays: 7,
+          unitPrice: 45, totalPrice: 90, paymentStatus: "cbhi_covered",
+        }],
+      },
     },
   });
   await prisma.prescription.upsert({
@@ -166,7 +219,25 @@ async function main() {
     update: {},
     create: {
       id: "rx-002", tenantId: tenant.id, visitId: "visit-p3", prescribedBy: "u-tigist", status: "dispensed",
-      lines: { create: [{ itemId: "item-met", itemName: "Metformin 500mg tabs", dose: "1 tab", frequency: "2x daily", durationDays: 30, status: "dispensed" }] },
+      lines: {
+        create: [{
+          itemId: "item-met", itemName: "Metformin 500mg tabs", dose: "1 tab", frequency: "2x daily", durationDays: 30, status: "dispensed",
+          unitPrice: 30, totalPrice: 60, paymentStatus: "cbhi_covered",
+        }],
+      },
+    },
+  });
+  await prisma.prescription.upsert({
+    where: { id: "rx-003" },
+    update: {},
+    create: {
+      id: "rx-003", tenantId: tenant.id, visitId: "visit-p2", prescribedBy: "u-yonas", status: "pending",
+      lines: {
+        create: [{
+          itemId: "item-amox", itemName: "Amoxicillin 500mg caps", dose: "1 cap", frequency: "3x daily", durationDays: 5,
+          unitPrice: 45, totalPrice: 90, paymentStatus: "unpaid",
+        }],
+      },
     },
   });
 

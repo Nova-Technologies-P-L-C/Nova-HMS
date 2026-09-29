@@ -102,4 +102,23 @@ export const tenantRouter = router({
 
     return { patients, todayVisits, beds, occupiedBeds, criticalStock };
   }),
+
+  // Update card fee and tariffs (Hospital Admin only)
+  updateTariffs: tenantProcedure
+    .input(z.object({
+      cardFeeAmount: z.number().min(0),
+      specialistFeeAmount: z.number().min(0).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.role !== "Hospital Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Hospital Admin can configure tariffs" });
+      }
+      return prisma.tenant.update({
+        where: { id: ctx.tenantId },
+        data: {
+          cardFeeAmount: input.cardFeeAmount,
+          ...(input.specialistFeeAmount !== undefined ? { specialistFeeAmount: input.specialistFeeAmount } : {}),
+        },
+      });
+    }),
 });

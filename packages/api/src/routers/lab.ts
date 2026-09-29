@@ -9,14 +9,46 @@ export const labRouter = router({
     .input(z.object({
       visitId: z.string(),
       testName: z.string().min(1),
+      price: z.number().optional(),
       priority: z.enum(["routine", "urgent"]).default("routine"),
       indication: z.string().default(""),
     }))
     .mutation(async ({ ctx, input }) => {
-      await prisma.visit.findFirstOrThrow({ where: { id: input.visitId, tenantId: ctx.tenantId } });
+      const visit = await prisma.visit.findFirstOrThrow({
+        where: { id: input.visitId, tenantId: ctx.tenantId },
+        include: { patient: true },
+      });
+
+      const defaultPrices: Record<string, number> = {
+        "CBC (Complete Blood Count)": 150,
+        "Malaria RDT": 80,
+        "Fasting Blood Sugar": 90,
+        "Urinalysis": 70,
+        "Lipid Panel": 220,
+        "Liver Function Tests": 250,
+        "Renal Function Test": 200,
+        "Stool Examination": 60,
+      };
+      const price = input.price ?? defaultPrices[input.testName] ?? 120;
+
+      let paymentStatus = "unpaid";
+      if (visit.patient.cbhiStatus) {
+        paymentStatus = "cbhi_covered";
+      } else if (visit.type === "emergency" || input.priority === "urgent") {
+        paymentStatus = "emergency_exempt";
+      }
 
       const order = await prisma.labOrder.create({
-        data: { ...input, tenantId: ctx.tenantId, orderedBy: ctx.userId },
+        data: {
+          visitId: input.visitId,
+          testName: input.testName,
+          priority: input.priority,
+          indication: input.indication,
+          price,
+          paymentStatus,
+          tenantId: ctx.tenantId,
+          orderedBy: ctx.userId,
+        },
       });
 
       // Notify lab technicians
@@ -104,6 +136,7 @@ export const labRouter = router({
         where: { id: input.orderId, tenantId: ctx.tenantId },
       });
 
+      // Lab results can be entered during care; diagnostic fee will be settled at Billing upon visit completion
       const result = await prisma.labResult.create({
         data: {
           labOrderId: input.orderId,
@@ -128,6 +161,50 @@ export const labRouter = router({
       });
 
       return result;
+    }),
+
+  // Collect payment for a lab test (Receptionist or Cashier)
+  payOrder: tenantProcedure
+    .input(z.object({
+      orderId: z.string(),
+      paymentMethod: z.enum(["cash", "telebirr", "cbe_birr", "card"]),
+      reference: z.string().default(""),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const order = await prisma.labOrder.findFirstOrThrow({
+        where: { id: input.orderId, tenantId: ctx.tenantId },
+        include: { visit: { include: { patient: true } } },
+      });
+
+      if (order.paymentStatus === "paid") return order;
+
+      const rcCount = await prisma.paymentReceipt.count({ where: { tenantId: ctx.tenantId } });
+      const receiptNumber = `RCP-${new Date().getFullYear()}-${String(rcCount + 1).padStart(5, "0")}`;
+
+      await prisma.paymentReceipt.create({
+        data: {
+          tenantId: ctx.tenantId,
+          receiptNumber,
+          patientId: order.visit.patientId,
+          visitId: order.visitId,
+          category: "lab",
+          amount: order.price,
+          paymentMethod: input.paymentMethod,
+          collectedBy: ctx.userId ?? "Cashier",
+          reference: input.reference,
+          notes: `Lab Test: ${order.testName}`,
+        },
+      });
+
+      return prisma.labOrder.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: "paid",
+          paidAt: new Date(),
+          receiptNumber,
+          paymentMethod: input.paymentMethod,
+        },
+      });
     }),
 
   // Get results for a visit

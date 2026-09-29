@@ -1,3 +1,5 @@
+"use client";
+
 // Billing — Fee-Waiver Requests (billing officer view) (page 39)
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";

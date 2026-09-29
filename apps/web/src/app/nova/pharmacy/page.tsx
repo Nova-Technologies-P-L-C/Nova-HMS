@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, KpiCard, Card, StatusBadge } from "@/components/nova/nova-ui";
@@ -31,6 +32,19 @@ export default function PharmacyQueuePage() {
     })
   );
 
+  const [payingRx, setPayingRx] = useState<{ id: string; patientName: string; total: number; drugs: string } | null>(null);
+  const [modalMethod, setModalMethod] = useState<"cash" | "telebirr" | "cbe_birr" | "card">("cash");
+  const [modalRef, setModalRef] = useState("");
+
+  const payRxMutation = useMutation({
+    ...trpc.prescription.payPrescription.mutationOptions(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: trpc.prescription.queue.queryKey() });
+      setPayingRx(null);
+      setModalRef("");
+    },
+  });
+
   const selectedRx = rxList.find((r) => r.id === selected);
 
   const calcQty = (freq: string, days: number) =>
@@ -39,7 +53,63 @@ export default function PharmacyQueuePage() {
   const shownList = tab === "pending" ? rxList : dispensedList;
 
   return (
-    <PageShell title="Prescription Queue" subtitle="Dispense medications to patients">
+    <PageShell title="Prescription Queue" subtitle="Dispense medications & Payment Clearance Gate">
+      {/* Pharmacy Payment Modal */}
+      {payingRx && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+              <h3 className="font-bold text-slate-800 text-base">Collect Pharmacy Payment</h3>
+              <button onClick={() => setPayingRx(null)} className="text-slate-400 hover:text-slate-600 text-sm">✕</button>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{payingRx.patientName}</p>
+              <p className="text-xs text-slate-500">{payingRx.drugs}</p>
+              <p className="text-sm font-bold text-teal-800 mt-1">Total Due: ETB {payingRx.total}</p>
+            </div>
+            <div className="space-y-3">
+              <label className="text-xs font-semibold text-slate-700 block">Payment Method:</label>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {(["cash", "telebirr", "cbe_birr"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setModalMethod(m)}
+                    className={`py-2 px-3 rounded-lg border font-medium text-center transition-all ${
+                      modalMethod === m ? "bg-teal-600 text-white border-teal-600" : "bg-white text-slate-700 border-slate-200 hover:border-teal-400"
+                    }`}
+                  >
+                    {m === "cash" ? "💵 Cash" : m === "telebirr" ? "📱 Telebirr" : "🏦 CBE Birr"}
+                  </button>
+                ))}
+              </div>
+              {(modalMethod === "telebirr" || modalMethod === "cbe_birr") && (
+                <div>
+                  <label className="text-xs text-slate-600 block mb-1">Transaction Ref / ID:</label>
+                  <input
+                    value={modalRef}
+                    onChange={(e) => setModalRef(e.target.value)}
+                    placeholder="e.g. TLB-998241"
+                    className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+              <button type="button" onClick={() => setPayingRx(null)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded text-sm hover:bg-slate-50">Cancel</button>
+              <button
+                type="button"
+                disabled={payRxMutation.isPending}
+                onClick={() => payRxMutation.mutate({ prescriptionId: payingRx.id, paymentMethod: modalMethod, reference: modalRef })}
+                className="px-4 py-2 bg-teal-600 text-white rounded text-sm font-medium hover:bg-teal-700"
+              >
+                {payRxMutation.isPending ? "Recording…" : "Confirm Payment & Unlock Dispense"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-4 mb-6">
         <KpiCard label="Pending" value={rxList.length} accent={rxList.length > 0} />
         <KpiCard label="Dispensed today" value={dispensedList.length} />
@@ -70,6 +140,11 @@ export default function PharmacyQueuePage() {
       <div className="space-y-3">
         {shownList.map((rx) => {
           const isSelected = selected === rx.id;
+          const isAllPaid = rx.lines.every(
+            (l) => l.paymentStatus === "paid" || l.paymentStatus === "cbhi_covered" || l.paymentStatus === "emergency_exempt"
+          );
+          const totalCost = rx.lines.reduce((s, l) => s + (l.totalPrice ?? 45), 0);
+
           return (
             <Card key={rx.id} className={`overflow-hidden transition-all ${isSelected ? "border-teal-400" : ""}`}>
               {/* Header row */}
@@ -83,10 +158,19 @@ export default function PharmacyQueuePage() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-800 text-sm truncate">{rx.visit.patient.nameEn}</p>
-                    <p className="text-xs text-slate-400">{rx.visit.patient.healthId} · {rx.lines.length} medication{rx.lines.length > 1 ? "s" : ""}</p>
+                    <p className="text-xs text-slate-400">{rx.visit.patient.healthId} · {rx.lines.length} medication{rx.lines.length > 1 ? "s" : ""} · Total: ETB {totalCost}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
+                  {isAllPaid ? (
+                    <span className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-medium">
+                      ✓ Cleared by Billing (Ready to Dispense)
+                    </span>
+                  ) : (
+                    <span className="text-xs text-amber-800 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full font-semibold">
+                      ⏳ Awaiting Billing Settlement (ETB {totalCost})
+                    </span>
+                  )}
                   {rx.visit.patient.cbhiStatus && (
                     <span className="text-xs text-teal-600 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">CBHI</span>
                   )}
@@ -98,51 +182,89 @@ export default function PharmacyQueuePage() {
               {/* Expanded detail */}
               {isSelected && (
                 <div className="border-t border-slate-100 px-4 py-4 space-y-3">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Medications</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Medications & Pricing</p>
+                    <span className="text-xs font-bold text-slate-800">Total Prescription Cost: ETB {totalCost}</span>
+                  </div>
+
                   {rx.lines.map((l) => {
                     const qty = calcQty(l.frequency, l.durationDays);
                     return (
-                      <div key={l.id} className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm p-3 bg-slate-50 rounded-lg border border-slate-100">
-                        <div>
+                      <div key={l.id} className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm p-3 bg-slate-50 rounded-lg border border-slate-100 items-center">
+                        <div className="md:col-span-2">
                           <p className="text-xs text-slate-400">Drug</p>
                           <p className="font-semibold text-slate-800">{l.itemName}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-400">Dose</p>
-                          <p>{l.dose}</p>
+                          <p className="text-xs text-slate-400">Dose & Freq</p>
+                          <p className="text-xs">{l.dose} · {l.frequency}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-400">Frequency</p>
-                          <p>{l.frequency}</p>
+                          <p className="text-xs text-slate-400">Duration / Qty</p>
+                          <p className="font-semibold text-teal-700 text-xs">{l.durationDays}d ({qty} units)</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-400">Duration</p>
-                          <p>{l.durationDays} days</p>
+                          <p className="text-xs text-slate-400">Tariff Price</p>
+                          <p className="font-bold text-slate-800 text-xs">ETB {l.totalPrice ?? 45}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-slate-400">Qty to dispense</p>
-                          <p className="font-bold text-teal-700 text-base">{qty} units</p>
+                          <p className="text-xs text-slate-400">Clearance</p>
+                          {l.paymentStatus === "paid" && (
+                            <span className="text-[11px] text-emerald-700 font-semibold">✓ Paid</span>
+                          )}
+                          {l.paymentStatus === "cbhi_covered" && (
+                            <span className="text-[11px] text-teal-700 font-medium">🛡️ CBHI</span>
+                          )}
+                          {l.paymentStatus === "emergency_exempt" && (
+                            <span className="text-[11px] text-red-700 font-medium">🚨 Emergency</span>
+                          )}
+                          {l.paymentStatus === "unpaid" && (
+                            <span className="text-[11px] text-amber-700 font-bold">⚠️ Unpaid</span>
+                          )}
                         </div>
                       </div>
                     );
                   })}
 
+                  {/* Payment Alert & Action */}
+                  {!isAllPaid && rx.status === "pending" && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-amber-900">⏳ Awaiting Settlement at Billing Counter</p>
+                        <p className="text-xs text-amber-700">Patient has been transferred to Billing. Once the cashier settles the visit invoice, dispensing will automatically unlock.</p>
+                      </div>
+                      <Link
+                        href="/nova/billing"
+                        className="px-3 py-1.5 bg-teal-600 text-white rounded text-xs font-semibold hover:bg-teal-700 whitespace-nowrap ml-3"
+                      >
+                        Open Billing POS →
+                      </Link>
+                    </div>
+                  )}
+
                   {rx.status === "pending" && (
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex gap-2 pt-1 items-center">
                       <button
                         onClick={() => dispense.mutate({ prescriptionId: rx.id })}
-                        disabled={dispense.isPending}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50 font-medium"
+                        disabled={dispense.isPending || !isAllPaid}
+                        className={`flex items-center gap-2 px-5 py-2.5 text-white text-sm rounded-lg font-medium transition-all ${
+                          isAllPaid
+                            ? "bg-teal-600 hover:bg-teal-700 cursor-pointer"
+                            : "bg-slate-300 opacity-60 cursor-not-allowed"
+                        }`}
                       >
                         <CheckCircle size={15} />
-                        {dispense.isPending ? "Dispensing…" : "Confirm & dispense"}
+                        {dispense.isPending ? "Dispensing…" : isAllPaid ? "Confirm & Dispense (FEFO)" : "Locked (Payment Required)"}
                       </button>
+                      {!isAllPaid && (
+                        <span className="text-xs text-slate-500">Collect payment above or at Central Cashier to unlock dispensing.</span>
+                      )}
                     </div>
                   )}
 
                   {rx.status === "dispensed" && (
-                    <div className="flex items-center gap-2 text-teal-600 text-sm">
-                      <CheckCircle size={15} /> Dispensed
+                    <div className="flex items-center gap-2 text-teal-600 text-sm font-medium">
+                      <CheckCircle size={15} /> Dispensed via FEFO order
                     </div>
                   )}
 

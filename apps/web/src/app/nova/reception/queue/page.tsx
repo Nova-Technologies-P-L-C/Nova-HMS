@@ -74,6 +74,19 @@ export default function OPDQueueBoardPage() {
     );
   }
 
+  const [payingTicket, setPayingTicket] = useState<{ id: string; ticketNumber: string; feeAmount: number; patientName: string } | null>(null);
+  const [modalMethod, setModalMethod] = useState<"cash" | "telebirr" | "cbe_birr" | "card">("cash");
+  const [modalRef, setModalRef] = useState("");
+
+  const payCardFeeMutation = useMutation({
+    ...trpc.visit.payCardFee.mutationOptions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
+      setPayingTicket(null);
+      setModalRef("");
+    },
+  });
+
   return (
     <PageShell
       title="OPD Queue Board"
@@ -91,7 +104,7 @@ export default function OPDQueueBoardPage() {
       <div className="flex items-center gap-2 mb-5 text-xs text-slate-500">
         <span className="px-2 py-1 bg-slate-200 text-slate-600 rounded">1 Register</span>
         <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-teal-600 text-white rounded font-medium">2 Queue</span>
+        <span className="px-2 py-1 bg-teal-600 text-white rounded font-medium">2 Queue & Card Fee</span>
         <span className="text-slate-300">→</span>
         <span className="px-2 py-1 bg-slate-100 rounded">3 Triage</span>
         <span className="text-slate-300">→</span>
@@ -99,6 +112,73 @@ export default function OPDQueueBoardPage() {
         <span className="text-slate-300">→</span>
         <span className="px-2 py-1 bg-slate-100 rounded">5 Billing</span>
       </div>
+
+      {/* Reception Card Fee Collection Modal */}
+      {payingTicket && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+              <h3 className="font-bold text-slate-800 text-base">Collect OPD Card Fee</h3>
+              <button onClick={() => setPayingTicket(null)} className="text-slate-400 hover:text-slate-600 text-sm">✕</button>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">{payingTicket.patientName}</p>
+              <p className="text-xs text-slate-500">Ticket: {payingTicket.ticketNumber} · Amount: <strong className="text-teal-700">ETB {payingTicket.feeAmount}</strong></p>
+            </div>
+            <div className="space-y-3">
+              <label className="text-xs font-semibold text-slate-700 block">Payment Method:</label>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {(["cash", "telebirr", "cbe_birr"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setModalMethod(m)}
+                    className={`py-2 px-3 rounded-lg border font-medium text-center transition-all ${
+                      modalMethod === m
+                        ? "bg-teal-600 text-white border-teal-600"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-teal-400"
+                    }`}
+                  >
+                    {m === "cash" ? "💵 Cash" : m === "telebirr" ? "📱 Telebirr" : "🏦 CBE Birr"}
+                  </button>
+                ))}
+              </div>
+              {(modalMethod === "telebirr" || modalMethod === "cbe_birr") && (
+                <div>
+                  <label className="text-xs text-slate-600 block mb-1">Transaction Ref / ID:</label>
+                  <input
+                    value={modalRef}
+                    onChange={(e) => setModalRef(e.target.value)}
+                    placeholder="e.g. TLB-998241"
+                    className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPayingTicket(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded text-sm hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={payCardFeeMutation.isPending}
+                onClick={() => payCardFeeMutation.mutate({
+                  ticketId: payingTicket.id,
+                  paymentMethod: modalMethod,
+                  reference: modalRef,
+                })}
+                className="px-4 py-2 bg-teal-600 text-white rounded text-sm font-medium hover:bg-teal-700"
+              >
+                {payCardFeeMutation.isPending ? "Recording…" : "Confirm & Issue Receipt"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {now.map((q) => (
         <div key={q.id} className="flex items-center gap-4 p-4 bg-teal-600 text-white rounded-xl mb-5">
@@ -117,7 +197,7 @@ export default function OPDQueueBoardPage() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              {["Ticket", "Patient", "Health ID", "CBHI", "Status", "Actions"].map((h) => (
+              {["Ticket", "Patient", "Health ID", "Payer Type", "Card Fee / Payment", "Queue Status", "Actions"].map((h) => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -135,8 +215,50 @@ export default function OPDQueueBoardPage() {
                 <td className="px-4 py-3 text-xs text-slate-500">{q.visit.patient.healthId}</td>
                 <td className="px-4 py-3 text-xs">
                   {q.visit.patient.cbhiStatus
-                    ? <span className="text-teal-600">✓ CBHI</span>
-                    : <span className="text-slate-400">Self-pay</span>}
+                    ? <span className="text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded border border-teal-200">🛡️ CBHI</span>
+                    : <span className="text-slate-500">Self-pay</span>}
+                </td>
+                <td className="px-4 py-3">
+                  {q.paymentStatus === "paid" && (
+                    <div>
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200">
+                        ✓ Paid ({q.feeAmount} ETB)
+                      </span>
+                      {q.receiptNumber && (
+                        <span className="block text-[10px] text-slate-400 font-mono mt-0.5">
+                          {q.receiptNumber} · {q.paymentMethod}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {q.paymentStatus === "cbhi_covered" && (
+                    <span className="inline-flex items-center gap-1 text-xs text-teal-800 bg-teal-50 px-2 py-0.5 rounded font-medium border border-teal-200">
+                      ✓ CBHI Covered (0 ETB)
+                    </span>
+                  )}
+                  {q.paymentStatus === "emergency_exempt" && (
+                    <span className="inline-flex items-center gap-1 text-xs text-red-800 bg-red-50 px-2 py-0.5 rounded font-medium border border-red-200">
+                      🚨 Emergency (Care First)
+                    </span>
+                  )}
+                  {q.paymentStatus === "unpaid" && (
+                    <div>
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-800 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
+                        ⚠️ Unpaid ({q.feeAmount} ETB)
+                      </span>
+                      <button
+                        onClick={() => setPayingTicket({
+                          id: q.id,
+                          ticketNumber: q.ticketNumber,
+                          feeAmount: q.feeAmount,
+                          patientName: q.visit.patient.nameEn,
+                        })}
+                        className="text-[11px] mt-1 block px-2.5 py-0.5 bg-teal-600 text-white rounded hover:bg-teal-700 font-medium"
+                      >
+                        💳 Collect Fee
+                      </button>
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
                 <td className="px-4 py-3">
@@ -178,7 +300,7 @@ export default function OPDQueueBoardPage() {
               </tr>
             ))}
             {queue.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400 text-sm">No patients in queue today</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">No patients in queue today</td></tr>
             )}
           </tbody>
         </table>

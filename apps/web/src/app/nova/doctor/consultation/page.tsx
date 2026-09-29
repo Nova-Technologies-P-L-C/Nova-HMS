@@ -28,48 +28,65 @@ function ConsultationContent() {
 
   const addNote = useMutation(trpc.visit.addNote.mutationOptions());
   const addDiagnosis = useMutation(trpc.visit.addDiagnosis.mutationOptions());
-  const closeVisit = useMutation({
-    ...trpc.visit.closeVisit.mutationOptions(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() }),
+  const transferToBilling = useMutation({
+    ...trpc.visit.transferToBilling.mutationOptions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
+      queryClient.invalidateQueries({ queryKey: trpc.billing.settlementQueue.queryKey() });
+    },
   });
 
-  const handleSave = async () => {
+  const handleSaveAndTransfer = async () => {
+    if (!visitId) return;
+    await addNote.mutateAsync({ visitId, noteType: "consultation", chiefComplaint: complaint, examination: notes, assessment: diagnosis, plan: "" });
+    await addDiagnosis.mutateAsync({ visitId, icdCode: icd, description: diagnosis, notes });
+    await transferToBilling.mutateAsync({ visitId });
+    setSaved(true);
+  };
+
+  const handleSaveDraft = async () => {
     if (!visitId) return;
     await addNote.mutateAsync({ visitId, noteType: "consultation", chiefComplaint: complaint, examination: notes, assessment: diagnosis, plan: "" });
     await addDiagnosis.mutateAsync({ visitId, icdCode: icd, description: diagnosis, notes });
     setSaved(true);
   };
 
-  const isLoading = addNote.isPending || addDiagnosis.isPending;
+  const isLoading = addNote.isPending || addDiagnosis.isPending || transferToBilling.isPending;
 
   if (saved && visit) {
     return (
-      <PageShell title="Consultation">
+      <PageShell title="Consultation Encounter">
         <Card className="p-8 max-w-lg mx-auto">
-          <CheckCircle size={40} className="text-teal-500 mb-4" />
-          <h2 className="font-bold text-slate-800 text-lg mb-1">Consultation saved</h2>
-          <p className="text-slate-600 mb-4">{visit.patient.nameEn} · {icd} — {diagnosis}</p>
-          <p className="text-sm text-slate-500 mb-5">Choose next actions:</p>
+          <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+            <CheckCircle size={32} />
+          </div>
+          <h2 className="font-bold text-slate-800 text-lg mb-1 text-center">Consultation Completed</h2>
+          <p className="text-sm text-center text-emerald-700 font-semibold mb-2">
+            ✓ Transferred to Billing Role for Final Settlement
+          </p>
+          <p className="text-slate-500 text-center text-xs mb-5">
+            {visit.patient.nameEn} · {icd} — {diagnosis}. All diagnostic tests and medications have been accrued to the patient's visit bill.
+          </p>
           <div className="space-y-2">
+            <Link href={`/nova/billing`} className="flex items-center justify-between w-full px-4 py-3 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-sm">
+              <span>💳 Open in Billing & Settle Now</span><span>→</span>
+            </Link>
             {planRx && (
-              <Link href={`/nova/doctor/prescription?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 hover:bg-teal-100">
-                <span>✍ Write prescription</span><span>→</span>
+              <Link href={`/nova/doctor/prescription?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 hover:bg-teal-100">
+                <span>✍ Prescribe Medications</span><span>→</span>
               </Link>
             )}
             {planLab && (
-              <Link href={`/nova/doctor/lab-order?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100">
-                <span>🔬 Order lab test</span><span>→</span>
+              <Link href={`/nova/doctor/lab-order?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100">
+                <span>🔬 Order Lab Tests</span><span>→</span>
               </Link>
             )}
             {planRefer && (
-              <Link href={`/nova/doctor/referral?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700 hover:bg-purple-100">
-                <span>↗ Create referral</span><span>→</span>
+              <Link href={`/nova/doctor/referral?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700 hover:bg-purple-100">
+                <span>↗ Create Referral</span><span>→</span>
               </Link>
             )}
-            <Link href="/nova/billing/invoices" className="flex items-center justify-between w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 hover:bg-slate-100">
-              <span>💳 Go to Billing</span><span>→</span>
-            </Link>
-            <button onClick={() => router.push("/nova/doctor")} className={`w-full ${btnSecondary} mt-2`}>Back to queue</button>
+            <button onClick={() => router.push("/nova/doctor")} className={`w-full ${btnSecondary} mt-2`}>Back to Doctor Queue</button>
           </div>
         </Card>
       </PageShell>
@@ -140,10 +157,12 @@ function ConsultationContent() {
           </Card>
 
           <div className="flex gap-2">
-            <button onClick={handleSave} disabled={!visitId || isLoading} className={`${btnPrimary} ${(!visitId || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
-              {isLoading ? "Saving…" : "Save & close encounter →"}
+            <button onClick={handleSaveAndTransfer} disabled={!visitId || isLoading} className={`${btnPrimary} ${(!visitId || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
+              {isLoading ? "Saving & Transferring…" : "✓ Complete & Transfer to Billing →"}
             </button>
-            <button className={btnSecondary}>Save draft</button>
+            <button onClick={handleSaveDraft} disabled={!visitId || isLoading} className={btnSecondary}>
+              Save draft
+            </button>
           </div>
         </div>
 

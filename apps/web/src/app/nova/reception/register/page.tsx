@@ -10,9 +10,15 @@ export default function PatientRegistrationPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [form, setForm] = useState({ nameEn: "", nameAm: "", dob: "", sex: "M" as "M" | "F", phone: "", kebele: "", cbhiStatus: false });
-  const [submitted, setSubmitted] = useState<{ healthId: string; ticket: string; name: string } | null>(null);
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "telebirr" | "cbe_birr" | "unpaid">("cash");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [submitted, setSubmitted] = useState<{ healthId: string; ticket: string; name: string; receiptNumber?: string; paymentStatus: string; feeAmount: number } | null>(null);
   const [tab, setTab] = useState<"new" | "existing">("new");
   const [selectedExisting, setSelectedExisting] = useState<string | null>(null);
+
+  const { data: tenant } = useQuery(trpc.tenant.get.queryOptions());
+  const cardFeeAmount = isEmergency ? 100 : (tenant?.cardFeeAmount ?? 50);
 
   const searchResults = useQuery({
     ...trpc.patient.search.queryOptions({ query: searchQuery }),
@@ -25,19 +31,44 @@ export default function PatientRegistrationPage() {
   const handleRegisterNew = async () => {
     if (!form.nameEn || !form.dob) return;
     const patient = await registerMutation.mutateAsync(form);
-    const { ticket } = await openVisitMutation.mutateAsync({ patientId: patient.id, type: "opd" });
-    // Invalidate the queue so it refreshes everywhere
+    const { ticket, receiptNumber } = await openVisitMutation.mutateAsync({
+      patientId: patient.id,
+      type: isEmergency ? "emergency" : "opd",
+      isEmergency,
+      paymentMethod: form.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
+      paymentReference,
+    });
     await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
-    setSubmitted({ healthId: patient.healthId, ticket: ticket.ticketNumber, name: patient.nameEn });
+    setSubmitted({
+      healthId: patient.healthId,
+      ticket: ticket.ticketNumber,
+      name: patient.nameEn,
+      receiptNumber,
+      paymentStatus: ticket.paymentStatus,
+      feeAmount: ticket.feeAmount,
+    });
   };
 
   const handleCheckInExisting = async () => {
     if (!selectedExisting) return;
     const patient = searchResults.data?.find((p) => p.id === selectedExisting);
     if (!patient) return;
-    const { ticket } = await openVisitMutation.mutateAsync({ patientId: patient.id, type: "opd" });
+    const { ticket, receiptNumber } = await openVisitMutation.mutateAsync({
+      patientId: patient.id,
+      type: isEmergency ? "emergency" : "opd",
+      isEmergency,
+      paymentMethod: patient.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
+      paymentReference,
+    });
     await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
-    setSubmitted({ healthId: patient.healthId, ticket: ticket.ticketNumber, name: patient.nameEn });
+    setSubmitted({
+      healthId: patient.healthId,
+      ticket: ticket.ticketNumber,
+      name: patient.nameEn,
+      receiptNumber,
+      paymentStatus: ticket.paymentStatus,
+      feeAmount: ticket.feeAmount,
+    });
   };
 
   const isLoading = registerMutation.isPending || openVisitMutation.isPending;
@@ -45,28 +76,64 @@ export default function PatientRegistrationPage() {
 
   if (submitted) {
     return (
-      <PageShell title="Patient Registration">
-        <Card className="p-10 text-center max-w-md mx-auto">
+      <PageShell title="Patient Registration & Intake">
+        <Card className="p-8 text-center max-w-lg mx-auto">
           <CheckCircle size={48} className="text-teal-500 mx-auto mb-4" />
-          <h2 className="font-bold text-slate-800 text-lg mb-1">Patient registered</h2>
+          <h2 className="font-bold text-slate-800 text-lg mb-1">Patient Check-in Complete</h2>
           <p className="text-slate-600 font-medium mb-4">{submitted.name}</p>
-          <div className="bg-slate-50 rounded-lg p-4 mb-6 space-y-2 text-sm">
-            <div className="flex justify-between">
+
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6 space-y-3 text-sm text-left">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
               <span className="text-slate-500">Health ID</span>
               <span className="font-mono font-bold text-slate-800">{submitted.healthId}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
               <span className="text-slate-500">OPD Ticket</span>
-              <span className="font-bold text-teal-700 text-lg">{submitted.ticket}</span>
+              <span className="font-extrabold text-teal-700 text-xl font-mono">{submitted.ticket}</span>
+            </div>
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+              <span className="text-slate-500">Registration / Card Fee</span>
+              <span className="font-bold text-slate-800">ETB {submitted.feeAmount}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Payment Status</span>
+              {submitted.paymentStatus === "paid" && (
+                <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-semibold text-xs border border-emerald-300">
+                  ✓ Paid (Receipt #{submitted.receiptNumber})
+                </span>
+              )}
+              {submitted.paymentStatus === "cbhi_covered" && (
+                <span className="px-2.5 py-0.5 bg-teal-100 text-teal-800 rounded-full font-semibold text-xs border border-teal-300">
+                  🛡️ CBHI 100% Covered (0 ETB Co-pay)
+                </span>
+              )}
+              {submitted.paymentStatus === "emergency_exempt" && (
+                <span className="px-2.5 py-0.5 bg-red-100 text-red-800 rounded-full font-semibold text-xs border border-red-300">
+                  🚨 Emergency Exempt (Care First)
+                </span>
+              )}
+              {submitted.paymentStatus === "unpaid" && (
+                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold text-xs border border-amber-300">
+                  ⚠️ Unpaid — Collect at Cashier
+                </span>
+              )}
             </div>
           </div>
-          <p className="text-xs text-slate-400 mb-6">Patient is now in the OPD queue.</p>
+
           <div className="flex gap-2 justify-center">
             <button onClick={() => router.push("/nova/reception/queue")} className={btnPrimary}>
               View queue board →
             </button>
             <button
-              onClick={() => { setSubmitted(null); setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false }); setSearchQuery(""); setSelectedExisting(null); }}
+              onClick={() => {
+                setSubmitted(null);
+                setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false });
+                setSearchQuery("");
+                setSelectedExisting(null);
+                setIsEmergency(false);
+                setPaymentMethod("cash");
+                setPaymentReference("");
+              }}
               className={btnSecondary}
             >
               Register another
@@ -140,8 +207,76 @@ export default function PatientRegistrationPage() {
               </div>
             )}
           </Card>
+
+          {/* Card Fee & Payment for Returning Patient */}
+          {selectedExisting && (
+            <Card className="p-5 border-teal-200 bg-teal-50/30">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-slate-800">Card Fee & Payment</h3>
+                <span className="text-xs px-2 py-0.5 bg-teal-100 text-teal-800 rounded font-medium">Standard Tariff: ETB {cardFeeAmount}</span>
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 p-2.5 rounded bg-red-50 border border-red-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isEmergency}
+                    onChange={(e) => setIsEmergency(e.target.checked)}
+                    className="accent-red-600 w-4 h-4"
+                  />
+                  <span className="text-sm font-medium text-red-800">🚨 Emergency Case (Bypass payment gate directly to Urgent Triage)</span>
+                </label>
+
+                {searchResults.data?.find((p) => p.id === selectedExisting)?.cbhiStatus ? (
+                  <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-800 flex items-center justify-between">
+                    <span>🛡️ Patient is enrolled in <strong>CBHI</strong>.</span>
+                    <span className="font-bold text-xs bg-teal-600 text-white px-2 py-1 rounded">100% COVERED (0 ETB)</span>
+                  </div>
+                ) : isEmergency ? (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                    🚨 Emergency fee (ETB {cardFeeAmount}) will be reconciled post-stabilization. Patient admitted directly.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-600">Select payment method collected at reception desk:</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                      {(["cash", "telebirr", "cbe_birr", "unpaid"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setPaymentMethod(m)}
+                          className={`p-2.5 rounded-lg border font-medium text-center transition-all ${
+                            paymentMethod === m
+                              ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                              : "bg-white text-slate-700 border-slate-200 hover:border-teal-400"
+                          }`}
+                        >
+                          {m === "cash" && "💵 Cash"}
+                          {m === "telebirr" && "📱 Telebirr"}
+                          {m === "cbe_birr" && "🏦 CBE Birr"}
+                          {m === "unpaid" && "⏳ Central Cashier"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {(paymentMethod === "telebirr" || paymentMethod === "cbe_birr") && (
+                      <FormField label={`${paymentMethod === "telebirr" ? "Telebirr" : "CBE Birr"} Transaction ID / Ref`}>
+                        <input
+                          className={inputCls}
+                          value={paymentReference}
+                          onChange={(e) => setPaymentReference(e.target.value)}
+                          placeholder="e.g. TLB-998241"
+                        />
+                      </FormField>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
           <button onClick={handleCheckInExisting} disabled={!selectedExisting || isLoading} className={`${btnPrimary} ${(!selectedExisting || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
-            {isLoading ? "Processing…" : "Check in & issue ticket"}
+            {isLoading ? "Processing…" : `Check in & issue ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
           </button>
         </div>
       )}
@@ -186,9 +321,75 @@ export default function PatientRegistrationPage() {
               <span className="text-sm text-slate-700">CBHI member (Community-Based Health Insurance)</span>
             </label>
           </Card>
+
+          {/* Card Fee & Payment for New Patient */}
+          <Card className="p-5 border-teal-200 bg-teal-50/30">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-800">Card Fee & Payment</h3>
+              <span className="text-xs px-2 py-0.5 bg-teal-100 text-teal-800 rounded font-medium">Standard Tariff: ETB {cardFeeAmount}</span>
+            </div>
+
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 p-2.5 rounded bg-red-50 border border-red-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isEmergency}
+                  onChange={(e) => setIsEmergency(e.target.checked)}
+                  className="accent-red-600 w-4 h-4"
+                />
+                <span className="text-sm font-medium text-red-800">🚨 Emergency Case (Bypass payment gate directly to Urgent Triage)</span>
+              </label>
+
+              {form.cbhiStatus ? (
+                <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-800 flex items-center justify-between">
+                  <span>🛡️ Patient marked as <strong>CBHI Member</strong>.</span>
+                  <span className="font-bold text-xs bg-teal-600 text-white px-2 py-1 rounded">100% COVERED (0 ETB)</span>
+                </div>
+              ) : isEmergency ? (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                  🚨 Emergency fee (ETB {cardFeeAmount}) will be reconciled post-stabilization. Patient enters triage immediately.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-600">Select payment method collected at reception desk:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    {(["cash", "telebirr", "cbe_birr", "unpaid"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setPaymentMethod(m)}
+                        className={`p-2.5 rounded-lg border font-medium text-center transition-all ${
+                          paymentMethod === m
+                            ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-teal-400"
+                        }`}
+                      >
+                        {m === "cash" && "💵 Cash"}
+                        {m === "telebirr" && "📱 Telebirr"}
+                        {m === "cbe_birr" && "🏦 CBE Birr"}
+                        {m === "unpaid" && "⏳ Central Cashier"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {(paymentMethod === "telebirr" || paymentMethod === "cbe_birr") && (
+                    <FormField label={`${paymentMethod === "telebirr" ? "Telebirr" : "CBE Birr"} Transaction ID / Ref`}>
+                      <input
+                        className={inputCls}
+                        value={paymentReference}
+                        onChange={(e) => setPaymentReference(e.target.value)}
+                        placeholder="e.g. TLB-998241"
+                      />
+                    </FormField>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+
           <div className="flex gap-2">
             <button onClick={handleRegisterNew} disabled={!form.nameEn || !form.dob || isLoading} className={`${btnPrimary} ${(!form.nameEn || !form.dob || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
-              {isLoading ? "Registering…" : "Register & issue ticket"}
+              {isLoading ? "Registering…" : `Register & issue ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
             </button>
             <button onClick={() => setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false })} className={btnSecondary}>Clear</button>
           </div>

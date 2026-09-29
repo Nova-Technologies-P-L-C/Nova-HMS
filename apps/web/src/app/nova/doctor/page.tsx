@@ -56,7 +56,29 @@ export default function DoctorDashboard() {
               <div className="flex items-center gap-3">
                 <span className="font-mono font-bold text-slate-700 w-16">{q.ticketNumber}</span>
                 <div>
-                  <p className="text-sm font-medium text-slate-800">{q.visit.patient.nameEn}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-slate-800">{q.visit.patient.nameEn}</p>
+                    {q.paymentStatus === "paid" && (
+                      <span className="text-[11px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium border border-emerald-200">
+                        ✓ Card Fee Paid
+                      </span>
+                    )}
+                    {q.paymentStatus === "cbhi_covered" && (
+                      <span className="text-[11px] px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full font-medium border border-teal-200">
+                        🛡️ CBHI
+                      </span>
+                    )}
+                    {q.paymentStatus === "emergency_exempt" && (
+                      <span className="text-[11px] px-2 py-0.5 bg-red-50 text-red-700 rounded-full font-medium border border-red-200">
+                        🚨 Emergency
+                      </span>
+                    )}
+                    {q.paymentStatus === "unpaid" && (
+                      <span className="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-800 rounded-full font-semibold border border-amber-300">
+                        ⚠️ Card Fee Unpaid ({q.feeAmount} ETB)
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400">{q.visit.patient.healthId}</p>
                 </div>
               </div>
@@ -69,13 +91,24 @@ export default function DoctorDashboard() {
                 >
                   View EMR
                 </Link>
-                <Link
-                  href={`/nova/doctor/consultation?visitId=${q.visitId}`}
-                  onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
-                  className="text-xs px-2.5 py-1 bg-teal-600 text-white rounded hover:bg-teal-700"
-                >
-                  Consult →
-                </Link>
+                {q.paymentStatus === "unpaid" ? (
+                  <Link
+                    href={`/nova/doctor/consultation?visitId=${q.visitId}`}
+                    onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
+                    className="text-xs px-2.5 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 font-medium"
+                    title="Warning: Card fee unpaid at reception"
+                  >
+                    Consult (Unpaid) →
+                  </Link>
+                ) : (
+                  <Link
+                    href={`/nova/doctor/consultation?visitId=${q.visitId}`}
+                    onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
+                    className="text-xs px-2.5 py-1 bg-teal-600 text-white rounded hover:bg-teal-700 font-medium"
+                  >
+                    Consult →
+                  </Link>
+                )}
               </div>
             </div>
           ))}
