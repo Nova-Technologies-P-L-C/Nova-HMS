@@ -23,27 +23,216 @@ async function main() {
   });
 
   const userRows = [
-    { id: "u-admin", name: "Hospital Admin", email: "admin@dmrh.gov.et", role: "Hospital Admin" },
-    { id: "u-tigist", name: "Dr. Tigist Alemu", email: "tigist@dmrh.gov.et", role: "Doctor" },
-    { id: "u-yonas", name: "Dr. Yonas Tesfaye", email: "yonas@dmrh.gov.et", role: "Doctor" },
-    { id: "u-mekdes", name: "Nurse Mekdes Alemu", email: "mekdes@dmrh.gov.et", role: "Nurse" },
-    { id: "u-girma", name: "Ato Girma Tadesse", email: "girma@dmrh.gov.et", role: "Receptionist" },
-    { id: "u-hiwot", name: "W/ro Hiwot Bekele", email: "hiwot@dmrh.gov.et", role: "Billing Officer" },
-    { id: "u-bereket", name: "Lab Tech Bereket Haile", email: "bereket@dmrh.gov.et", role: "Lab Technician" },
-    { id: "u-selam", name: "Pharm. Selam Worku", email: "selam@dmrh.gov.et", role: "Pharmacist" },
-    { id: "u-solomon", name: "Ato Solomon Kebede", email: "solomon@dmrh.gov.et", role: "Referral Coordinator" },
+    {
+      id: "u-admin",
+      name: "Hospital Admin",
+      email: "admin@dmrh.gov.et",
+      role: "Hospital Admin",
+      department: "Administration",
+      title: "Chief Executive Officer (CEO)",
+      phone: "0911223344",
+      licenseNumber: "ETH-ADM-001",
+    },
+    {
+      id: "u-tigist",
+      name: "Dr. Tigist Alemu",
+      email: "tigist@dmrh.gov.et",
+      role: "Doctor",
+      department: "Internal Medicine",
+      title: "Senior Consultant Physician",
+      phone: "0912345678",
+      licenseNumber: "ETH-MD-9821",
+    },
+    {
+      id: "u-yonas",
+      name: "Dr. Yonas Tesfaye",
+      email: "yonas@dmrh.gov.et",
+      role: "Doctor",
+      department: "General OPD & Emergency",
+      title: "Attending General Practitioner",
+      phone: "0913456789",
+      licenseNumber: "ETH-MD-1049",
+    },
+    {
+      id: "u-mekdes",
+      name: "Nurse Mekdes Alemu",
+      email: "mekdes@dmrh.gov.et",
+      role: "Nurse",
+      department: "Ward A & Triage",
+      title: "Head Clinical Nurse",
+      phone: "0914567890",
+      licenseNumber: "ETH-RN-4810",
+    },
+    {
+      id: "u-girma",
+      name: "Ato Girma Tadesse",
+      email: "girma@dmrh.gov.et",
+      role: "Receptionist",
+      department: "Card Room & Reception",
+      title: "Senior Admissions Officer",
+      phone: "0915678901",
+      licenseNumber: "EMP-REC-204",
+    },
+    {
+      id: "u-hiwot",
+      name: "W/ro Hiwot Bekele",
+      email: "hiwot@dmrh.gov.et",
+      role: "Billing Officer",
+      department: "Finance & Cashier Office",
+      title: "Chief Billing Officer",
+      phone: "0916789012",
+      licenseNumber: "EMP-BIL-118",
+    },
+    {
+      id: "u-bereket",
+      name: "Lab Tech Bereket Haile",
+      email: "bereket@dmrh.gov.et",
+      role: "Lab Technician",
+      department: "Central Laboratory",
+      title: "Senior Medical Laboratory Technologist",
+      phone: "0917890123",
+      licenseNumber: "ETH-MLT-3392",
+    },
+    {
+      id: "u-selam",
+      name: "Pharm. Selam Worku",
+      email: "selam@dmrh.gov.et",
+      role: "Pharmacist",
+      department: "Main Pharmacy & Store",
+      title: "Lead Clinical Pharmacist",
+      phone: "0918901234",
+      licenseNumber: "ETH-PH-7721",
+    },
+    {
+      id: "u-solomon",
+      name: "Ato Solomon Kebede",
+      email: "solomon@dmrh.gov.et",
+      role: "Referral Coordinator",
+      department: "Liaison & Ambulance Desk",
+      title: "Inter-Hospital Referral Liaison",
+      phone: "0919012345",
+      licenseNumber: "EMP-REF-309",
+    },
   ];
 
   for (const u of userRows) {
     await prisma.user.upsert({
       where: { email: u.email },
-      update: {},
+      update: { name: u.name },
       create: { id: u.id, name: u.name, email: u.email, emailVerified: false },
     });
     await prisma.userTenantRole.upsert({
       where: { userId_tenantId: { userId: u.id, tenantId: tenant.id } },
-      update: {},
-      create: { userId: u.id, tenantId: tenant.id, role: u.role },
+      update: {
+        role: u.role,
+        department: u.department,
+        title: u.title,
+        phone: u.phone,
+        licenseNumber: u.licenseNumber,
+        status: "active",
+      },
+      create: {
+        userId: u.id,
+        tenantId: tenant.id,
+        role: u.role,
+        department: u.department,
+        title: u.title,
+        phone: u.phone,
+        licenseNumber: u.licenseNumber,
+        status: "active",
+      },
+    });
+  }
+
+  // Role Permissions Matrix Defaults
+  const defaultRolePermissions: Record<string, { permissions: string[]; description: string }> = {
+    "Hospital Admin": {
+      permissions: [
+        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
+        "lab.order.create", "lab.results.enter", "lab.results.approve",
+        "rx.prescribe", "rx.dispense", "inventory.manage",
+        "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
+        "ward.admit", "ward.discharge", "ward.mar.administer",
+        "admin.staff.manage", "admin.audit.view", "admin.reports.view"
+      ],
+      description: "Full administrative, financial, clinical, and security privileges across all hospital operations.",
+    },
+    "Doctor": {
+      permissions: [
+        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
+        "lab.order.create",
+        "rx.prescribe",
+        "billing.view", "billing.waiver.request",
+        "ward.admit", "ward.discharge",
+        "admin.reports.view"
+      ],
+      description: "Comprehensive clinical care, diagnoses, patient assessments, lab requests, e-prescriptions, and hospital referrals.",
+    },
+    "Nurse": {
+      permissions: [
+        "clinical.notes.view", "clinical.vitals.record",
+        "ward.admit", "ward.discharge", "ward.mar.administer"
+      ],
+      description: "Vital signs triage, nursing care notes, bed admissions, and medication administration (MAR).",
+    },
+    "Receptionist": {
+      permissions: [
+        "clinical.vitals.record", "clinical.referral.create",
+        "billing.view", "billing.collect"
+      ],
+      description: "Patient registration, card room check-in, OPD queue assignment, and card fee collection.",
+    },
+    "Lab Technician": {
+      permissions: [
+        "clinical.notes.view",
+        "lab.order.create", "lab.results.enter", "lab.results.approve"
+      ],
+      description: "Diagnostic specimen collection, sample processing, automated analyzers, and lab test results validation.",
+    },
+    "Pharmacist": {
+      permissions: [
+        "rx.dispense", "inventory.manage",
+        "billing.view"
+      ],
+      description: "Prescription verification, drug dispensing, pharmaceutical inventory management, batches, and RRF requisition.",
+    },
+    "Billing Officer": {
+      permissions: [
+        "billing.view", "billing.collect", "billing.waiver.request",
+        "admin.reports.view"
+      ],
+      description: "Centralized visit billing, cashier receipts, CBHI claims processing, and fee waiver submissions.",
+    },
+    "Referral Coordinator": {
+      permissions: [
+        "clinical.notes.view", "clinical.referral.create",
+        "admin.reports.view"
+      ],
+      description: "Liaison for incoming and outgoing inter-facility patient referrals and ambulance coordination.",
+    },
+    "Ward Manager": {
+      permissions: [
+        "clinical.notes.view", "clinical.vitals.record",
+        "ward.admit", "ward.discharge", "ward.mar.administer",
+        "inventory.manage"
+      ],
+      description: "Inpatient bed allocation, ward admissions, nursing supervision, and ward sub-store stock management.",
+    },
+  };
+
+  for (const [roleName, config] of Object.entries(defaultRolePermissions)) {
+    await prisma.rolePermission.upsert({
+      where: { tenantId_role: { tenantId: tenant.id, role: roleName } },
+      update: {
+        permissions: JSON.stringify(config.permissions),
+        description: config.description,
+      },
+      create: {
+        tenantId: tenant.id,
+        role: roleName,
+        permissions: JSON.stringify(config.permissions),
+        description: config.description,
+      },
     });
   }
 
@@ -280,6 +469,81 @@ async function main() {
       { tenantId: tenant.id, userId: "u-selam", action: "Dispensed medication", entity: "Prescription", entityId: "rx-002", ipAddress: "192.168.1.18" },
     ],
   });
+
+  // Hospital Service Tariffs & Prices (Admin Configured)
+  const tariffData = [
+    // Registration & OPD
+    { code: "OPD_REG_GENERAL", name: "General OPD Card & Registration", category: "registration", department: "Card Room", price: 50.0, description: "Standard ticket fee collected at reception" },
+    { code: "OPD_REG_EMERGENCY", name: "Emergency Triage & Registration", category: "registration", department: "Emergency", price: 100.0, description: "Emergency department initial intake and rapid triage" },
+    { code: "OPD_REG_FOLLOWUP", name: "Follow-up / Chronic Care Registration", category: "registration", department: "Card Room", price: 30.0, description: "Follow-up check-in for chronic illness patients" },
+    // Consultations
+    { code: "CONSULT_GENERAL", name: "General Practitioner Consultation", category: "consultation", department: "General OPD", price: 80.0, description: "General clinical examination and diagnosis" },
+    { code: "CONSULT_SPECIALIST", name: "Specialist Physician Consultation", category: "consultation", department: "Specialist Clinic", price: 150.0, description: "Senior consultant/specialist assessment" },
+    { code: "CONSULT_EMERGENCY", name: "Emergency Resuscitation & Clinical Care", category: "consultation", department: "Emergency", price: 200.0, description: "Emergency physician acute stabilization" },
+    // Laboratory Diagnostics
+    { code: "LAB_CBC", name: "CBC (Complete Blood Count)", category: "lab", department: "Laboratory", price: 150.0, description: "Full automated complete blood count" },
+    { code: "LAB_MALARIA", name: "Malaria RDT", category: "lab", department: "Laboratory", price: 80.0, description: "Rapid diagnostic test for malaria antigen" },
+    { code: "LAB_FBS", name: "Fasting Blood Sugar", category: "lab", department: "Laboratory", price: 90.0, description: "Glucose fasting serum test" },
+    { code: "LAB_HBA1C", name: "HbA1c", category: "lab", department: "Laboratory", price: 300.0, description: "Glycated hemoglobin 3-month monitor" },
+    { code: "LAB_URINE", name: "Urinalysis", category: "lab", department: "Laboratory", price: 70.0, description: "Dipstick and microscopic urinalysis" },
+    { code: "LAB_LIPID", name: "Lipid Profile", category: "lab", department: "Laboratory", price: 220.0, description: "Total cholesterol, HDL, LDL, Triglycerides" },
+    { code: "LAB_LFT", name: "Liver Function Tests", category: "lab", department: "Laboratory", price: 250.0, description: "ALT, AST, ALP, Bilirubin total and direct" },
+    { code: "LAB_RFT", name: "Renal Function Tests", category: "lab", department: "Laboratory", price: 200.0, description: "Serum creatinine, urea, BUN, electrolytes" },
+    { code: "LAB_TSH", name: "Thyroid Function (TSH)", category: "lab", department: "Laboratory", price: 280.0, description: "Serum thyroid stimulating hormone" },
+    { code: "LAB_HIV", name: "HIV Rapid Test", category: "lab", department: "Laboratory", price: 50.0, description: "Rapid antibody screening" },
+    { code: "LAB_HBSAG", name: "Hepatitis B Surface Antigen", category: "lab", department: "Laboratory", price: 120.0, description: "HBsAg screening" },
+    { code: "LAB_WIDAL", name: "Widal Test", category: "lab", department: "Laboratory", price: 110.0, description: "Enteric fever slide agglutination" },
+    { code: "LAB_STOOL", name: "Stool Examination", category: "lab", department: "Laboratory", price: 60.0, description: "Direct wet mount and concentration" },
+    { code: "LAB_SPUTUM", name: "Sputum AFB (TB)", category: "lab", department: "Laboratory", price: 75.0, description: "Acid-fast bacilli smear for tuberculosis" },
+    // Radiology & Procedures
+    { code: "RAD_XRAY_CHEST", name: "Chest X-Ray", category: "procedure", department: "Radiology", price: 250.0, description: "Standard posteroanterior or anteroposterior chest radiograph" },
+    { code: "RAD_ULTRASOUND_ABD", name: "Abdominal Ultrasound", category: "procedure", department: "Radiology", price: 350.0, description: "Real-time B-mode abdominal sonography" },
+    { code: "PROC_ECG", name: "12-Lead ECG", category: "procedure", department: "Cardiology", price: 180.0, description: "Diagnostic electrocardiography" },
+    { code: "PROC_WOUND_DRESS", name: "Wound Dressing & Minor Care", category: "procedure", department: "Nursing", price: 80.0, description: "Antiseptic cleaning, debridement and sterile bandage" },
+    { code: "PROC_SUTURING", name: "Laceration Suturing & Repair", category: "procedure", department: "Minor OR", price: 200.0, description: "Primary wound closure under local anesthetic" },
+    { code: "PROC_CATHETER", name: "Catheterization", category: "procedure", department: "Nursing", price: 120.0, description: "Sterile Foley catheter insertion" },
+    { code: "PROC_IV_CANNULA", name: "IV Cannulation & Therapy", category: "procedure", department: "Nursing", price: 60.0, description: "Peripheral intravenous line placement" },
+    { code: "PROC_NEBULIZATION", name: "Nebulization Session", category: "procedure", department: "OPD", price: 90.0, description: "Aerosolized bronchodilator delivery" },
+    // Inpatient & Ward Beds
+    { code: "BED_GEN_WARD", name: "General Ward Bed (per day)", category: "inpatient", department: "Ward", price: 120.0, description: "Standard multi-bed inpatient ward bed" },
+    { code: "BED_SEMI_PRIVATE", name: "Semi-Private Room Bed (per day)", category: "inpatient", department: "Ward", price: 250.0, description: "Two-bed semi-private room" },
+    { code: "BED_PRIVATE", name: "Private Room Bed (per day)", category: "inpatient", department: "Ward", price: 500.0, description: "Single-bed private room with amenities" },
+    { code: "BED_ICU", name: "ICU Bed (per day)", category: "inpatient", department: "ICU", price: 950.0, description: "Intensive care bed with continuous monitoring" },
+    { code: "CARE_NURSING_DAILY", name: "Daily Inpatient Nursing Care", category: "inpatient", department: "Nursing", price: 70.0, description: "Daily inpatient round-the-clock nursing" },
+    // Pharmacy & Medications
+    { code: "DRUG_AMOX", name: "Amoxicillin 500mg caps", category: "pharmacy", department: "Pharmacy", price: 45.0, description: "Oral broad-spectrum penicillin" },
+    { code: "DRUG_MET", name: "Metformin 500mg tabs", category: "pharmacy", department: "Pharmacy", price: 30.0, description: "Biguanide antihyperglycemic" },
+    { code: "DRUG_AL", name: "Artemether/Lumefantrine 80/480mg", category: "pharmacy", department: "Pharmacy", price: 65.0, description: "First-line ACT antimalarial" },
+    { code: "DRUG_PCM", name: "Paracetamol 500mg tabs", category: "pharmacy", department: "Pharmacy", price: 15.0, description: "Analgesic and antipyretic" },
+    { code: "DRUG_ORS", name: "ORS Sachets", category: "pharmacy", department: "Pharmacy", price: 20.0, description: "Oral rehydration salts formula" },
+    { code: "DRUG_NS", name: "IV Normal Saline 1L", category: "pharmacy", department: "Pharmacy", price: 85.0, description: "0.9% Sodium Chloride IV infusion" },
+    { code: "DRUG_CIPRO", name: "Ciprofloxacin 500mg", category: "pharmacy", department: "Pharmacy", price: 55.0, description: "Fluoroquinolone antibiotic" },
+    { code: "DRUG_OMEP", name: "Omeprazole 20mg", category: "pharmacy", department: "Pharmacy", price: 40.0, description: "Proton pump inhibitor" },
+  ];
+
+  for (const t of tariffData) {
+    await prisma.hospitalServiceTariff.upsert({
+      where: { tenantId_code: { tenantId: tenant.id, code: t.code } },
+      update: {
+        name: t.name,
+        category: t.category,
+        department: t.department,
+        price: t.price,
+        description: t.description,
+        isActive: true,
+      },
+      create: {
+        tenantId: tenant.id,
+        code: t.code,
+        name: t.name,
+        category: t.category,
+        department: t.department,
+        price: t.price,
+        description: t.description,
+        isActive: true,
+      },
+    });
+  }
 
   console.log("✅ Seed complete.");
 }

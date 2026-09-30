@@ -29,17 +29,29 @@ export const prescriptionRouter = router({
         linePaymentStatus = "emergency_exempt";
       }
 
+      // Query active pharmacy drug tariffs for this tenant
+      const drugTariffs = await prisma.hospitalServiceTariff.findMany({
+        where: { tenantId: ctx.tenantId, category: "pharmacy", isActive: true },
+      });
+      const drugPriceMap: Record<string, number> = {};
+      for (const t of drugTariffs) {
+        drugPriceMap[t.name.toLowerCase().trim()] = t.price;
+      }
+
       const defaultDrugPrices: Record<string, number> = {
-        "Amoxicillin 500mg caps": 45,
-        "Metformin 500mg tabs": 30,
-        "Artemether/Lumefantrine 80/480mg": 65,
-        "Paracetamol 500mg tabs": 15,
-        "ORS Sachets": 20,
-        "IV Normal Saline 1L": 85,
+        "amoxicillin 500mg caps": 45,
+        "metformin 500mg tabs": 30,
+        "artemether/lumefantrine 80/480mg": 65,
+        "paracetamol 500mg tabs": 15,
+        "ors sachets": 20,
+        "iv normal saline 1l": 85,
+        "ciprofloxacin 500mg": 55,
+        "omeprazole 20mg": 40,
       };
 
       const enrichedLines = input.lines.map((l) => {
-        const unitPrice = defaultDrugPrices[l.itemName] ?? 40;
+        const key = l.itemName.toLowerCase().trim();
+        const unitPrice = drugPriceMap[key] ?? defaultDrugPrices[key] ?? 40;
         const qtyFactor = l.durationDays * (l.frequency.includes("3x") ? 3 : l.frequency.includes("2x") ? 2 : 1);
         const totalPrice = Math.round(unitPrice * (qtyFactor > 10 ? Math.ceil(qtyFactor / 10) : 1));
         return {

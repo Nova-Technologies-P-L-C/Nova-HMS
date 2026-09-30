@@ -18,7 +18,16 @@ export const visitRouter = router({
       const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: ctx.tenantId } });
 
       const isEmerg = input.type === "emergency" || input.isEmergency;
-      const feeAmount = isEmerg ? 100 : (tenant.cardFeeAmount ?? 50);
+      let feeAmount = isEmerg ? 100 : (tenant.cardFeeAmount ?? 50);
+
+      // Check configured tariff
+      const tariffCode = isEmerg ? "OPD_REG_EMERGENCY" : "OPD_REG_GENERAL";
+      const configuredTariff = await prisma.hospitalServiceTariff.findFirst({
+        where: { tenantId: ctx.tenantId, code: tariffCode, isActive: true },
+      });
+      if (configuredTariff) {
+        feeAmount = configuredTariff.price;
+      }
 
       let paymentStatus = "unpaid";
       let status = "waiting";

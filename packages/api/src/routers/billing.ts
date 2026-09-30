@@ -296,7 +296,11 @@ export const billingRouter = router({
       }
 
       // 2. Doctor Consultation Fee
-      const consultFee = tenant.specialistFeeAmount ?? 100;
+      let consultFee = tenant.specialistFeeAmount ?? 100;
+      const consultTariff = await prisma.hospitalServiceTariff.findFirst({
+        where: { tenantId: ctx.tenantId, code: "CONSULT_SPECIALIST", isActive: true },
+      });
+      if (consultTariff) consultFee = consultTariff.price;
       const consultStatus = isCbhi ? "cbhi_covered" : (visit.status === "completed" ? "paid" : "unpaid");
       unbilledItems.push({
         id: `consult-${visit.id}`,
@@ -388,7 +392,11 @@ export const billingRouter = router({
 
       // 2. Doctor Consultation Fee
       if (input.payConsultation && !visit.patient.cbhiStatus) {
-        const consultFee = tenant.specialistFeeAmount ?? 100;
+        let consultFee = tenant.specialistFeeAmount ?? 100;
+        const consultTariff = await prisma.hospitalServiceTariff.findFirst({
+          where: { tenantId: ctx.tenantId, code: "CONSULT_SPECIALIST", isActive: true },
+        });
+        if (consultTariff) consultFee = consultTariff.price;
         total += consultFee;
         descriptionList.push(`Doctor Consultation (ETB ${consultFee})`);
       }

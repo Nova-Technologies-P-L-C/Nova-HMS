@@ -19,17 +19,34 @@ export const labRouter = router({
         include: { patient: true },
       });
 
-      const defaultPrices: Record<string, number> = {
-        "CBC (Complete Blood Count)": 150,
-        "Malaria RDT": 80,
-        "Fasting Blood Sugar": 90,
-        "Urinalysis": 70,
-        "Lipid Panel": 220,
-        "Liver Function Tests": 250,
-        "Renal Function Test": 200,
-        "Stool Examination": 60,
-      };
-      const price = input.price ?? defaultPrices[input.testName] ?? 120;
+      let price = input.price;
+      if (price === undefined) {
+        const tariff = await prisma.hospitalServiceTariff.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            isActive: true,
+            OR: [
+              { name: input.testName },
+              { name: { contains: input.testName } },
+            ],
+          },
+        });
+        if (tariff) {
+          price = tariff.price;
+        } else {
+          const defaultPrices: Record<string, number> = {
+            "CBC (Complete Blood Count)": 150,
+            "Malaria RDT": 80,
+            "Fasting Blood Sugar": 90,
+            "Urinalysis": 70,
+            "Lipid Panel": 220,
+            "Liver Function Tests": 250,
+            "Renal Function Test": 200,
+            "Stool Examination": 60,
+          };
+          price = defaultPrices[input.testName] ?? 120;
+        }
+      }
 
       let paymentStatus = "unpaid";
       if (visit.patient.cbhiStatus) {

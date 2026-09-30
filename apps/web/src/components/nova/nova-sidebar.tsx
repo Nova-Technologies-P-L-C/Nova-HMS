@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity, Users, Building2, FileText, BarChart3, Settings, ClipboardList,
   Stethoscope, FlaskConical, Pill, CreditCard, ArrowLeftRight, Bed,
-  Search, QrCode, Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers
+  Search, QrCode, Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers, Banknote
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
 import { type Role } from "@/lib/nova-mock-data";
@@ -12,6 +12,7 @@ import { type Role } from "@/lib/nova-mock-data";
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
   "Hospital Admin": [
     { label: "Dashboard", href: "/nova/hospital-admin", icon: <Home size={16} /> },
+    { label: "Service Tariffs & Pricing", href: "/nova/hospital-admin/tariffs", icon: <Banknote size={16} /> },
     { label: "Staff & Roles", href: "/nova/hospital-admin/staff", icon: <Users size={16} /> },
     { label: "Departments", href: "/nova/hospital-admin/departments", icon: <Building2 size={16} /> },
     { label: "Fee Waivers", href: "/nova/hospital-admin/fee-waivers", icon: <FileText size={16} /> },

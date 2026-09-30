@@ -44,17 +44,25 @@ model Tenant {
   auditLogs      AuditLog[]
   featureFlags   FeatureFlag[]
   stockMovements StockMovement[]
+  serviceTariffs HospitalServiceTariff[]
+  rolePermissions RolePermission[]
 
   @@map("tenant")
 }
 
 // ─── USER TENANT ROLE ─────────────────────────────────────
 model UserTenantRole {
-  id       String @id @default(cuid())
-  userId   String
-  tenantId String
-  role     String
-  status   String @default("active")
+  id              String   @id @default(cuid())
+  userId          String
+  tenantId        String
+  role            String
+  department      String   @default("General")
+  title           String   @default("")
+  phone           String   @default("")
+  licenseNumber   String   @default("")
+  status          String   @default("active")
+  permissionsJson String   @default("[]")
+  assignedAt      DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -707,5 +715,43 @@ model PaymentReceipt {
   @@index([tenantId])
   @@index([visitId])
   @@map("payment_receipt")
+}
+
+// ─── HOSPITAL SERVICE TARIFF / PRICING ───────────────────
+model HospitalServiceTariff {
+  id          String   @id @default(cuid())
+  tenantId    String
+  code        String   // e.g. OPD_REG_GENERAL, LAB_CBC, PROC_XRAY, BED_GEN_WARD
+  name        String   // Display name of the service
+  category    String   // registration, consultation, lab, procedure, inpatient, pharmacy
+  department  String   @default("General")
+  price       Float    @default(0.0)
+  description String   @default("")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId, category])
+  @@map("hospital_service_tariff")
+}
+
+// ─── ROLE PERMISSION MATRIX ───────────────────────────────
+model RolePermission {
+  id          String   @id @default(cuid())
+  tenantId    String
+  role        String   // "Doctor", "Nurse", "Receptionist", etc.
+  permissions String   // JSON array string of permission keys: ["clinical.notes.view", ...]
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, role])
+  @@index([tenantId])
+  @@map("role_permission")
 }
 

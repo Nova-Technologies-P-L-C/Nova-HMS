@@ -24,6 +24,14 @@ function LabOrderContent() {
     enabled: !!visitId,
   });
 
+  const { data: labTariffs = [] } = useQuery(
+    trpc.tariff.list.queryOptions({ category: "lab", activeOnly: true })
+  );
+
+  const availableTests = labTariffs.length > 0
+    ? labTariffs.map((t) => ({ name: t.name, price: t.price }))
+    : LAB_TESTS.map((t) => ({ name: t, price: undefined }));
+
   const [selected, setSelected] = useState<string[]>([]);
   const [priority, setPriority] = useState<"routine" | "urgent">("routine");
   const [indication, setIndication] = useState("");
@@ -76,11 +84,26 @@ function LabOrderContent() {
       <div className="max-w-xl space-y-5">
         <Card className="p-5">
           <h3 className="font-semibold text-slate-800 mb-4">Select tests</h3>
-          <div className="grid grid-cols-1 gap-2">
-            {LAB_TESTS.map((t) => (
-              <label key={t} className="flex items-center gap-3 p-2.5 rounded border border-slate-100 hover:border-teal-300 cursor-pointer transition-colors">
-                <input type="checkbox" checked={selected.includes(t)} onChange={() => toggle(t)} className="accent-teal-600 w-4 h-4" />
-                <span className="text-sm text-slate-700">{t}</span>
+          <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-1">
+            {availableTests.map((t) => (
+              <label
+                key={t.name}
+                className="flex items-center justify-between p-2.5 rounded border border-slate-100 hover:border-teal-300 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(t.name)}
+                    onChange={() => toggle(t.name)}
+                    className="accent-teal-600 w-4 h-4"
+                  />
+                  <span className="text-sm text-slate-700">{t.name}</span>
+                </div>
+                {t.price !== undefined && (
+                  <span className="text-xs px-2 py-0.5 rounded font-medium bg-slate-100 text-slate-600">
+                    ETB {t.price}
+                  </span>
+                )}
               </label>
             ))}
           </div>

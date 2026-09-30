@@ -18,7 +18,14 @@ export default function PatientRegistrationPage() {
   const [selectedExisting, setSelectedExisting] = useState<string | null>(null);
 
   const { data: tenant } = useQuery(trpc.tenant.get.queryOptions());
-  const cardFeeAmount = isEmergency ? 100 : (tenant?.cardFeeAmount ?? 50);
+  const { data: regTariffs = [] } = useQuery(
+    trpc.tariff.list.queryOptions({ category: "registration", activeOnly: true })
+  );
+  const generalTariff = regTariffs.find((t) => t.code === "OPD_REG_GENERAL");
+  const emergTariff = regTariffs.find((t) => t.code === "OPD_REG_EMERGENCY");
+  const cardFeeAmount = isEmergency
+    ? (emergTariff?.price ?? 100)
+    : (generalTariff?.price ?? tenant?.cardFeeAmount ?? 50);
 
   const searchResults = useQuery({
     ...trpc.patient.search.queryOptions({ query: searchQuery }),

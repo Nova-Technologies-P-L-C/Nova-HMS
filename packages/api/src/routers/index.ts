@@ -11,6 +11,7 @@ import { appointmentRouter } from "./appointment";
 import { notificationRouter } from "./notification";
 import { wardRouter } from "./ward";
 import { auditRouter } from "./misc";
+import { tariffRouter } from "./tariff";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => "OK"),
@@ -30,6 +31,7 @@ export const appRouter = router({
   notification: notificationRouter,
   ward: wardRouter,
   audit: auditRouter,
+  tariff: tariffRouter,
 });
 
 export type AppRouter = typeof appRouter;

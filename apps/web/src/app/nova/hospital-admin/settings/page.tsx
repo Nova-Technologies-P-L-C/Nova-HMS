@@ -1,10 +1,12 @@
 "use client";
 // Hospital Admin — Hospital Settings (page 16)
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
 import { useNovaRole } from "@/components/nova/nova-role-context";
+import { Banknote, ArrowRight } from "lucide-react";
 
 export default function HospitalSettingsPage() {
   const { lang, setLang } = useNovaRole();
@@ -74,8 +76,19 @@ export default function HospitalSettingsPage() {
               />
             </FormField>
           </div>
-          <div className="mt-3 p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
-            ℹ️ When a patient arrives at reception, the receptionist collects this fee directly or marks CBHI/Emergency waiver before the ticket enters the doctor queue.
+          <div className="mt-3 p-2.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 flex items-center justify-between">
+            <span>ℹ️ When a patient arrives at reception, the receptionist collects this fee directly or marks CBHI/Emergency waiver before the ticket enters the doctor queue.</span>
+          </div>
+          <div className="mt-3 pt-3 border-t border-teal-100 flex items-center justify-between">
+            <div className="text-xs text-slate-600">
+              Need to edit prices for <strong>Lab Tests, Radiology, Procedures, Ward Beds, or Drugs</strong>?
+            </div>
+            <Link
+              href={"/nova/hospital-admin/tariffs" as any}
+              className="px-3 py-1.5 bg-teal-700 text-white rounded text-xs font-medium hover:bg-teal-800 transition-colors flex items-center gap-1.5 shrink-0"
+            >
+              <Banknote size={14} /> Full Tariffs Master <ArrowRight size={12} />
+            </Link>
           </div>
         </Card>
 

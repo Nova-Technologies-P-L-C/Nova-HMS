@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, KpiCard, Card, StatusBadge } from "@/components/nova/nova-ui";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, Banknote } from "lucide-react";
 
 export default function HospitalAdminDashboard() {
   const { data: stats } = useQuery(trpc.tenant.dashboardStats.queryOptions());
@@ -67,10 +67,14 @@ export default function HospitalAdminDashboard() {
         </Card>
       </div>
 
-      <div className="flex gap-3 mt-6">
+      <div className="flex flex-wrap gap-3 mt-6">
+        <Link href={"/nova/hospital-admin/tariffs" as any} className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded hover:bg-teal-700 shadow-sm flex items-center gap-1.5">
+          <Banknote size={15} /> Edit Service Tariffs & Prices
+        </Link>
         <Link href="/nova/hospital-admin/staff" className="px-4 py-2 bg-white border border-slate-200 text-sm text-slate-700 rounded hover:border-teal-400">Manage staff</Link>
         <Link href="/nova/hospital-admin/reports" className="px-4 py-2 bg-white border border-slate-200 text-sm text-slate-700 rounded hover:border-teal-400">View reports</Link>
         <Link href="/nova/hospital-admin/fee-waivers" className="px-4 py-2 bg-white border border-slate-200 text-sm text-slate-700 rounded hover:border-teal-400">Fee waiver queue</Link>
+        <Link href="/nova/hospital-admin/settings" className="px-4 py-2 bg-white border border-slate-200 text-sm text-slate-700 rounded hover:border-teal-400">Hospital settings</Link>
       </div>
     </PageShell>
   );
