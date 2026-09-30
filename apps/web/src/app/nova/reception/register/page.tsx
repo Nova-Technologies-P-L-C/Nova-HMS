@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
-import { AlertTriangle, CheckCircle, UserPlus } from "lucide-react";
+import { AlertTriangle, CheckCircle, UserPlus, QrCode, Printer } from "lucide-react";
+import { PatientIDCardVisual } from "@/components/nova/patient-qr";
 
 export default function PatientRegistrationPage() {
   const router = useRouter();
@@ -13,7 +14,19 @@ export default function PatientRegistrationPage() {
   const [isEmergency, setIsEmergency] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "telebirr" | "cbe_birr" | "unpaid">("cash");
   const [paymentReference, setPaymentReference] = useState("");
-  const [submitted, setSubmitted] = useState<{ healthId: string; ticket: string; name: string; receiptNumber?: string; paymentStatus: string; feeAmount: number } | null>(null);
+  const [submitted, setSubmitted] = useState<{
+    healthId: string;
+    ticket: string;
+    name: string;
+    nameAm?: string;
+    dob?: string;
+    phone?: string;
+    kebele?: string;
+    cbhiStatus?: boolean;
+    receiptNumber?: string;
+    paymentStatus: string;
+    feeAmount: number;
+  } | null>(null);
   const [tab, setTab] = useState<"new" | "existing">("new");
   const [selectedExisting, setSelectedExisting] = useState<string | null>(null);
 
@@ -50,6 +63,11 @@ export default function PatientRegistrationPage() {
       healthId: patient.healthId,
       ticket: ticket.ticketNumber,
       name: patient.nameEn,
+      nameAm: patient.nameAm || form.nameAm,
+      dob: form.dob,
+      phone: form.phone,
+      kebele: form.kebele,
+      cbhiStatus: form.cbhiStatus,
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
       feeAmount: ticket.feeAmount,
@@ -72,6 +90,11 @@ export default function PatientRegistrationPage() {
       healthId: patient.healthId,
       ticket: ticket.ticketNumber,
       name: patient.nameEn,
+      nameAm: patient.nameAm || "",
+      dob: patient.dob,
+      phone: patient.phone || "",
+      kebele: patient.kebele || "",
+      cbhiStatus: patient.cbhiStatus,
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
       feeAmount: ticket.feeAmount,
@@ -83,70 +106,121 @@ export default function PatientRegistrationPage() {
 
   if (submitted) {
     return (
-      <PageShell title="Patient Registration & Intake">
-        <Card className="p-8 text-center max-w-lg mx-auto">
-          <CheckCircle size={48} className="text-teal-500 mx-auto mb-4" />
-          <h2 className="font-bold text-slate-800 text-lg mb-1">Patient Check-in Complete</h2>
-          <p className="text-slate-600 font-medium mb-4">{submitted.name}</p>
-
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6 space-y-3 text-sm text-left">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-              <span className="text-slate-500">Health ID</span>
-              <span className="font-mono font-bold text-slate-800">{submitted.healthId}</span>
+      <PageShell title="Patient Registration & Card Issuance">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <CheckCircle size={32} className="text-teal-500" />
+              <div>
+                <h2 className="font-extrabold text-xl text-slate-800 dark:text-slate-100">
+                  Registration Complete & Digital QR Card Generated
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Patient Health ID registered. Hand the patient their official scannable ID card.
+                </p>
+              </div>
             </div>
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-              <span className="text-slate-500">OPD Ticket</span>
-              <span className="font-extrabold text-teal-700 text-xl font-mono">{submitted.ticket}</span>
-            </div>
-            <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-              <span className="text-slate-500">Registration / Card Fee</span>
-              <span className="font-bold text-slate-800">ETB {submitted.feeAmount}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">Payment Status</span>
-              {submitted.paymentStatus === "paid" && (
-                <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-semibold text-xs border border-emerald-300">
-                  ✓ Paid (Receipt #{submitted.receiptNumber})
-                </span>
-              )}
-              {submitted.paymentStatus === "cbhi_covered" && (
-                <span className="px-2.5 py-0.5 bg-teal-100 text-teal-800 rounded-full font-semibold text-xs border border-teal-300">
-                  🛡️ CBHI 100% Covered (0 ETB Co-pay)
-                </span>
-              )}
-              {submitted.paymentStatus === "emergency_exempt" && (
-                <span className="px-2.5 py-0.5 bg-red-100 text-red-800 rounded-full font-semibold text-xs border border-red-300">
-                  🚨 Emergency Exempt (Care First)
-                </span>
-              )}
-              {submitted.paymentStatus === "unpaid" && (
-                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold text-xs border border-amber-300">
-                  ⚠️ Unpaid — Collect at Cashier
-                </span>
-              )}
-            </div>
+            <span className="font-mono text-xs px-3 py-1 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 font-bold rounded-full">
+              Ticket: {submitted.ticket}
+            </span>
           </div>
 
-          <div className="flex gap-2 justify-center">
-            <button onClick={() => router.push("/nova/reception/queue")} className={btnPrimary}>
-              View queue board →
-            </button>
-            <button
-              onClick={() => {
-                setSubmitted(null);
-                setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false });
-                setSearchQuery("");
-                setSelectedExisting(null);
-                setIsEmergency(false);
-                setPaymentMethod("cash");
-                setPaymentReference("");
-              }}
-              className={btnSecondary}
-            >
-              Register another
-            </button>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+            {/* Left: Official Patient QR Card */}
+            <div className="md:col-span-6 flex flex-col items-center">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+                Official Patient Identity Card (CR80 Standard)
+              </span>
+              <PatientIDCardVisual
+                patient={{
+                  healthId: submitted.healthId,
+                  name: submitted.name,
+                  nameAm: submitted.nameAm,
+                  dob: submitted.dob,
+                  kebele: submitted.kebele,
+                  phone: submitted.phone,
+                  cbhi: submitted.cbhiStatus,
+                }}
+              />
+              <p className="text-[11px] text-slate-400 mt-2 text-center max-w-sm">
+                This QR code is uniquely tied to {submitted.name} and can be scanned at triage, consultation, laboratory, and pharmacy.
+              </p>
+            </div>
+
+            {/* Right: Visit Receipt & Quick Actions */}
+            <div className="md:col-span-6 space-y-4">
+              <Card className="p-5 border border-slate-200 dark:border-slate-800 space-y-3">
+                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                  OPD Intake Receipt
+                </h3>
+
+                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-400">Assigned Health ID:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{submitted.healthId}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-400">Queue Ticket Number:</span>
+                    <span className="font-extrabold text-teal-600 text-lg font-mono">{submitted.ticket}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-400">Card & Intake Fee:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">ETB {submitted.feeAmount}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Payment Status:</span>
+                    {submitted.paymentStatus === "paid" && (
+                      <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded font-semibold text-[11px]">
+                        ✓ Paid (Receipt #{submitted.receiptNumber})
+                      </span>
+                    )}
+                    {submitted.paymentStatus === "cbhi_covered" && (
+                      <span className="px-2 py-0.5 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 rounded font-semibold text-[11px]">
+                        🛡️ 100% CBHI Covered
+                      </span>
+                    )}
+                    {submitted.paymentStatus === "emergency_exempt" && (
+                      <span className="px-2 py-0.5 bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300 rounded font-semibold text-[11px]">
+                        🚨 Emergency Exempt
+                      </span>
+                    )}
+                    {submitted.paymentStatus === "unpaid" && (
+                      <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded font-semibold text-[11px]">
+                        ⚠️ Unpaid — Central Cashier
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push("/nova/reception/queue")}
+                    className={btnPrimary}
+                  >
+                    Send to OPD Waiting Hall & View Queue Board →
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmitted(null);
+                      setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false });
+                      setSearchQuery("");
+                      setSelectedExisting(null);
+                      setIsEmergency(false);
+                      setPaymentMethod("cash");
+                      setPaymentReference("");
+                    }}
+                    className={btnSecondary}
+                  >
+                    Register Next Patient
+                  </button>
+                </div>
+              </Card>
+            </div>
           </div>
-        </Card>
+        </div>
       </PageShell>
     );
   }
