@@ -290,15 +290,15 @@ async function main() {
 
   // Patients
   const patientData = [
-    { id: "pat-p1", healthId: "DMH-00123", nameEn: "Abebe Kebede", nameAm: "አበበ ከበደ", dob: "1985-03-12", sex: "M", phone: "0911234567", kebele: "Kebele 03", cbhiStatus: true },
-    { id: "pat-p2", healthId: "DMH-00456", nameEn: "Tigist Worku", nameAm: "ትግስት ወርቁ", dob: "1992-07-22", sex: "F", phone: "0922345678", kebele: "Kebele 07", cbhiStatus: false },
-    { id: "pat-p3", healthId: "DMH-00789", nameEn: "Mulugeta Haile", nameAm: "ሙሉጌታ ሃይሌ", dob: "1975-11-04", sex: "M", phone: "0933456789", kebele: "Kebele 01", cbhiStatus: true },
-    { id: "pat-p4", healthId: "DMH-01012", nameEn: "Birtukan Tadesse", nameAm: "ብርቱካን ታደሰ", dob: "2001-01-30", sex: "F", phone: "0944567890", kebele: "Kebele 12", cbhiStatus: true },
-    { id: "pat-p5", healthId: "DMH-01345", nameEn: "Dawit Bekele", nameAm: "ዳዊት በቀለ", dob: "1968-09-15", sex: "M", phone: "0955678901", kebele: "Kebele 05", cbhiStatus: false },
-    { id: "pat-p6", healthId: "DMH-01678", nameEn: "Selamawit Girma", nameAm: "ሰላማዊት ግርማ", dob: "1998-05-08", sex: "F", phone: "0966789012", kebele: "Kebele 09", cbhiStatus: true },
+    { id: "pat-p1", healthId: "DMH-00123", nameEn: "Abebe Kebede", nameAm: "አበበ ከበደ", dob: "1985-03-12", sex: "M", phone: "0911234567", email: "abebe@example.com", kebele: "Kebele 03", cbhiStatus: true },
+    { id: "pat-p2", healthId: "DMH-00456", nameEn: "Tigist Worku", nameAm: "ትግስት ወርቁ", dob: "1992-07-22", sex: "F", phone: "0922345678", email: "tigist@example.com", kebele: "Kebele 07", cbhiStatus: false },
+    { id: "pat-p3", healthId: "DMH-00789", nameEn: "Mulugeta Haile", nameAm: "ሙሉጌታ ሃይሌ", dob: "1975-11-04", sex: "M", phone: "0933456789", email: "mulugeta@example.com", kebele: "Kebele 01", cbhiStatus: true },
+    { id: "pat-p4", healthId: "DMH-01012", nameEn: "Birtukan Tadesse", nameAm: "ብርቱካን ታደሰ", dob: "2001-01-30", sex: "F", phone: "0944567890", email: "birtukan@example.com", kebele: "Kebele 12", cbhiStatus: true },
+    { id: "pat-p5", healthId: "DMH-01345", nameEn: "Dawit Bekele", nameAm: "ዳዊት በቀለ", dob: "1968-09-15", sex: "M", phone: "0955678901", email: "dawit@example.com", kebele: "Kebele 05", cbhiStatus: false },
+    { id: "pat-p6", healthId: "DMH-01678", nameEn: "Selamawit Girma", nameAm: "ሰላማዊት ግርማ", dob: "1998-05-08", sex: "F", phone: "0966789012", email: "selamawit@example.com", kebele: "Kebele 09", cbhiStatus: true },
   ];
   for (const p of patientData) {
-    await prisma.patient.upsert({ where: { healthId: p.healthId }, update: {}, create: { ...p, tenantId: tenant.id } });
+    await prisma.patient.upsert({ where: { healthId: p.healthId }, update: { email: p.email }, create: { ...p, tenantId: tenant.id } });
   }
 
   // Beds

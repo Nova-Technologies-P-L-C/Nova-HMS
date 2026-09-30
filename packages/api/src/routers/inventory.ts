@@ -1,4 +1,5 @@
 import prisma from "@my-better-t-app/db";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
 
@@ -186,13 +187,47 @@ export const inventoryRouter = router({
     return prisma.inventoryLocation.findMany({
       where: { tenantId: ctx.tenantId },
       include: { stock: { include: { item: true } } },
+      orderBy: { name: "asc" },
     });
   }),
 
   addLocation: tenantProcedure
-    .input(z.object({ name: z.string(), type: z.string(), managerId: z.string().default("") }))
+    .input(z.object({ name: z.string().min(1), type: z.string(), managerId: z.string().default("") }))
     .mutation(async ({ ctx, input }) => {
       return prisma.inventoryLocation.create({ data: { ...input, tenantId: ctx.tenantId } });
+    }),
+
+  updateLocation: tenantProcedure
+    .input(z.object({
+      id: z.string(),
+      name: z.string().min(1),
+      type: z.string(),
+      managerId: z.string().default(""),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const loc = await prisma.inventoryLocation.findFirstOrThrow({
+        where: { id: input.id, tenantId: ctx.tenantId },
+      });
+      return prisma.inventoryLocation.update({
+        where: { id: loc.id },
+        data: { name: input.name, type: input.type, managerId: input.managerId },
+      });
+    }),
+
+  deleteLocation: tenantProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const loc = await prisma.inventoryLocation.findFirstOrThrow({
+        where: { id: input.id, tenantId: ctx.tenantId },
+        include: { stock: { where: { qty: { gt: 0 } } } },
+      });
+      if (loc.stock.length > 0) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Cannot delete a location that still holds active stock. Transfer or write-off stock first.",
+        });
+      }
+      return prisma.inventoryLocation.delete({ where: { id: loc.id } });
     }),
 
   suppliers: tenantProcedure.query(async ({ ctx }) => {

@@ -44,13 +44,13 @@ export default function AppointmentsPage() {
           <h3 className="font-semibold text-slate-800 mb-4">Schedule appointment</h3>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <FormField label="Patient">
-              <select className={inputCls}>
+              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className={inputCls}>
                 <option value="">Select patient</option>
-                {patients.map((p) => <option key={p.id} value={p.id}>{p.nameEn} — {p.healthId}</option>)}
+                {patients.map((p) => <option key={p.id} value={p.id}>{p.nameEn} — {p.healthId} {p.email ? `(${p.email})` : ""}</option>)}
               </select>
             </FormField>
             <FormField label="Doctor">
-              <select className={inputCls}>
+              <select value={doctor} onChange={(e) => setDoctor(e.target.value)} className={inputCls}>
                 <option value="">Select doctor</option>
                 {doctors.map((d) => <option key={d.user.id} value={d.user.name ?? ""}>{d.user.name}</option>)}
               </select>
@@ -60,6 +60,19 @@ export default function AppointmentsPage() {
             <FormField label="Time"><input value={time} onChange={(e) => setTime(e.target.value)} type="time" className={inputCls} /></FormField>
             <FormField label="Notes"><input className={inputCls} placeholder="Reason for visit (optional)" /></FormField>
           </div>
+          {patientId && (
+            <div className="mb-4 text-xs px-3 py-2 rounded-lg bg-teal-50 border border-teal-100 text-teal-800 flex items-center gap-2">
+              <span>✉️</span>
+              {(() => {
+                const sel = patients.find((p) => p.id === patientId);
+                return sel?.email ? (
+                  <span>Brevo notification email will be dispatched to <strong>{sel.email}</strong> upon confirmation.</span>
+                ) : (
+                  <span className="text-amber-700">Patient has no registered email. Booking will proceed without email dispatch.</span>
+                );
+              })()}
+            </div>
+          )}
           <div className="flex gap-2">
             <button disabled={!patientId || !doctor || !date || !time || create.isPending} onClick={() => create.mutate({ patientId, doctor, dept, date, time })} className={btnPrimary}>Book appointment</button>
             <button className={btnSecondary} onClick={() => setShowNew(false)}>Cancel</button>

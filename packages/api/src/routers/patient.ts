@@ -17,6 +17,7 @@ export const patientRouter = router({
       dob: z.string(),
       sex: z.enum(["M", "F"]),
       phone: z.string().default(""),
+      email: z.string().default(""),
       kebele: z.string().default(""),
       cbhiStatus: z.boolean().default(false),
     }))
@@ -54,6 +55,7 @@ export const patientRouter = router({
             { nameAm: { contains: input.query } },
             { healthId: { contains: input.query } },
             { phone: { contains: input.query } },
+            { email: { contains: input.query } },
           ],
         },
         take: 20,

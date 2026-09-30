@@ -81,6 +81,7 @@ model Patient {
   dob        String
   sex        String
   phone      String   @default("")
+  email      String   @default("")
   kebele     String   @default("")
   cbhiStatus Boolean  @default(false)
   createdAt  DateTime @default(now())

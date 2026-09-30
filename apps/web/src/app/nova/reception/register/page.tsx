@@ -10,7 +10,7 @@ import { PatientIDCardVisual } from "@/components/nova/patient-qr";
 export default function PatientRegistrationPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [form, setForm] = useState({ nameEn: "", nameAm: "", dob: "", sex: "M" as "M" | "F", phone: "", kebele: "", cbhiStatus: false });
+  const [form, setForm] = useState({ nameEn: "", nameAm: "", dob: "", sex: "M" as "M" | "F", phone: "", email: "", kebele: "", cbhiStatus: false });
   const [isEmergency, setIsEmergency] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "telebirr" | "cbe_birr" | "unpaid">("cash");
   const [paymentReference, setPaymentReference] = useState("");
@@ -205,7 +205,7 @@ export default function PatientRegistrationPage() {
                     type="button"
                     onClick={() => {
                       setSubmitted(null);
-                      setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false });
+                      setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", email: "", kebele: "", cbhiStatus: false });
                       setSearchQuery("");
                       setSelectedExisting(null);
                       setIsEmergency(false);
@@ -390,6 +390,9 @@ export default function PatientRegistrationPage() {
               <FormField label="Phone number">
                 <input className={inputCls} value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="09XX XXX XXX" />
               </FormField>
+              <FormField label="Email address (for appointment notifications)">
+                <input type="email" className={inputCls} value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="patient@example.com" />
+              </FormField>
               <FormField label="Kebele">
                 <input className={inputCls} value={form.kebele} onChange={(e) => setForm((p) => ({ ...p, kebele: e.target.value }))} placeholder="Kebele 03" />
               </FormField>
@@ -472,7 +475,7 @@ export default function PatientRegistrationPage() {
             <button onClick={handleRegisterNew} disabled={!form.nameEn || !form.dob || isLoading} className={`${btnPrimary} ${(!form.nameEn || !form.dob || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
               {isLoading ? "Registering…" : `Register & issue ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
             </button>
-            <button onClick={() => setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false })} className={btnSecondary}>Clear</button>
+            <button onClick={() => setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", email: "", kebele: "", cbhiStatus: false })} className={btnSecondary}>Clear</button>
           </div>
         </div>
       )}
