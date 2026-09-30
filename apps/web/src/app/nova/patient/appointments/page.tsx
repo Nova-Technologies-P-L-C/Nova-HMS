@@ -1,5 +1,6 @@
 "use client";
 import { usePatientLang } from "../layout";
+import { usePatientAuth } from "../patient-auth-context";
 import { APPOINTMENTS } from "@/lib/nova-mock-data";
 import { Calendar, Clock, User, Building2 } from "lucide-react";
 import { useState } from "react";
@@ -11,11 +12,14 @@ const PAST_APPOINTMENTS = [
 
 export default function AppointmentsPage() {
   const { lang } = usePatientLang();
+  const { patient } = usePatientAuth();
   const t = (en: string, am: string) => lang === "en" ? en : am;
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
 
-  const upcoming = APPOINTMENTS.filter((a) => a.patientId === "P001");
-  const list = tab === "upcoming" ? upcoming : PAST_APPOINTMENTS;
+  const currentPatientId = patient?.id || "P001";
+  const upcoming = APPOINTMENTS.filter((a) => a.patientId === currentPatientId || a.patient === patient?.name);
+  const past = PAST_APPOINTMENTS.filter((a) => a.patientId === currentPatientId || a.patient === patient?.name);
+  const list = tab === "upcoming" ? upcoming : past;
 
   return (
     <div className="p-4">

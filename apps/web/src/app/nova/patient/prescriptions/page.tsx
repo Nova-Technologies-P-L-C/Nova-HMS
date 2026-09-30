@@ -1,15 +1,18 @@
 "use client";
 import { usePatientLang } from "../layout";
+import { usePatientAuth } from "../patient-auth-context";
 import { PRESCRIPTIONS } from "@/lib/nova-mock-data";
 import { Pill, Clock, CheckCircle } from "lucide-react";
 import { useState } from "react";
 
 export default function PrescriptionsPage() {
   const { lang } = usePatientLang();
+  const { patient } = usePatientAuth();
   const t = (en: string, am: string) => lang === "en" ? en : am;
   const [tab, setTab] = useState<"active" | "past">("active");
 
-  const patientRx = PRESCRIPTIONS.filter((p) => p.patientId === "P001");
+  const currentPatientId = patient?.id || "P001";
+  const patientRx = PRESCRIPTIONS.filter((p) => p.patientId === currentPatientId || p.patient === patient?.name);
   const active = patientRx.filter((p) => p.status === "pending");
   const past = patientRx.filter((p) => p.status === "dispensed");
   const list = tab === "active" ? active : past;

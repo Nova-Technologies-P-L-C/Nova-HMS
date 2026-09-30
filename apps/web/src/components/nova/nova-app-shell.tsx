@@ -26,8 +26,9 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const isPublic = isPublicPath(pathname);
+    const isPatientPortal = pathname.startsWith("/nova/patient");
 
-    if (isPublic) {
+    if (isPublic || isPatientPortal) {
       setAuthed(false);
       setReady(true);
       return;
@@ -54,8 +55,9 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
     );
   }
 
-  // Public pages — no shell at all
-  if (!authed) {
+  // Patient portal & public marketing pages — render standalone without hospital staff shell
+  const isPatientPortal = pathname.startsWith("/nova/patient");
+  if (!authed || isPatientPortal) {
     return <>{children}</>;
   }
 

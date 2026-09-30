@@ -1,14 +1,15 @@
 "use client";
 import { useState } from "react";
 import { usePatientLang } from "../layout";
+import { usePatientAuth } from "../patient-auth-context";
 import { PATIENTS } from "@/lib/nova-mock-data";
 import PatientQRCode from "@/components/nova/patient-qr";
 import { QrCode, Download, Share2, ShieldCheck, Printer, Check, Copy } from "lucide-react";
 
-const PATIENT = PATIENTS[0];
-
 export default function IDCardPage() {
   const { lang } = usePatientLang();
+  const { patient: authPatient } = usePatientAuth();
+  const PATIENT = authPatient || PATIENTS[0];
   const [copied, setCopied] = useState(false);
   const t = (en: string, am: string) => (lang === "en" ? en : am);
 

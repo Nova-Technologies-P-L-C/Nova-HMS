@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePatientLang } from "./layout";
+import { usePatientAuth } from "./patient-auth-context";
 import { PATIENTS, APPOINTMENTS, PRESCRIPTIONS, NOTIFICATIONS, DIAGNOSES, VITALS, CBHI_CLAIMS } from "@/lib/nova-mock-data";
 import { Calendar, Pill, Bell, ArrowRight, Activity, ShieldCheck, FlaskConical, ArrowLeftRight, QrCode } from "lucide-react";
 
-const PATIENT = PATIENTS[0]; // Abebe Kebede — logged-in patient
-
 export default function PatientDashboard() {
   const { lang } = usePatientLang();
+  const { patient: authPatient } = usePatientAuth();
+  const PATIENT = authPatient || PATIENTS[0];
   const t = (en: string, am: string) => lang === "en" ? en : am;
 
   const upcomingAppt = APPOINTMENTS[0];

@@ -1,13 +1,14 @@
 "use client";
 import { usePatientLang } from "../layout";
+import { usePatientAuth } from "../patient-auth-context";
 import { CBHI_CLAIMS, PATIENTS } from "@/lib/nova-mock-data";
 import { ShieldCheck, CheckCircle, Clock, XCircle } from "lucide-react";
 
-const PATIENT = PATIENTS[0];
-const MY_CLAIMS = CBHI_CLAIMS.filter((c) => c.patient === PATIENT.name);
-
 export default function CBHIPage() {
   const { lang } = usePatientLang();
+  const { patient: authPatient } = usePatientAuth();
+  const PATIENT = authPatient || PATIENTS[0];
+  const MY_CLAIMS = CBHI_CLAIMS.filter((c) => c.patient === PATIENT.name);
   const t = (en: string, am: string) => lang === "en" ? en : am;
 
   const statusIcon = (status: string) => {
