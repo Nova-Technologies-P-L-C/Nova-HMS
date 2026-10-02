@@ -1,0 +1,1152 @@
+// =============================================================================
+// Nova HMS — Prisma Database Schema
+// =============================================================================
+//
+// Multi-tenant Hospital Management System for Ethiopian health facilities.
+// Reference hospital: Debre Markos Referral Hospital (DMRH), Amhara Region.
+//
+// Architecture:
+//   - Multi-tenancy via `tenantId` on every clinical table (shared DB, row isolation)
+//   - Runtime: Node.js + Prisma Client (ESM)
+//   - DB: SQLite for dev; swap datasource to PostgreSQL for production
+//   - IDs: CUID2 — collision-resistant, URL-safe, safe to expose in APIs
+//
+// Ethiopian Context:
+//   - nameAm        = Amharic (Ge'ez script) name — required for CBHI & RHB submissions
+//   - kebele        = smallest admin unit in Ethiopia (sub-district), MOH reporting
+//   - cbhiStatus    = Community-Based Health Insurance enrollment (EHIA scheme)
+//   - Payment methods include telebirr & cbe_birr (dominant mobile-money platforms)
+//   - OPD ticket format: "A-001" regular, "E-001" emergency
+//   - Health ID format: "<TENANT_CODE>-NNNNN" e.g. "DMR-00042"
+//
+// Module map:
+//   Tenant & Users   → Tenant, UserTenantRole
+//   Patient          → Patient, Allergy
+//   Clinical Flow    → Visit, OPDTicket, VitalSigns, ClinicalNote, Diagnosis
+//   Lab              → LabOrder, LabResult
+//   Pharmacy         → Prescription, PrescriptionLine
+//   Inventory        → InventoryItem, InventoryBatch, InventoryLocation,
+//                      LocationStock, StockMovement, ConsumptionRecord,
+//                      Supplier, Requisition, RequisitionLine, CycleCount, CycleCountLine
+//   Billing          → Invoice, InvoiceLine, CBHIClaim, FeeWaiver,
+//                      PaymentReceipt, HospitalServiceTariff
+//   Referral         → Referral
+//   Inpatient        → Bed, Admission
+//   System           → Notification, AuditLog, FeatureFlag, RolePermission
+// =============================================================================
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated"   // Generated Prisma client output path
+  moduleFormat = "esm"            // ESM output — aligns with monorepo "type":"module"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  // PRODUCTION NOTE: change provider to "postgresql" and supply DATABASE_URL env var.
+  // SQLite is zero-config for local development only. PostgreSQL is required for
+  // production: concurrent writes, row-level locking, and ACID transactions.
+  provider = "sqlite"
+}
+
+// ─── TENANT ───────────────────────────────────────────────
+//
+// One row = one subscribed hospital/health facility.
+// Every clinical table references tenantId for complete data isolation per facility.
+//
+//   slug              = URL-safe workspace key used at login (e.g. "dmrh")
+//   region            = Ethiopian regional state (Amhara, Oromia, SNNPR, etc.)
+//   facilityType      = "hospital" | "health_center" | "clinic"
+//   plan              = SaaS tier: "basic" | "pro" | "enterprise"
+//   cardFeeAmount     = Default OPD registration fee in ETB (Ethiopian Birr); typ. 50 ETB
+//   specialistFeeAmount = Default specialist consultation fee in ETB; typ. 150 ETB
+//   Both fee fields are overridable per service via HospitalServiceTariff.
+model Tenant {
+  id           String   @id @default(cuid())
+  name         String                          // Full legal name e.g. "Debre Markos Referral Hospital"
+  slug         String   @unique                // Short workspace code e.g. "dmrh"
+  region       String   @default("")           // Ethiopian administrative region
+  facilityType String   @default("hospital")   // hospital | health_center | clinic
+  plan         String   @default("basic")      // SaaS subscription tier
+  status       String   @default("active")     // active | suspended | trial
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Default fees in ETB — both are overridable via HospitalServiceTariff records
+  cardFeeAmount       Float    @default(50.0)
+  specialistFeeAmount Float    @default(150.0)
+
+  userRoles       UserTenantRole[]
+  patients        Patient[]
+  visits          Visit[]
+  appointments    Appointment[]
+  inventoryItems  InventoryItem[]
+  locations       InventoryLocation[]
+  suppliers       Supplier[]
+  requisitions    Requisition[]
+  cycleCounts     CycleCount[]
+  invoices        Invoice[]
+  receipts        PaymentReceipt[]
+  cbhiClaims      CBHIClaim[]
+  feeWaivers      FeeWaiver[]
+  referrals       Referral[]
+  beds            Bed[]
+  admissions      Admission[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  featureFlags    FeatureFlag[]
+  stockMovements  StockMovement[]
+  serviceTariffs  HospitalServiceTariff[]
+  rolePermissions RolePermission[]
+
+  @@map("tenant")
+}
+
+// ─── USER TENANT ROLE ─────────────────────────────────────
+//
+// Grants a Better Auth user a clinical role inside one specific tenant.
+// A single user account can hold roles in multiple hospitals (e.g. consulting doctor).
+//
+// Valid roles (enforced by API middleware tenantProcedure):
+//   Hospital Admin | Doctor | Nurse | Receptionist | Lab Technician |
+//   Pharmacist | Billing Officer | Referral Coordinator | Ward Manager | Nova Admin
+//
+//   licenseNumber   = Medical Council of Ethiopia registration number (MOH requirement)
+//   permissionsJson = Granular permission overrides as JSON string array
+//                     e.g. '["clinical.notes.view","lab.results.enter"]'
+//                     Stored as string because SQLite has no native JSON array column.
+model UserTenantRole {
+  id              String   @id @default(cuid())
+  userId          String                        // References Better Auth user.id
+  tenantId        String
+  role            String                        // Role slug — see valid roles above
+  department      String   @default("General")  // Clinical department e.g. "Pediatrics"
+  title           String   @default("")         // Job title e.g. "Senior Physician"
+  phone           String   @default("")         // Staff direct line (Ethiopian: 09XXXXXXXX)
+  licenseNumber   String   @default("")         // MOH Medical Council registration number
+  status          String   @default("active")   // active | inactive | suspended
+  permissionsJson String   @default("[]")       // Granular permission overrides (JSON string)
+  assignedAt      DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // One role per user per tenant — prevents privilege duplication
+  @@unique([userId, tenantId])
+  @@map("user_tenant_role")
+}
+
+// ─── PATIENT ──────────────────────────────────────────────
+//
+// Core demographic record created once at first Registration (OPD Reception).
+// All subsequent visits, labs, and prescriptions reference this same record.
+//
+//   healthId   = System-generated unique ID: "<SLUG>-NNNNN" (e.g. "DMR-00042")
+//                Printed on the patient card; used at every care touchpoint
+//   nameAm     = Amharic name (Ge'ez) — required for CBHI & Regional Health Bureau reports
+//   dob        = ISO-8601 string "YYYY-MM-DD" — avoids SQLite timezone drift
+//   cbhiStatus = true → CBHI member; covered services billed to CBHI, not the patient directly
+//   kebele     = Sub-district — required for MOH disease surveillance & CBHI claims
+model Patient {
+  id         String   @id @default(cuid())
+  tenantId   String
+  healthId   String   @unique                // e.g. "DMR-00042" — printed on patient card
+  nameEn     String                          // Full name in Latin/English script
+  nameAm     String   @default("")           // Full name in Amharic (Ge'ez) script
+  dob        String                          // Date of birth: "YYYY-MM-DD"
+  sex        String                          // "M" | "F"
+  phone      String   @default("")           // Primary contact (Ethiopian: 09XXXXXXXX)
+  kebele     String   @default("")           // Sub-district — required for MOH reporting
+  cbhiStatus Boolean  @default(false)        // true = CBHI enrolled → affects billing flow
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  visits       Visit[]
+  allergies    Allergy[]
+  appointments Appointment[]
+  admissions   Admission[]
+  receipts     PaymentReceipt[]
+
+  @@index([tenantId])
+  @@map("patient")
+}
+
+// ─── ALLERGY ──────────────────────────────────────────────
+//
+// Known drug/substance allergies for a patient.
+// Displayed as a prominent clinical safety alert in:
+//   - Doctor's EMR consultation view
+//   - Pharmacist's dispense screen
+// "anaphylactic" severity must render as a red banner warning in the UI.
+//
+//   severity = "mild" | "moderate" | "severe" | "anaphylactic"
+model Allergy {
+  id        String   @id @default(cuid())
+  patientId String
+  substance String                           // Drug or allergen name (free text)
+  reaction  String   @default("")            // Described allergic reaction
+  severity  String   @default("moderate")    // mild | moderate | severe | anaphylactic
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("allergy")
+}
+
+// ─── VISIT ────────────────────────────────────────────────
+//
+// Central clinical entity — one episode of care per patient attendance.
+// All clinical data (vitals, notes, diagnoses, labs, prescriptions) hangs off Visit.
+//
+// Visit lifecycle (status transitions):
+//   open → being_seen → ready_for_billing → completed
+//   open → completed  (emergency, direct close)
+//
+//   type   = "opd" | "inpatient" | "emergency"
+//             emergency bypasses card fee; ticket prefix is "E-"
+//
+// Every OPD visit generates exactly one OPDTicket for queue management.
+// One Invoice is created per visit (1:1, enforced by unique constraint).
+model Visit {
+  id         String    @id @default(cuid())
+  tenantId   String
+  patientId  String
+  type       String    @default("opd")        // opd | inpatient | emergency
+  status     String    @default("open")       // open | being_seen | ready_for_billing | completed
+  openedAt   DateTime  @default(now())
+  closedAt   DateTime?                        // Set when visit status reaches "completed"
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  ticket        OPDTicket?                    // 1:1 — one queue ticket per OPD visit
+  vitals        VitalSigns[]
+  notes         ClinicalNote[]
+  diagnoses     Diagnosis[]
+  labOrders     LabOrder[]
+  prescriptions Prescription[]
+  invoice       Invoice?                      // 1:1 — consolidated invoice per visit
+  referrals     Referral[]
+  receipts      PaymentReceipt[]              // Multiple partial receipts (card, lab, rx)
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@map("visit")
+}
+
+// ─── OPD TICKET ───────────────────────────────────────────
+//
+// Queue management token issued at Reception when a new visit is opened.
+// Mirrors the physical paper card given to patients at Ethiopian OPD desks.
+// ticketNumber is displayed on the OPD Queue Board screen in the waiting area.
+//
+//   ticketNumber  = Daily sequential: "A-001" (regular) | "E-001" (emergency). Resets midnight.
+//   status        = waiting | urgent | being-seen | done | no-show
+//   waitMinutes   = Elapsed time (issuedAt→calledAt) — KPI metric (avg OPD wait time target)
+//   paymentStatus = unpaid | paid | cbhi_covered | emergency_exempt
+//   paymentMethod = cash | telebirr | cbe_birr | card | cbhi | emergency
+model OPDTicket {
+  id            String    @id @default(cuid())
+  tenantId      String
+  visitId       String    @unique               // 1:1 with Visit
+  ticketNumber  String                          // e.g. "A-042" or "E-003"
+  status        String    @default("waiting")   // waiting | urgent | being-seen | done | no-show
+  issuedAt      DateTime  @default(now())
+  calledAt      DateTime?                       // When doctor called the patient into consultation room
+  completedAt   DateTime?                       // When doctor marked consultation done
+  waitMinutes   Int?                            // Elapsed wait time (KPI dashboard metric)
+  feeAmount     Float     @default(50.0)        // OPD card fee in ETB
+  paymentStatus String    @default("unpaid")    // unpaid | paid | cbhi_covered | emergency_exempt
+  paidAt        DateTime?
+  receiptNumber String    @default("")          // Cashier receipt number (e.g. "RCP-2025-00042")
+  paymentMethod String    @default("")          // cash | telebirr | cbe_birr | card | cbhi | emergency
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@index([tenantId])
+  @@map("opd_ticket")
+}
+
+// ─── APPOINTMENT ──────────────────────────────────────────
+//
+// Pre-scheduled future outpatient visits.
+// Created by Receptionist or via the patient self-service portal.
+// On patient arrival, Reception converts this into a full Visit record.
+//
+//   status = "scheduled" | "arrived" | "cancelled" | "no-show"
+model Appointment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  patientId String
+  doctor    String                            // Doctor display name or userId
+  dept      String                            // Department e.g. "Internal Medicine", "Pediatrics"
+  date      String                            // ISO date: "YYYY-MM-DD"
+  time      String                            // 24h time: "HH:MM"
+  status    String   @default("scheduled")    // scheduled | arrived | cancelled | no-show
+  createdAt DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId])
+  @@map("appointment")
+}
+
+// ─── VITAL SIGNS ──────────────────────────────────────────
+//
+// Nurse-recorded physiological measurements taken at triage or during a visit.
+// Multiple sets can be recorded per visit (e.g. triage + post-treatment follow-up).
+// All numeric fields are nullable — only available equipment readings are stored.
+//
+// Standard units:
+//   bpSystolic / bpDiastolic = mmHg
+//   heartRate                = beats per minute (bpm)
+//   temperature              = degrees Celsius (°C)
+//   spo2                     = % peripheral O2 saturation (pulse oximetry)
+//   weight                   = kilograms (kg)
+//   height                   = centimetres (cm)
+model VitalSigns {
+  id          String   @id @default(cuid())
+  visitId     String
+  recordedBy  String                          // userId of the recording nurse
+  recordedAt  DateTime @default(now())
+  bpSystolic  Int?                            // Systolic blood pressure (mmHg)
+  bpDiastolic Int?                            // Diastolic blood pressure (mmHg)
+  heartRate   Int?                            // Heart rate (bpm)
+  temperature Float?                          // Body temperature (°C)
+  spo2        Int?                            // Oxygen saturation (%)
+  weight      Float?                          // Weight (kg)
+  height      Float?                          // Height (cm)
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@map("vital_signs")
+}
+
+// ─── CLINICAL NOTE ────────────────────────────────────────
+//
+// Structured SOAP-format clinical documentation by the attending doctor.
+// Forms the core narrative of the Electronic Medical Record (EMR).
+// Maps to Ethiopian MOH Form 2B (OPD case note format).
+//
+//   chiefComplaint = S: Subjective — patient's presenting complaint in their own words
+//   history        = S: History of Present Illness (HPI) + review of systems
+//   examination    = O: Objective — physical examination findings
+//   assessment     = A: Assessment — clinical impression / differential diagnoses
+//   plan           = P: Plan — investigations ordered, treatment prescribed, follow-up schedule
+//
+// NOTE: Free-text narrative only. ICD-10 coded diagnoses live in the Diagnosis model.
+//   noteType = "consultation" | "progress" | "discharge" | "referral"
+model ClinicalNote {
+  id             String   @id @default(cuid())
+  visitId        String
+  authorId       String                        // userId of the authoring clinician
+  noteType       String   @default("consultation") // consultation | progress | discharge | referral
+  chiefComplaint String   @default("")         // S: Patient's presenting complaint
+  history        String   @default("")         // S: History of present illness (HPI)
+  examination    String   @default("")         // O: Physical examination findings
+  assessment     String   @default("")         // A: Clinical impression / differentials
+  plan           String   @default("")         // P: Management plan (investigations, treatment, follow-up)
+  createdAt      DateTime @default(now())
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@map("clinical_note")
+}
+
+// ─── DIAGNOSIS ────────────────────────────────────────────
+//
+// ICD-10 coded diagnosis entries for a visit.
+// Separated from ClinicalNote to enable structured queries for:
+//   - MOH HMIS disease surveillance reports
+//   - CBHI claim submission (EHIA mandates ICD-10 codes)
+//   - Hospital morbidity/mortality statistics
+//
+//   icdCode = ICD-10 code e.g. "J06.9" (URTI), "A09" (diarrhoea), "J18.9" (pneumonia)
+// Multiple diagnoses per visit supported (primary + secondary / co-morbidities).
+model Diagnosis {
+  id          String   @id @default(cuid())
+  visitId     String
+  icdCode     String                          // ICD-10 code — required for CBHI & MOH reporting
+  description String                          // Diagnosis name in English
+  notes       String   @default("")           // Additional clinician notes
+  diagnosedBy String                          // userId of the diagnosing clinician
+  diagnosedAt DateTime @default(now())
+
+  visit Visit @relation(fields: [visitId], references: [id])
+
+  @@map("diagnosis")
+}
+
+// ─── LAB ORDER ────────────────────────────────────────────
+//
+// A laboratory investigation requested by a doctor during consultation.
+// Fulfilled by a Lab Technician; result is returned to the ordering doctor.
+//
+// Workflow:
+//   Doctor creates order → Lab tech queue →
+//   Sample collected → in-progress → Results entered → Doctor notified
+//
+//   priority      = "routine" | "urgent"
+//                   Urgent orders appear at top of lab queue with a visual flag
+//                   and trigger immediate in-app notifications to Lab Technicians.
+//
+//   paymentStatus = unpaid | paid | cbhi_covered | emergency_exempt
+//                   Lab test fee collected at Cashier; dispense blocked until paid.
+//
+//   price         = Lab fee in ETB — resolved from HospitalServiceTariff first,
+//                   then falls back to hardcoded defaults (CBC: 150 ETB, RDT: 80 ETB, etc.)
+model LabOrder {
+  id            String    @id @default(cuid())
+  tenantId      String
+  visitId       String
+  orderedBy     String                         // userId of the ordering doctor
+  testName      String                         // Test name e.g. "CBC", "Malaria RDT", "Urinalysis"
+  priority      String    @default("routine")  // routine | urgent
+  indication    String    @default("")         // Clinical reason for ordering this test
+  status        String    @default("pending")  // pending | in-progress | completed | cancelled
+  price         Float     @default(120.0)      // Test fee in ETB
+  paymentStatus String    @default("unpaid")   // unpaid | paid | cbhi_covered | emergency_exempt
+  paidAt        DateTime?
+  receiptNumber String    @default("")         // Cashier receipt number
+  paymentMethod String    @default("")         // cash | telebirr | cbe_birr | card
+  orderedAt     DateTime  @default(now())
+
+  visit  Visit      @relation(fields: [visitId], references: [id])
+  result LabResult?                            // 1:1 — result entered after sample processing
+
+  @@index([tenantId])
+  @@map("lab_order")
+}
+
+// ─── LAB RESULT ───────────────────────────────────────────
+//
+// Structured results entered by the Lab Technician after processing the sample.
+//
+//   resultsJson = JSON array of result objects:
+//     [{ "name":"Haemoglobin", "value":"9.2", "unit":"g/dL",
+//        "refRange":"12-16", "flag":"low" }]
+//
+//   flag values: "normal" | "high" | "low" | "critical"
+//   "critical" flags trigger an urgent in-app notification to the ordering doctor.
+//
+//   interpretation = Free-text clinical summary e.g.
+//     "Moderate anaemia. Recommend iron supplementation and dietary advice."
+model LabResult {
+  id             String   @id @default(cuid())
+  labOrderId     String   @unique               // 1:1 with LabOrder
+  enteredBy      String                         // userId of the Lab Technician
+  enteredAt      DateTime @default(now())
+  resultsJson    String   @default("[]")        // JSON: [{ name, value, unit, refRange, flag }]
+  interpretation String   @default("")          // Free-text clinical interpretation
+
+  labOrder LabOrder @relation(fields: [labOrderId], references: [id])
+
+  @@map("lab_result")
+}
+
+// ─── PRESCRIPTION ─────────────────────────────────────────
+//
+// A medication order created by a doctor, containing one or more drug lines.
+// Processed by the Pharmacist for dispensing.
+//
+// Workflow:
+//   Doctor creates → Pharmacist queue (pending) →
+//   Payment verified at Cashier → FEFO stock deduction → Dispensed
+//
+//   status = "pending" | "dispensed" | "cancelled"
+//
+// IMPORTANT: Dispense is hard-blocked if any PrescriptionLine.paymentStatus = "unpaid".
+// Patient must settle at Cashier first (pay-before-dispense business rule).
+model Prescription {
+  id           String   @id @default(cuid())
+  tenantId     String
+  visitId      String
+  prescribedBy String                          // userId of the prescribing doctor
+  status       String   @default("pending")    // pending | dispensed | cancelled
+  createdAt    DateTime @default(now())
+
+  visit Visit              @relation(fields: [visitId], references: [id])
+  lines PrescriptionLine[]
+
+  @@index([tenantId])
+  @@map("prescription")
+}
+
+// ─── PRESCRIPTION LINE ────────────────────────────────────
+//
+// One drug entry within a prescription.
+//
+//   itemName    = Drug name and strength e.g. "Amoxicillin 500mg Caps"
+//   dose        = Single dose e.g. "500mg", "1 tablet"
+//   frequency   = Dosing schedule e.g. "3x daily", "2x daily", "once daily"
+//   durationDays = Course length in days
+//   unitPrice   = Price per unit in ETB (resolved from HospitalServiceTariff or defaults)
+//   totalPrice  = Calculated total cost for the full course in ETB
+//   batchId     = Links to InventoryBatch deducted during dispense (FEFO audit trail)
+//   paymentStatus = unpaid | paid | cbhi_covered | emergency_exempt
+//                   Pharmacist cannot dispense until all lines are paid.
+model PrescriptionLine {
+  id             String    @id @default(cuid())
+  prescriptionId String
+  itemId         String                         // InventoryItem link (empty = manually typed drug)
+  itemName       String                         // Drug name and strength
+  dose           String                         // Single dose amount e.g. "500mg"
+  frequency      String                         // Dosing frequency e.g. "3x daily"
+  durationDays   Int                            // Treatment course length in days
+  unitPrice      Float     @default(45.0)       // Price per unit in ETB
+  totalPrice     Float     @default(45.0)       // Total cost for full course in ETB
+  paymentStatus  String    @default("unpaid")   // unpaid | paid | cbhi_covered | emergency_exempt
+  paidAt         DateTime?
+  receiptNumber  String    @default("")         // Cashier receipt number
+  paymentMethod  String    @default("")         // cash | telebirr | cbe_birr | card
+  status         String    @default("pending")  // pending | dispensed | cancelled
+  dispensedAt    DateTime?                      // Timestamp when pharmacist dispensed this line
+  dispensedBy    String?                        // userId of the dispensing pharmacist
+  batchId        String?                        // InventoryBatch deducted (FEFO traceability)
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+
+  @@map("prescription_line")
+}
+
+// ─── INVENTORY ITEM ───────────────────────────────────────
+//
+// Master catalogue record for a drug, medical supply, or consumable.
+// Shared across all inventory operations: receiving, dispensing, transfers, counts.
+//
+//   nameAm    = Amharic name for bilingual display in pharmacy screens
+//   category  = "drug" | "consumable" | "reagent" | "equipment"
+//   uomBase   = Base unit of measure e.g. "tablet", "vial", "sachet"
+//   uomBox    = Bulk packaging unit e.g. "box", "carton"
+//   uomBoxQty = Number of base units per box (for goods receipt unit conversion)
+//   rop       = Reorder Point — minimum stock before a requisition alert is triggered
+//   maxLevel  = Maximum stocking level (used in quantification / demand planning)
+//   status    = "ok" | "low" | "critical" — auto-computed by recomputeItemStatus()
+//               critical = total stock ≤ 50% of ROP; low = total stock ≤ ROP
+model InventoryItem {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String                          // Drug/item name e.g. "Amoxicillin 500mg Caps"
+  nameAm     String   @default("")           // Amharic name for bilingual display
+  category   String                          // drug | consumable | reagent | equipment
+  uomBase    String                          // Base unit e.g. "tablet", "vial", "ml"
+  uomBox     String   @default("box")        // Bulk unit e.g. "box", "carton"
+  uomBoxQty  Int      @default(1)            // Base units per bulk package (for goods receipt)
+  rop        Int      @default(0)            // Reorder Point — triggers ROP alert when breached
+  maxLevel   Int      @default(0)            // Maximum stocking level for demand planning
+  supplierId String?                         // Default supplier (for auto-requisition suggestions)
+  status     String   @default("ok")         // ok | low | critical — auto-computed
+  createdAt  DateTime @default(now())
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  supplier      Supplier?           @relation(fields: [supplierId], references: [id])
+  batches       InventoryBatch[]
+  locationStock LocationStock[]
+  movements     StockMovement[]
+  consumption   ConsumptionRecord[]
+  reqLines      RequisitionLine[]
+  countLines    CycleCountLine[]
+
+  @@index([tenantId])
+  @@map("inventory_item")
+}
+
+// ─── INVENTORY BATCH ──────────────────────────────────────
+//
+// A specific delivery lot with full traceability.
+// FEFO (First Expired First Out) dispensing logic uses expiryDate to select batches.
+//
+//   lotNumber    = Manufacturer lot/batch number (for drug recall traceability)
+//   expiryDate   = "YYYY-MM-DD" — FEFO sorting key; used for expiry alerts (90-day threshold)
+//   receivedDate = Date goods physically arrived at the pharmacy store
+//   qty          = Current available quantity in this batch
+//   status       = "active" | "expired" | "quarantined"
+model InventoryBatch {
+  id           String   @id @default(cuid())
+  itemId       String
+  tenantId     String
+  lotNumber    String                         // Manufacturer lot/batch number
+  qty          Int      @default(0)           // Current quantity available in this batch
+  expiryDate   String                         // "YYYY-MM-DD" — FEFO key + expiry alert
+  receivedDate String                         // Date received at pharmacy
+  supplierId   String?                        // Supplier this batch was received from
+  locationId   String                         // Storage location (pharmacy, ward store)
+  status       String   @default("active")    // active | expired | quarantined
+
+  item     InventoryItem     @relation(fields: [itemId], references: [id])
+  location InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@index([tenantId])
+  @@map("inventory_batch")
+}
+
+// ─── INVENTORY LOCATION ───────────────────────────────────
+//
+// Physical storage locations within the hospital.
+// Stock levels are tracked per item per location via LocationStock.
+//
+//   type      = "pharmacy" | "ward" | "clinic" | "store"
+//   managerId = userId of the person responsible for this location
+model InventoryLocation {
+  id        String @id @default(cuid())
+  tenantId  String
+  name      String                          // e.g. "Main Pharmacy", "Maternity Ward Store"
+  type      String @default("pharmacy")     // pharmacy | ward | clinic | store
+  managerId String @default("")             // userId of location manager
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+  stock     LocationStock[]
+  batches   InventoryBatch[]
+  movements StockMovement[]
+
+  @@index([tenantId])
+  @@map("inventory_location")
+}
+
+// ─── LOCATION STOCK ───────────────────────────────────────
+//
+// Aggregate on-hand quantity for one item at one location.
+// Updated atomically on every receive, dispense, transfer, or adjustment.
+// The unique constraint prevents duplicate stock entries per item-location pair.
+model LocationStock {
+  id         String @id @default(cuid())
+  itemId     String
+  locationId String
+  tenantId   String
+  qty        Int    @default(0)             // Current on-hand quantity at this location
+
+  item     InventoryItem     @relation(fields: [itemId], references: [id])
+  location InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@unique([itemId, locationId])            // One stock record per item per location
+  @@map("location_stock")
+}
+
+// ─── STOCK MOVEMENT ───────────────────────────────────────
+//
+// Immutable audit ledger — every inventory transaction creates one row.
+// Used for stock reconciliation, loss investigation, and audit reports.
+//
+//   type values:
+//     "received"    = Goods receipt from supplier
+//     "dispensed"   = Issued to patient via prescription
+//     "expired"     = Written off as expired
+//     "damaged"     = Written off as damaged
+//     "correction"  = Manual adjustment after cycle count
+//     "transferred" = Moved between locations within the hospital
+//
+//   qty           = Positive = stock in; Negative = stock out
+//   toLocationId  = Only set for "transferred" movements
+model StockMovement {
+  id           String   @id @default(cuid())
+  tenantId     String
+  itemId       String
+  batchId      String?                        // Specific batch involved (FEFO traceability)
+  type         String                         // received|dispensed|expired|damaged|correction|transferred
+  qty          Int                            // Positive = in, Negative = out
+  locationId   String                         // Source location
+  toLocationId String?                        // Destination location (transfers only)
+  reference    String   @default("")          // External reference (invoice number, receipt number)
+  note         String   @default("")          // Free-text reason or note
+  userId       String                         // userId of the staff member performing the action
+  createdAt    DateTime @default(now())
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  item     InventoryItem     @relation(fields: [itemId], references: [id])
+  location InventoryLocation @relation(fields: [locationId], references: [id])
+
+  @@index([tenantId])
+  @@index([itemId])
+  @@map("stock_movement")
+}
+
+// ─── CONSUMPTION RECORD ───────────────────────────────────
+//
+// Monthly aggregated consumption per item per tenant.
+// Powers the Demand Forecast module (Average Monthly Consumption — AMC calculation).
+// AMC drives automatic Reorder Quantity in the Requisition / RRF module.
+//
+//   month = "YYYY-MM" e.g. "2025-07"
+//   qty   = Total units consumed in that month
+model ConsumptionRecord {
+  id       String @id @default(cuid())
+  itemId   String
+  tenantId String
+  month    String                           // "YYYY-MM" — monthly aggregation period
+  qty      Int    @default(0)               // Total units consumed this month
+
+  item InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@unique([itemId, tenantId, month])       // One record per item per tenant per month
+  @@map("consumption_record")
+}
+
+// ─── SUPPLIER ─────────────────────────────────────────────
+//
+// Drug and medical supply vendors.
+// Used in goods receipt, requisitions, and lead-time calculations.
+//
+//   name     = Short name e.g. "PFSA" (Pharmaceutical Fund & Supply Agency)
+//   leadDays = Average delivery lead time in days (used in ROP calculations)
+model Supplier {
+  id        String @id @default(cuid())
+  tenantId  String
+  name      String                          // Short name e.g. "PFSA", "EPHARM"
+  fullName  String @default("")             // Full legal entity name
+  contact   String @default("")             // Primary contact person name
+  phone     String @default("")             // Contact phone number
+  leadDays  Int    @default(14)             // Avg. delivery lead time in days
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  items        InventoryItem[]
+  requisitions Requisition[]
+
+  @@index([tenantId])
+  @@map("supplier")
+}
+
+// ─── REQUISITION ──────────────────────────────────────────
+//
+// Formal stock replenishment request (Requisition & Report Form — RRF).
+// Aligns with Ethiopia's PFSA reporting cycle for public hospital pharmacies.
+//
+//   type   = "routine" (monthly/quarterly cycle) | "emergency" (immediate need)
+//   status = "pending" | "approved" | "ordered" | "received"
+//   Emergency requisitions are auto-approved; routine ones require supervisor sign-off.
+model Requisition {
+  id            String   @id @default(cuid())
+  tenantId      String
+  supplierId    String
+  type          String   @default("routine")   // routine | emergency
+  status        String   @default("pending")   // pending | approved | ordered | received
+  requestedBy   String                         // userId of the pharmacist who raised the request
+  approvedBy    String?                        // userId of supervisor who approved
+  justification String   @default("")          // Clinical/operational reason for the request
+  createdAt     DateTime @default(now())
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  supplier Supplier         @relation(fields: [supplierId], references: [id])
+  lines    RequisitionLine[]
+
+  @@index([tenantId])
+  @@map("requisition")
+}
+
+// ─── REQUISITION LINE ─────────────────────────────────────
+//
+// One drug/item line within a requisition.
+//   qtyRequested = Quantity in base units
+//   unitCost     = Estimated unit cost in ETB (for budget approval)
+model RequisitionLine {
+  id            String  @id @default(cuid())
+  requisitionId String
+  itemId        String
+  qtyRequested  Int                           // Quantity requested (base units)
+  unitCost      Float   @default(0)           // Estimated unit cost in ETB
+
+  requisition Requisition   @relation(fields: [requisitionId], references: [id])
+  item        InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@map("requisition_line")
+}
+
+// ─── CYCLE COUNT ──────────────────────────────────────────
+//
+// A physical stock count exercise by pharmacy staff.
+// Compares system quantities vs. physically counted quantities.
+// Variances are investigated and categorised for loss reporting.
+//
+//   status = "in-progress" | "completed"
+model CycleCount {
+  id          String   @id @default(cuid())
+  tenantId    String
+  conductedBy String                          // userId of the staff who conducted the count
+  status      String   @default("in-progress") // in-progress | completed
+  date        DateTime @default(now())
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  lines  CycleCountLine[]
+
+  @@map("cycle_count")
+}
+
+// ─── CYCLE COUNT LINE ─────────────────────────────────────
+//
+//   systemQty    = Quantity per system records at time of count
+//   countedQty   = Physically verified quantity
+//   variance     = countedQty - systemQty (negative = loss/shrinkage)
+//   lossCategory = "expired" | "damaged" | "theft" | "admin_error"
+model CycleCountLine {
+  id             String  @id @default(cuid())
+  cycleCountId   String
+  itemId         String
+  systemQty      Int                          // System quantity at time of count
+  countedQty     Int                          // Physically counted quantity
+  variance       Int                          // countedQty - systemQty (negative = loss)
+  varianceReason String  @default("")         // Free-text explanation of discrepancy
+  lossCategory   String  @default("")         // expired | damaged | theft | admin_error
+
+  cycleCount CycleCount    @relation(fields: [cycleCountId], references: [id])
+  item       InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@map("cycle_count_line")
+}
+
+// ─── INVOICE ──────────────────────────────────────────────
+//
+// Consolidated billing document for a patient visit.
+// 1:1 with Visit (enforced by @unique on visitId).
+// Created by Billing Officer or auto-generated at visit close.
+//
+//   status = "pending" | "paid" | "waived" | "waiver-requested" | "cbhi-submitted"
+//   total  = Sum of all InvoiceLine amounts in ETB
+model Invoice {
+  id        String    @id @default(cuid())
+  tenantId  String
+  visitId   String    @unique                // 1:1 with Visit
+  patientId String
+  status    String    @default("pending")    // pending | paid | waived | waiver-requested | cbhi-submitted
+  total     Float     @default(0)            // Total invoice amount in ETB
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?                        // Timestamp when fully settled
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  visit     Visit         @relation(fields: [visitId], references: [id])
+  lines     InvoiceLine[]
+  cbhiClaim CBHIClaim?                       // 1:1 — CBHI claim if patient is insured
+  feeWaiver FeeWaiver?                       // 1:1 — waiver if approved by Hospital Admin
+
+  @@index([tenantId])
+  @@map("invoice")
+}
+
+// ─── INVOICE LINE ─────────────────────────────────────────
+//
+// Itemised billing line within an invoice.
+// Each line = one billable service (OPD registration, consult, lab test, drug).
+model InvoiceLine {
+  id          String @id @default(cuid())
+  invoiceId   String
+  description String                         // Service description e.g. "CBC - Complete Blood Count"
+  qty         Int    @default(1)             // Quantity (e.g. admission days, test count)
+  unitPrice   Float                          // Price per unit in ETB
+  total       Float                          // qty × unitPrice
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("invoice_line")
+}
+
+// ─── CBHI CLAIM ───────────────────────────────────────────
+//
+// Community-Based Health Insurance claim submitted on behalf of an enrolled patient.
+// Aligns with Ethiopia's National CBHI scheme managed by the EHIA
+// (Ethiopian Health Insurance Authority).
+//
+//   status          = "submitted" | "approved" | "rejected" | "paid"
+//   rejectionReason = Required when status = "rejected" (regulatory compliance)
+model CBHIClaim {
+  id              String    @id @default(cuid())
+  tenantId        String
+  invoiceId       String    @unique             // 1:1 with Invoice
+  patientId       String
+  amount          Float                         // Claimed amount in ETB
+  status          String    @default("submitted") // submitted | approved | rejected | paid
+  submittedAt     DateTime  @default(now())
+  resolvedAt      DateTime?                     // When EHIA approved or rejected the claim
+  rejectionReason String    @default("")        // Required when rejected (regulatory)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@map("cbhi_claim")
+}
+
+// ─── FEE WAIVER ───────────────────────────────────────────
+//
+// Partial or full fee exemption approved by Hospital Admin.
+// Used for indigent patients, social cases, and MOH-mandated exemptions
+// (e.g. under-5 children, ANC visits in public hospitals).
+//
+//   amount  = Amount waived in ETB
+//   reason  = Justification — minimum 10 characters enforced at API level
+//   status  = "pending" | "approved" | "rejected"
+model FeeWaiver {
+  id          String    @id @default(cuid())
+  tenantId    String
+  invoiceId   String    @unique               // 1:1 with Invoice
+  patientId   String
+  amount      Float                           // Amount waived in ETB
+  reason      String                          // Justification (min 10 chars — API enforced)
+  requestedBy String                          // userId of the Billing Officer who requested
+  approvedBy  String?                         // userId of Hospital Admin who approved/rejected
+  status      String    @default("pending")   // pending | approved | rejected
+  createdAt   DateTime  @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@map("fee_waiver")
+}
+
+// ─── REFERRAL ─────────────────────────────────────────────
+//
+// Formal patient referral between health facilities.
+// Aligns with Ethiopia's National Referral System guidelines.
+//
+//   type    = "out" (this facility refers patient) | "in" (receiving referred patient)
+//   urgency = "routine" | "urgent" | "emergency"
+//   status  = "pending" | "in-transit" | "arrived" | "lost"
+//
+// Business Rules:
+//   BR-18: clinicalSummary must be ≥ 50 characters (enough info for receiving facility)
+//   BR-19: Patient must have an active visit on the same day the referral is created
+//   BR-20: Referrals not confirmed within 72 hours are auto-flagged as "lost"
+//          by the referralRouter.flagLost() mutation (intended as a scheduled job)
+model Referral {
+  id              String    @id @default(cuid())
+  tenantId        String
+  visitId         String                       // Must be active visit on same day (BR-19)
+  patientId       String
+  fromFacility    String                       // Referring facility name
+  toFacility      String                       // Receiving facility name
+  reason          String                       // Primary referral reason
+  clinicalSummary String    @default("")       // Min 50 chars of clinical context (BR-18)
+  urgency         String    @default("routine") // routine | urgent | emergency
+  type            String    @default("out")    // out | in
+  status          String    @default("pending") // pending | in-transit | arrived | lost
+  createdBy       String                       // userId of the clinician who created the referral
+  confirmedBy     String?                      // userId of coordinator who confirmed arrival
+  createdAt       DateTime  @default(now())
+  confirmedAt     DateTime?                    // Timestamp of arrival confirmation
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  visit  Visit  @relation(fields: [visitId], references: [id])
+
+  @@index([tenantId])
+  @@map("referral")
+}
+
+// ─── BED ──────────────────────────────────────────────────
+//
+// Physical inpatient bed in a hospital ward.
+// Managed by the Ward Manager for admissions and occupancy tracking.
+//
+//   ward   = Ward name e.g. "Medical Ward", "Maternity", "Paediatrics", "ICU"
+//   room   = Room/bay identifier e.g. "Room 3", "Bay B"
+//   status = "available" | "occupied" | "maintenance" | "reserved"
+model Bed {
+  id       String @id @default(cuid())
+  tenantId String
+  ward     String                           // Ward name e.g. "Medical Ward", "ICU"
+  room     String                           // Room/bay identifier
+  status   String @default("available")     // available | occupied | maintenance | reserved
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  admissions Admission[]
+
+  @@index([tenantId])
+  @@map("bed")
+}
+
+// ─── ADMISSION ────────────────────────────────────────────
+//
+// Inpatient admission record — links a patient to a specific bed.
+// Creating an Admission sets Bed.status = "occupied".
+// Discharging sets Bed.status = "available" and records dischargedAt.
+//
+//   status = "active" | "discharged"
+model Admission {
+  id           String    @id @default(cuid())
+  tenantId     String
+  patientId    String
+  bedId        String                         // Specific bed assigned to this patient
+  admittedAt   DateTime  @default(now())
+  dischargedAt DateTime?                      // Set on discharge
+  status       String    @default("active")   // active | discharged
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+  bed     Bed     @relation(fields: [bedId], references: [id])
+
+  @@index([tenantId])
+  @@map("admission")
+}
+
+// ─── NOTIFICATION ─────────────────────────────────────────
+//
+// In-app notification system for clinical alerts and workflow handoffs.
+// Examples:
+//   - Doctor receives "Lab result ready" or "⚠ CRITICAL lab result" alert
+//   - Pharmacist receives "New prescription (3 medications)" notification
+//   - Cashier receives "Patient transferred to billing" workflow trigger
+//
+//   type  = "in-app" | "billing" | "lab" | "clinical"
+//   read  = false until the recipient opens/acknowledges the notification
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String                           // Recipient's userId
+  type      String   @default("in-app")      // in-app | billing | lab | clinical
+  title     String                           // Short notification title
+  body      String                           // Notification message body
+  read      Boolean  @default(false)         // false = unread
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, userId])               // Fast unread-count queries per user
+  @@map("notification")
+}
+
+// ─── AUDIT LOG ────────────────────────────────────────────
+//
+// Immutable security and compliance log of every significant system action.
+// Required for MOH/regulatory inspections and internal governance reviews.
+//
+// Examples of logged events:
+//   "Registered new patient"   → entity: Patient
+//   "Viewed patient record"    → entity: Patient
+//   "Created referral"         → entity: Referral
+//   "Dispensed prescription"   → entity: Prescription
+//
+//   metadata  = JSON string of additional context (e.g. before/after field values)
+//   ipAddress = Client IP for security investigations
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String                           // Who performed the action
+  action    String                           // Human-readable action description
+  entity    String                           // Model name e.g. "Patient", "Referral"
+  entityId  String   @default("")            // Primary key of the affected record
+  metadata  String   @default("{}")          // JSON string of extra context
+  ipAddress String   @default("")            // Client IP address
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("audit_log")
+}
+
+// ─── FEATURE FLAG ─────────────────────────────────────────
+//
+// Per-tenant feature toggles for gradual module rollout and A/B testing.
+// Allows enabling specific modules (CBHI, Referral, Patient Portal) per hospital
+// without separate deployments.
+//
+//   flag    = Feature key e.g. "cbhi_enabled", "referral_module", "patient_portal"
+//   enabled = true = feature active for this tenant
+model FeatureFlag {
+  id       String  @id @default(cuid())
+  tenantId String
+  flag     String                           // Feature key e.g. "cbhi_enabled"
+  enabled  Boolean @default(false)          // true = enabled for this tenant
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, flag])                // One flag setting per feature per tenant
+  @@map("feature_flag")
+}
+
+// ─── PAYMENT RECEIPT ─────────────────────────────────────
+//
+// Official payment receipt issued at the cashier window.
+// One receipt per payment transaction; multiple receipts can exist per visit
+// (e.g. card-fee receipt issued at Reception + pharmacy receipt at Cashier).
+//
+//   receiptNumber = Globally unique: "RCP-YYYY-NNNNN" e.g. "RCP-2025-00047"
+//   category      = card_fee | consultation | lab | pharmacy | total_invoice
+//                   Enables itemised financial reporting by service category
+//   paymentMethod = cash | telebirr | cbe_birr | card | cbhi | waiver
+//                   telebirr and cbe_birr are the two dominant mobile-money platforms in Ethiopia
+//   collectedBy   = userId of the cashier who collected
+//   reference     = External transaction ID (e.g. telebirr reference number)
+model PaymentReceipt {
+  id            String   @id @default(cuid())
+  tenantId      String
+  receiptNumber String   @unique               // "RCP-YYYY-NNNNN" — globally unique
+  patientId     String
+  visitId       String
+  category      String                         // card_fee | consultation | lab | pharmacy | total_invoice
+  amount        Float                          // Amount collected in ETB
+  paymentMethod String                         // cash | telebirr | cbe_birr | card | cbhi | waiver
+  collectedBy   String   @default("")          // userId of the cashier
+  reference     String   @default("")          // External transaction reference (telebirr ID, etc.)
+  notes         String   @default("")          // Internal notes on this payment transaction
+  createdAt     DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+  visit   Visit   @relation(fields: [visitId], references: [id])
+
+  @@index([tenantId])
+  @@index([visitId])
+  @@map("payment_receipt")
+}
+
+// ─── HOSPITAL SERVICE TARIFF / PRICING ───────────────────
+//
+// Per-tenant service price list (fee schedule / tariff book).
+// Allows each hospital to configure its own pricing for every billable service.
+// Takes precedence over the flat cardFeeAmount / specialistFeeAmount on Tenant.
+//
+//   code      = Internal service code (unique per tenant):
+//               "OPD_REG_GENERAL"    — Standard OPD registration/card fee
+//               "OPD_REG_EMERGENCY"  — Emergency registration fee
+//               "CONSULT_SPECIALIST" — Specialist consultation fee
+//               "LAB_CBC"            — CBC complete blood count fee
+//               "PROC_XRAY"          — X-Ray procedure fee
+//               "BED_GEN_WARD"       — General ward bed fee per day
+//   category  = registration | consultation | lab | procedure | inpatient | pharmacy
+//   price     = Service fee in ETB
+//   isActive  = false = tariff suspended (e.g. during MOH-mandated price freezes)
+model HospitalServiceTariff {
+  id          String   @id @default(cuid())
+  tenantId    String
+  code        String                          // Service code e.g. "OPD_REG_GENERAL", "LAB_CBC"
+  name        String                          // Display name e.g. "OPD Registration - General"
+  category    String                          // registration | consultation | lab | procedure | inpatient | pharmacy
+  department  String   @default("General")    // Department this tariff applies to
+  price       Float    @default(0.0)          // Service fee in ETB
+  description String   @default("")           // Description for billing staff reference
+  isActive    Boolean  @default(true)         // false = suspended tariff
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])                  // One price per service code per tenant
+  @@index([tenantId, category])
+  @@map("hospital_service_tariff")
+}
+
+// ─── ROLE PERMISSION MATRIX ───────────────────────────────
+//
+// Configurable permission set for each role within a tenant.
+// Allows Hospital Admin to customise module access beyond hardcoded API role guards.
+//
+//   role        = Role slug e.g. "Doctor", "Nurse", "Receptionist"
+//   permissions = JSON array string of permission keys:
+//                 e.g. '["clinical.notes.view","lab.orders.create","referral.create"]'
+//
+// Enables the Hospital Admin to restrict a role further than the default,
+// e.g. a junior nurse may not access billing screens at all.
+model RolePermission {
+  id          String   @id @default(cuid())
+  tenantId    String
+  role        String                          // Role slug e.g. "Doctor", "Nurse"
+  permissions String                          // JSON array string of permission keys
+  description String   @default("")           // Human-readable description of this role's access
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, role])                  // One permission set per role per tenant
+  @@index([tenantId])
+  @@map("role_permission")
+}

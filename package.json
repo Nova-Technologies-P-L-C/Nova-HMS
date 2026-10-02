@@ -1,0 +1,43 @@
+{
+  "name": "my-better-t-app",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:web": "turbo run dev -F web --",
+    "dev:server": "turbo run dev -F server --",
+    "db:push": "turbo run db:push -F @my-better-t-app/db --",
+    "db:studio": "turbo run db:studio -F @my-better-t-app/db --",
+    "db:generate": "turbo run db:generate -F @my-better-t-app/db --",
+    "db:migrate": "turbo run db:migrate -F @my-better-t-app/db --",
+    "db:local": "turbo run db:local -F @my-better-t-app/db --",
+    "deploy": "turbo run deploy -F @my-better-t-app/infra --",
+    "destroy": "turbo run destroy -F @my-better-t-app/infra --"                                                                                                                                                                                                                                                                                                                                                                                                                                   
+  },
+  "dependencies": {
+    "@my-better-t-app/env": "*",
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@my-better-t-app/config": "*",
+    "@types/node": "^26.2.0",
+    "turbo": "^2.10.12",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "npm@11.16.0",
+  "allowScripts": {
+    "esbuild": true,
+    "sharp": true,
+    "msgpackr-extract": true,
+    "workerd": true,
+    "@prisma/engines": true,
+    "prisma": true
+  }
+}
