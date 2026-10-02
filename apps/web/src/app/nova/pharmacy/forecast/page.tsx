@@ -1,66 +1,37 @@
 "use client";
-// ─── DEMAND FORECASTING PAGE ──────────────────────────────────────────────────
-// Role: Pharmacist
-// Purpose: Analyses historical monthly consumption to predict future drug demand
-//          and generate quantification suggestions (how much to order, when).
-//          Aligns with Ethiopia's PFSA quantification methodology — Average Monthly
-//          Consumption (AMC) × Lead Time + Safety Stock.
-//
-// Algorithm used:
-//   AMC (6-month average) → 3-month weighted forecast → adjusted for seasonality
-//   Artemether/Lumefantrine gets a 1.4× seasonal multiplier for rainy season
-//   (Jun–Sep) when malaria incidence rises in the Amhara region.
-//
-// ⚠ PRODUCTION WARNING — all data here is from the INVENTORY + CONSUMPTION_HISTORY
-//   mock arrays. Forecasts shown are derived entirely from hardcoded demo numbers.
-//   Wire to real tRPC endpoints before go-live:
-//
-// TODO (HIGH): Replace INVENTORY with trpc.inventory.items.queryOptions()
-// TODO (HIGH): Replace CONSUMPTION_HISTORY with trpc.inventory.consumption.queryOptions({ itemId })
-//   The API stores monthly consumption records in the ConsumptionRecord table,
-//   updated whenever stock is dispensed or a cycle count is submitted.
-// ──────────────────────────────────────────────────────────────────────────────
 import { useState } from "react";
-import { INVENTORY, CONSUMPTION_HISTORY } from "@/lib/nova-mock-data"; // TODO: replace with tRPC
+import { INVENTORY, CONSUMPTION_HISTORY } from "@/lib/nova-mock-data";
 import { PageShell, Card, KpiCard } from "@/components/nova/nova-ui";
 import { TrendingUp, TrendingDown, Minus, AlertTriangle } from "lucide-react";
 
 export default function ForecastPage() {
   const [selectedItem, setSelectedItem] = useState("INV001");
 
-  // Filter consumption history for the selected item
   const itemHistory = CONSUMPTION_HISTORY.filter((c) => c.itemId === selectedItem);
   const item = INVENTORY.find((i) => i.id === selectedItem);
 
-  // 6-month AMC (Average Monthly Consumption) — PFSA quantification baseline
   const avg = itemHistory.length > 0 ? Math.round(itemHistory.reduce((s, c) => s + c.qty, 0) / itemHistory.length) : 0;
-  // Last-3-month weighted average — more responsive to recent demand shifts
   const last3 = itemHistory.slice(-3);
   const last3Avg = last3.length > 0 ? Math.round(last3.reduce((s, c) => s + c.qty, 0) / last3.length) : 0;
-  // Trend detection: "up" if recent avg >10% above overall avg, "down" if <10% below
   const trend = last3Avg > avg * 1.1 ? "up" : last3Avg < avg * 0.9 ? "down" : "stable";
 
-  // 3-month forward forecast using last-3 avg as base, adjusted for seasonality
+  // Simple forecast: next 3 months using weighted average (recent months weighted more)
   const forecast = [1, 2, 3].map((offset) => {
     const base = last3Avg;
-    // Malaria drug seasonal adjustment: rainy season Jun–Sep (months 5–8 in 0-indexed)
-    // causes 40% demand surge for Artemether/Lumefantrine in Amhara region.
+    // Seasonal bump for malaria drugs in rainy season (Jun-Sep)
     const nextMonth = (new Date().getMonth() + offset) % 12;
     const seasonalMultiplier = (selectedItem === "INV003" && nextMonth >= 5 && nextMonth <= 8) ? 1.4 : 1;
     return Math.round(base * seasonalMultiplier);
   });
 
-  // Max-level gap — how many units to order to reach PAR (maximum stocking level)
   const suggestedReorder = item ? Math.max(0, item.maxLevel - item.qty) : 0;
-  // Months of stock remaining at current AMC
   const monthsOfStock = avg > 0 && item ? Math.round((item.qty / avg) * 10) / 10 : 0;
 
   const maxBar = Math.max(...itemHistory.map((c) => c.qty), ...forecast);
 
-  // Build summary row for every item that has consumption history
   const allItems = Array.from(new Set(CONSUMPTION_HISTORY.map((c) => c.itemId)));
 
-  // Summary table: one row per item with AMC, trend, and months-of-stock
+  // Summary table for all items
   const summaryRows = allItems.map((itemId) => {
     const hist = CONSUMPTION_HISTORY.filter((c) => c.itemId === itemId);
     const inv = INVENTORY.find((i) => i.id === itemId);

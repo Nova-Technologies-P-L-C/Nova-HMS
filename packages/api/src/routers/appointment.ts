@@ -2,6 +2,7 @@ import prisma from "@my-better-t-app/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
+import { sendAppointmentConfirmationEmail, sendAppointmentStatusEmail } from "../services/email";
 
 export const appointmentRouter = router({
   // Book appointment
@@ -28,9 +29,42 @@ export const appointmentRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "Doctor already has an appointment at this time (SCH-02)" });
       }
 
-      return prisma.appointment.create({
+      const appointment = await prisma.appointment.create({
         data: { ...input, tenantId: ctx.tenantId },
+        include: {
+          patient: true,
+          tenant: { select: { name: true } },
+        },
       });
+
+      // Send Brevo email if patient has an email registered
+      if (appointment.patient?.email) {
+        sendAppointmentConfirmationEmail({
+          patientEmail: appointment.patient.email,
+          patientName: appointment.patient.nameEn,
+          healthId: appointment.patient.healthId,
+          doctor: appointment.doctor,
+          department: appointment.dept,
+          date: appointment.date,
+          time: appointment.time,
+          hospitalName: appointment.tenant?.name,
+        }).catch((err) => console.error("[Brevo Email Error]:", err));
+      }
+
+      // Record in-app notification
+      if (ctx.userId) {
+        prisma.notification.create({
+          data: {
+            tenantId: ctx.tenantId,
+            userId: ctx.userId,
+            type: "appointment",
+            title: "Appointment Scheduled",
+            body: `Appointment booked for ${appointment.patient?.nameEn || "patient"} with ${appointment.doctor} on ${appointment.date} at ${appointment.time}.`,
+          },
+        }).catch(() => {});
+      }
+
+      return appointment;
     }),
 
   // List appointments
@@ -64,9 +98,29 @@ export const appointmentRouter = router({
         where: { id: input.id, tenantId: ctx.tenantId },
       });
 
-      return prisma.appointment.update({
+      const updated = await prisma.appointment.update({
         where: { id: appointment.id },
         data: { status: input.status },
+        include: {
+          patient: true,
+          tenant: { select: { name: true } },
+        },
       });
+
+      // Send status change notification if patient has email
+      if (updated.patient?.email && (input.status === "cancelled" || input.status === "confirmed")) {
+        sendAppointmentStatusEmail({
+          patientEmail: updated.patient.email,
+          patientName: updated.patient.nameEn,
+          doctor: updated.doctor,
+          dept: updated.dept,
+          date: updated.date,
+          time: updated.time,
+          status: input.status,
+          hospitalName: updated.tenant?.name,
+        }).catch((err) => console.error("[Brevo Status Email Error]:", err));
+      }
+
+      return updated;
     }),
 });

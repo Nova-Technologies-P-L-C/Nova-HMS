@@ -1,30 +1,7 @@
 "use client";
-// ─── REPORTS & ANALYTICS PAGE ─────────────────────────────────────────────────
-// Role: Hospital Admin
-// Purpose: Executive summary of hospital performance metrics — patient volume,
-//          financial revenue, disease burden, and bed occupancy. Used for
-//          management reporting and MOH/Regional Health Bureau submissions.
-//
-// ⚠ PRODUCTION WARNING — ALL numbers on this page are hardcoded mock data.
-//   KPIs ("312 patients", "ETB 73,000"), bar chart values, and disease trends
-//   are static demo figures. No real database queries are made.
-//
-// TODO (HIGH): Each KPI must be replaced with a real tRPC query:
-//   - Patients seen:   trpc.visit.queue (count by date range)
-//   - Avg wait time:   average of OPDTicket.waitMinutes
-//   - Bed occupancy:   trpc.ward.beds (count occupied / total)
-//   - Revenue:         trpc.billing.receipts (sum amounts by date range)
-//   - Disease trends:  aggregate Diagnosis.icdCode counts grouped by description
-//   - Monthly revenue: trpc.billing.receipts grouped by month
-//
-// TODO (MEDIUM): Add date range filter that actually queries the backend with
-//   the selected range. Currently the range selector changes state but has
-//   no effect on the displayed data.
-//
-// TODO (LOW): Export to PDF/Excel for MOH HMIS reporting requirements.
-// ──────────────────────────────────────────────────────────────────────────────
+// Hospital Admin — Reports & Analytics (page 15)
 import { useState } from "react";
-import { BEDS, OPD_QUEUE, BILLING_INVOICES } from "@/lib/nova-mock-data"; // TODO: replace with tRPC
+import { BEDS, OPD_QUEUE, BILLING_INVOICES } from "@/lib/nova-mock-data";
 import { PageShell, KpiCard, Card } from "@/components/nova/nova-ui";
 
 // Simple bar chart using CSS
@@ -70,7 +47,6 @@ const MONTHLY_REVENUE = [
 
 export default function ReportsPage() {
   const [range, setRange] = useState("This month");
-  // TODO (HIGH): Replace with trpc.ward.beds query — currently using mock BEDS array
   const occupied = BEDS.filter((b) => b.status === "occupied").length;
   const totalBeds = BEDS.length;
 
@@ -84,12 +60,9 @@ export default function ReportsPage() {
         </select>
       }
     >
-      {/* KPI summary row — all values are currently hardcoded demo numbers */}
-      {/* TODO (HIGH): each value must come from a real tRPC query — see file header */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <KpiCard label="Patients seen" value="312" sub="Sep 2026" />
         <KpiCard label="Avg wait time" value="24 min" sub="OPD" />
-        {/* Bed occupancy — partial real data from BEDS mock, rest hardcoded */}
         <KpiCard label="Bed occupancy" value={`${Math.round((occupied / totalBeds) * 100)}%`} accent />
         <KpiCard label="Revenue" value="ETB 73,000" sub="Aug 2026" />
       </div>

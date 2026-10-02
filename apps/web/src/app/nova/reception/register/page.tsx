@@ -1,128 +1,76 @@
 "use client";
-// ─── PATIENT REGISTRATION PAGE ────────────────────────────────────────────────
-// Role: Receptionist
-// Purpose: First screen in the OPD patient journey.
-//   Tab 1 "New patient"      — Register a brand-new patient and open their first visit.
-//   Tab 2 "Returning patient" — Find an existing patient and open a new visit for today.
-//
-// Workflow position:
-//   [this page] → OPD Queue → Nurse Triage → Doctor → Billing
-//
-// New patient flow:
-//   Fill form → select payment → Register & issue ticket
-//   → patient.register() → visit.openVisit() → QR card + receipt shown
-//
-// Returning patient flow:
-//   Search by name / Health ID / phone → select → select payment → Check in
-//   → visit.openVisit() → receipt shown (no new patient record created)
-//
-// Duplicate prevention (P9):
-//   When the nurse types a phone number in the New patient form, the system
-//   runs a live trpc.patient.search() on that phone number. If a match is found,
-//   a warning banner appears prompting the nurse to switch to "Returning patient"
-//   instead of creating a duplicate record.
-//
-// Visit-already-open guard (P16):
-//   Before checking in a returning patient, the system checks whether that patient
-//   already has an open visit today. If yes, a warning is shown so the receptionist
-//   does not create a second visit for the same episode.
-// ──────────────────────────────────────────────────────────────────────────────
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
-import { AlertTriangle, CheckCircle, UserPlus } from "lucide-react";
+import { AlertTriangle, CheckCircle, UserPlus, QrCode, Printer } from "lucide-react";
 import { PatientIDCardVisual } from "@/components/nova/patient-qr";
 
 export default function PatientRegistrationPage() {
   const router = useRouter();
-  const [searchQuery, setSearchQuery]     = useState("");
-  const [form, setForm] = useState({
-    nameEn: "", nameAm: "", dob: "", sex: "M" as "M" | "F",
-    phone: "", kebele: "", cbhiStatus: false,
-  });
-  const [isEmergency, setIsEmergency]         = useState(false);
-  const [paymentMethod, setPaymentMethod]     = useState<"cash" | "telebirr" | "cbe_birr" | "unpaid">("cash");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [form, setForm] = useState({ nameEn: "", nameAm: "", dob: "", sex: "M" as "M" | "F", phone: "", email: "", kebele: "", cbhiStatus: false });
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "telebirr" | "cbe_birr" | "unpaid">("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const [submitted, setSubmitted] = useState<{
-    healthId: string; ticket: string; name: string; nameAm?: string;
-    dob?: string; phone?: string; kebele?: string; cbhiStatus?: boolean;
-    receiptNumber?: string; paymentStatus: string; feeAmount: number;
+    healthId: string;
+    ticket: string;
+    name: string;
+    nameAm?: string;
+    dob?: string;
+    phone?: string;
+    kebele?: string;
+    cbhiStatus?: boolean;
+    receiptNumber?: string;
+    paymentStatus: string;
+    feeAmount: number;
   } | null>(null);
-  const [tab, setTab]                       = useState<"new" | "existing">("new");
+  const [tab, setTab] = useState<"new" | "existing">("new");
   const [selectedExisting, setSelectedExisting] = useState<string | null>(null);
-  // P16: when true, warn the receptionist before opening a second visit
-  const [visitOpenWarningDismissed, setVisitOpenWarningDismissed] = useState(false);
 
-  // Fetch tenant config to resolve card fee amount from tariff
-  const { data: tenant }      = useQuery(trpc.tenant.get.queryOptions());
+  const { data: tenant } = useQuery(trpc.tenant.get.queryOptions());
   const { data: regTariffs = [] } = useQuery(
     trpc.tariff.list.queryOptions({ category: "registration", activeOnly: true })
   );
-  const generalTariff  = regTariffs.find((t) => t.code === "OPD_REG_GENERAL");
-  const emergTariff    = regTariffs.find((t) => t.code === "OPD_REG_EMERGENCY");
-  const cardFeeAmount  = isEmergency
+  const generalTariff = regTariffs.find((t) => t.code === "OPD_REG_GENERAL");
+  const emergTariff = regTariffs.find((t) => t.code === "OPD_REG_EMERGENCY");
+  const cardFeeAmount = isEmergency
     ? (emergTariff?.price ?? 100)
     : (generalTariff?.price ?? tenant?.cardFeeAmount ?? 50);
 
-  // Returning patient search — runs when searchQuery has ≥ 2 characters
   const searchResults = useQuery({
     ...trpc.patient.search.queryOptions({ query: searchQuery }),
     enabled: searchQuery.length > 1,
   });
 
-  // P9: Duplicate phone check — runs when phone field has ≥ 6 digits
-  // Searches existing patients by phone to catch potential duplicates before
-  // the nurse completes the new patient form.
-  const phoneDuplicateCheck = useQuery({
-    ...trpc.patient.search.queryOptions({ query: form.phone }),
-    enabled: form.phone.replace(/\D/g, "").length >= 6,
-  });
-  // Only surface matches that share the same phone (not just name/ID partial hits)
-  const phoneDuplicates = (phoneDuplicateCheck.data ?? []).filter(
-    (p) => p.phone && p.phone.replace(/\D/g, "") === form.phone.replace(/\D/g, "")
-  );
-
-  // P16: Today's open visits for the selected returning patient
-  // Used to warn the receptionist if a visit is already open today.
-  const todayQueue = useQuery({
-    ...trpc.visit.queue.queryOptions(),
-    enabled: !!selectedExisting,
-  });
-  const selectedPatient  = searchResults.data?.find((p) => p.id === selectedExisting);
-  const alreadyOpenToday = selectedExisting
-    ? (todayQueue.data ?? []).some(
-        (q) => q.visit.patient.id === selectedExisting && q.status !== "done"
-      )
-    : false;
-
-  const registerMutation  = useMutation(trpc.patient.register.mutationOptions());
+  const registerMutation = useMutation(trpc.patient.register.mutationOptions());
   const openVisitMutation = useMutation(trpc.visit.openVisit.mutationOptions());
 
   const handleRegisterNew = async () => {
     if (!form.nameEn || !form.dob) return;
     const patient = await registerMutation.mutateAsync(form);
     const { ticket, receiptNumber } = await openVisitMutation.mutateAsync({
-      patientId:        patient.id,
-      type:             isEmergency ? "emergency" : "opd",
+      patientId: patient.id,
+      type: isEmergency ? "emergency" : "opd",
       isEmergency,
-      paymentMethod:    form.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
+      paymentMethod: form.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
       paymentReference,
     });
     await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
     setSubmitted({
-      healthId:      patient.healthId,
-      ticket:        ticket.ticketNumber,
-      name:          patient.nameEn,
-      nameAm:        patient.nameAm || form.nameAm,
-      dob:           form.dob,
-      phone:         form.phone,
-      kebele:        form.kebele,
-      cbhiStatus:    form.cbhiStatus,
+      healthId: patient.healthId,
+      ticket: ticket.ticketNumber,
+      name: patient.nameEn,
+      nameAm: patient.nameAm || form.nameAm,
+      dob: form.dob,
+      phone: form.phone,
+      kebele: form.kebele,
+      cbhiStatus: form.cbhiStatus,
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
-      feeAmount:     ticket.feeAmount,
+      feeAmount: ticket.feeAmount,
     });
   };
 
@@ -131,29 +79,29 @@ export default function PatientRegistrationPage() {
     const patient = searchResults.data?.find((p) => p.id === selectedExisting);
     if (!patient) return;
     const { ticket, receiptNumber } = await openVisitMutation.mutateAsync({
-      patientId:     patient.id,
-      type:          isEmergency ? "emergency" : "opd",
+      patientId: patient.id,
+      type: isEmergency ? "emergency" : "opd",
       isEmergency,
       paymentMethod: patient.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
       paymentReference,
     });
     await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
     setSubmitted({
-      healthId:      patient.healthId,
-      ticket:        ticket.ticketNumber,
-      name:          patient.nameEn,
-      nameAm:        patient.nameAm || "",
-      dob:           patient.dob,
-      phone:         patient.phone || "",
-      kebele:        patient.kebele || "",
-      cbhiStatus:    patient.cbhiStatus,
+      healthId: patient.healthId,
+      ticket: ticket.ticketNumber,
+      name: patient.nameEn,
+      nameAm: patient.nameAm || "",
+      dob: patient.dob,
+      phone: patient.phone || "",
+      kebele: patient.kebele || "",
+      cbhiStatus: patient.cbhiStatus,
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
-      feeAmount:     ticket.feeAmount,
+      feeAmount: ticket.feeAmount,
     });
   };
 
-  const isLoading     = registerMutation.isPending || openVisitMutation.isPending;
+  const isLoading = registerMutation.isPending || openVisitMutation.isPending;
   const mutationError = registerMutation.error?.message ?? openVisitMutation.error?.message;
 
   if (submitted) {
@@ -257,7 +205,7 @@ export default function PatientRegistrationPage() {
                     type="button"
                     onClick={() => {
                       setSubmitted(null);
-                      setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false });
+                      setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", email: "", kebele: "", cbhiStatus: false });
                       setSearchQuery("");
                       setSelectedExisting(null);
                       setIsEmergency(false);
@@ -308,7 +256,7 @@ export default function PatientRegistrationPage() {
               className={inputCls}
               placeholder="Name, Health ID, or phone number…"
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setSelectedExisting(null); setVisitOpenWarningDismissed(false); }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
             />
             {searchResults.data && searchResults.data.length > 0 && (
@@ -316,7 +264,7 @@ export default function PatientRegistrationPage() {
                 {searchResults.data.map((p) => (
                   <button
                     key={p.id}
-                    onClick={() => { setSelectedExisting(p.id); setSearchQuery(p.nameEn); setVisitOpenWarningDismissed(false); }}
+                    onClick={() => { setSelectedExisting(p.id); setSearchQuery(p.nameEn); }}
                     className={`w-full text-left p-3 rounded-lg border text-sm transition-colors ${selectedExisting === p.id ? "border-teal-400 bg-teal-50" : "border-slate-200 hover:border-teal-300"}`}
                   >
                     <div className="flex items-center justify-between">
@@ -340,41 +288,6 @@ export default function PatientRegistrationPage() {
               </div>
             )}
           </Card>
-
-          {/* P16: Visit-already-open guard */}
-          {selectedExisting && alreadyOpenToday && !visitOpenWarningDismissed && (
-            <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg">
-              <div className="flex items-start gap-3">
-                <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-900">
-                    ⚠ This patient already has an open visit today
-                  </p>
-                  <p className="text-xs text-amber-700 mt-1">
-                    <strong>{selectedPatient?.nameEn}</strong> is currently active in the OPD queue.
-                    Opening a second visit may create duplicate charges and split the clinical record.
-                  </p>
-                  <p className="text-xs text-amber-700 mt-1">
-                    Only continue if this is a genuinely separate clinical episode (e.g. emergency re-attendance).
-                  </p>
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => setVisitOpenWarningDismissed(true)}
-                      className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 font-medium"
-                    >
-                      Yes, open a new visit anyway
-                    </button>
-                    <button
-                      onClick={() => { setSelectedExisting(null); setSearchQuery(""); }}
-                      className="text-xs px-3 py-1.5 bg-white border border-amber-300 text-amber-700 rounded hover:bg-amber-50"
-                    >
-                      Cancel — go to OPD queue instead
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Card Fee & Payment for Returning Patient */}
           {selectedExisting && (
@@ -443,11 +356,7 @@ export default function PatientRegistrationPage() {
             </Card>
           )}
 
-          <button
-            onClick={handleCheckInExisting}
-            disabled={!selectedExisting || isLoading || (alreadyOpenToday && !visitOpenWarningDismissed)}
-            className={`${btnPrimary} ${(!selectedExisting || isLoading || (alreadyOpenToday && !visitOpenWarningDismissed)) ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
+          <button onClick={handleCheckInExisting} disabled={!selectedExisting || isLoading} className={`${btnPrimary} ${(!selectedExisting || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
             {isLoading ? "Processing…" : `Check in & issue ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
           </button>
         </div>
@@ -479,38 +388,10 @@ export default function PatientRegistrationPage() {
                 </select>
               </FormField>
               <FormField label="Phone number">
-                <input
-                  className={inputCls}
-                  value={form.phone}
-                  onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                  placeholder="09XX XXX XXX"
-                />
-                {/* P9: Duplicate phone warning — fires when ≥6 digits entered */}
-                {phoneDuplicates.length > 0 && (
-                  <div className="mt-2 p-3 bg-amber-50 border border-amber-300 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-xs font-semibold text-amber-900">
-                          Possible duplicate — patient with this phone already exists
-                        </p>
-                        {phoneDuplicates.map((p) => (
-                          <p key={p.id} className="text-xs text-amber-700 mt-1">
-                            <strong>{p.nameEn}</strong>
-                            {p.nameAm ? ` / ${p.nameAm}` : ""} · {p.healthId} · DOB {p.dob}
-                          </p>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => setTab("existing")}
-                          className="mt-2 text-xs px-3 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 font-medium"
-                        >
-                          Switch to Returning patient tab →
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <input className={inputCls} value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="09XX XXX XXX" />
+              </FormField>
+              <FormField label="Email address (for appointment notifications)">
+                <input type="email" className={inputCls} value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="patient@example.com" />
               </FormField>
               <FormField label="Kebele">
                 <input className={inputCls} value={form.kebele} onChange={(e) => setForm((p) => ({ ...p, kebele: e.target.value }))} placeholder="Kebele 03" />
@@ -591,20 +472,10 @@ export default function PatientRegistrationPage() {
           </Card>
 
           <div className="flex gap-2">
-            <button
-              onClick={handleRegisterNew}
-              disabled={!form.nameEn || !form.dob || isLoading || phoneDuplicates.length > 0}
-              className={`${btnPrimary} ${(!form.nameEn || !form.dob || isLoading || phoneDuplicates.length > 0) ? "opacity-50 cursor-not-allowed" : ""}`}
-              title={phoneDuplicates.length > 0 ? "Duplicate phone found — use Returning patient tab" : undefined}
-            >
+            <button onClick={handleRegisterNew} disabled={!form.nameEn || !form.dob || isLoading} className={`${btnPrimary} ${(!form.nameEn || !form.dob || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
               {isLoading ? "Registering…" : `Register & issue ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
             </button>
-            <button
-              onClick={() => setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", kebele: "", cbhiStatus: false })}
-              className={btnSecondary}
-            >
-              Clear
-            </button>
+            <button onClick={() => setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", email: "", kebele: "", cbhiStatus: false })} className={btnSecondary}>Clear</button>
           </div>
         </div>
       )}

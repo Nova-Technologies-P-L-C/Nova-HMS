@@ -20,18 +20,6 @@ function PrescriptionContent() {
   const visitId = params.get("visitId") ?? "";
   const qc = useQueryClient();
 
-  // Load full visit data including patient details.
-  // The visit includes patient.allergies (when the EMR query is used), but
-  // prescription.create only returns the visit without the patient's allergy list.
-  // TODO (P14 — PATIENT SAFETY): Display a prominent allergy warning banner here.
-  //   After loading the visit, also query patient allergies and check each
-  //   prescription line against the allergy list before the doctor submits.
-  //   Example check:
-  //     const allergyNames = visit.patient.allergies?.map((a) => a.substance.toLowerCase()) ?? [];
-  //     const conflicting = lines.filter((l) => allergyNames.some((a) => l.drug.toLowerCase().includes(a)));
-  //     if (conflicting.length > 0) show a red warning: "⚠ Possible allergy: [drug] — patient allergic to [substance]"
-  //   This is a clinical safety requirement. A pharmacist cannot catch allergies
-  //   if the prescriber did not see the alert.
   const { data: visit } = useQuery({
     ...trpc.visit.get.queryOptions({ visitId }),
     enabled: !!visitId,

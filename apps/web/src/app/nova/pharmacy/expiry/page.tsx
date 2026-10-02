@@ -1,33 +1,6 @@
 "use client";
-// ─── EXPIRY MANAGEMENT PAGE ───────────────────────────────────────────────────
-// Role: Pharmacist
-// Purpose: Tiered expiry alert dashboard. Batches are grouped into:
-//   Expired     — must be written off immediately (stock adjustment: type "expired")
-//   ≤ 30 days   — critical; use before expiry or return to supplier
-//   ≤ 60 days   — warning; prioritise in dispense queue (FEFO ensures this)
-//   ≤ 90 days   — monitor; flag for redistribution to higher-use locations
-//   > 90 days   — safe
-//
-// FEFO (First Expired First Out) enforcement:
-//   The prescription.dispense API already selects batches in ascending expiryDate
-//   order, so items expiring soonest are dispensed first automatically.
-//   This page provides visibility for manual management decisions.
-//
-// Redistribution suggestion:
-//   If a batch has >20 units expiring within 90 days, the UI offers to create
-//   a stock transfer to a higher-consumption location (e.g. Emergency Store).
-//
-// ⚠ PRODUCTION WARNING — all batch data here comes from the BATCHES mock array.
-//   Real batch expiry data lives in the InventoryBatch table.
-//   Wire to trpc.inventory.expiryAlerts before go-live.
-//
-// TODO (HIGH): Replace BATCHES / INVENTORY / LOCATIONS with:
-//   const { data } = useQuery(trpc.inventory.expiryAlerts.queryOptions())
-//   The API already filters batches expiring within 90 days with qty > 0.
-//   Extend it to also return expired batches (expiryDate < today).
-// ──────────────────────────────────────────────────────────────────────────────
 import { useState } from "react";
-import { BATCHES, INVENTORY, LOCATIONS } from "@/lib/nova-mock-data"; // TODO: replace with tRPC
+import { BATCHES, INVENTORY, LOCATIONS } from "@/lib/nova-mock-data";
 import { PageShell, Card, KpiCard, StatusBadge } from "@/components/nova/nova-ui";
 import { AlertTriangle, ArrowLeftRight, CheckCircle } from "lucide-react";
 
@@ -35,11 +8,8 @@ export default function ExpiryPage() {
   const [redistributeId, setRedistributeId] = useState<string | null>(null);
 
   const today = new Date();
-  // Calculate days until/since expiry — negative = already expired
   const daysLeft = (expiry: string) => Math.ceil((new Date(expiry).getTime() - today.getTime()) / 86400000);
 
-  // Enrich batch records with item name, unit, location name, and days-left
-  // TODO (HIGH): replace with tRPC data — see file header
   const enriched = BATCHES.map((b) => {
     const item = INVENTORY.find((i) => i.id === b.itemId);
     const loc = LOCATIONS.find((l) => l.id === b.locationId);

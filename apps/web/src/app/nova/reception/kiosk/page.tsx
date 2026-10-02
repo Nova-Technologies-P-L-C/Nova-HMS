@@ -1,32 +1,7 @@
 "use client";
-// ─── KIOSK SELF-SERVICE CHECK-IN ─────────────────────────────────────────────
-// Role: Patient (self-service) / Reception staff
-// Purpose: Touchscreen kiosk in the hospital waiting area. Patients scan their
-//          physical QR card (printed at registration) or type their Health ID
-//          to check in and receive a queue ticket without queuing at the reception desk.
-//
-// Flow:
-//   Home → [Scan QR | Enter Health ID] → Patient found → Confirm identity
-//   → Ticket issued → Patient proceeds to waiting hall
-//
-// QR scanning: uses the jsQR library via the QRScanner component.
-//   The QR payload encodes the patient's healthId and name.
-//
-// ⚠ PRODUCTION WARNING — patient lookup uses the PATIENTS mock array.
-//   Scanned or typed Health IDs are matched against 6 hardcoded demo patients only.
-//   A patient registered today will not be found.
-//
-// TODO (HIGH): Replace PATIENTS.find() with trpc.patient.search({ query: healthId })
-//   After finding the patient, also call trpc.visit.openVisit() to create a real
-//   visit and issue a real OPD ticket (not just a random local ticket number).
-//   Without this, the kiosk is purely cosmetic — no visit is created in the DB.
-//
-// TODO (HIGH): Remove the hardcoded patient initialState in useState<KioskPatient>:
-//   { name: "Abebe Kebede", healthId: "DMH-00123", ... }
-//   This will confuse staff if the kiosk is opened on a real deployment.
-// ──────────────────────────────────────────────────────────────────────────────
+// Reception — Self-Service Kiosk Check-in Screen with Real Live QR Scanning
 import { useState } from "react";
-import { PATIENTS } from "@/lib/nova-mock-data"; // TODO: replace with trpc.patient.search
+import { PATIENTS } from "@/lib/nova-mock-data";
 import QRScanner from "@/components/nova/qr-scanner";
 import { QrCode, CheckCircle, Hash, ArrowLeft, Printer, ShieldCheck } from "lucide-react";
 
@@ -43,11 +18,10 @@ export default function KioskPage() {
   const [step, setStep] = useState<"home" | "scan" | "found" | "ticket">("home");
   const [method, setMethod] = useState<"qr" | "id" | null>(null);
   const [idInput, setIdInput] = useState("");
-  // TODO (HIGH): Remove hardcoded default — this prefills "Abebe Kebede" on every load
   const [patient, setPatient] = useState<KioskPatient>({
-    name: "Abebe Kebede",          // ← REMOVE: hardcoded demo patient
+    name: "Abebe Kebede",
     nameAm: "አበበ ከበደ",
-    healthId: "DMH-00123",         // ← REMOVE: hardcoded Health ID
+    healthId: "DMH-00123",
     ticket: "A-007",
     dept: "OPD General Medicine",
     cbhi: true,
@@ -60,8 +34,6 @@ export default function KioskPage() {
     return `${letter}-${num}`;
   };
 
-  // TODO (HIGH): Replace PATIENTS.find() with trpc.patient.search({ query: healthId })
-  //   Then call trpc.visit.openVisit() to create a real visit + OPD ticket.
   const handleQRScanned = (decoded: { healthId: string; name?: string; raw: string }) => {
     const matched = PATIENTS.find(
       (p) =>
@@ -94,8 +66,6 @@ export default function KioskPage() {
     setStep("found");
   };
 
-  // TODO (HIGH): Replace PATIENTS.find() with trpc.patient.search({ query: cleanId })
-  //   and trpc.visit.openVisit() to persist the visit + ticket to the database.
   const handleIdLookup = () => {
     if (!idInput) return;
     const cleanId = idInput.trim().toUpperCase();

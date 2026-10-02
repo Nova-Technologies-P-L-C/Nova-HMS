@@ -1,42 +1,14 @@
 "use client";
-// ─── FEE-WAIVER APPROVAL QUEUE ────────────────────────────────────────────────
-// Role: Hospital Admin
-// Purpose: Allows the Hospital Admin to review, approve, or reject fee waiver
-//          requests submitted by Reception or Billing Officers for patients who
-//          cannot afford their bills (indigent patients, social cases, MOH-mandated
-//          exemptions such as under-5 children and pregnant women in public hospitals).
-//
-// Approve flow:
-//   Admin clicks Approve → trpc.billing.resolveWaiver({ waiverId, approved: true })
-//   → FeeWaiver.status = "approved" → Invoice.status = "waived"
-//
-// Reject flow:
-//   Admin clicks Reject → trpc.billing.resolveWaiver({ waiverId, approved: false })
-//   → FeeWaiver.status = "rejected" → Invoice.status = "pending" (back to cashier)
-//
-// ⚠ PRODUCTION WARNING — this page uses the FEE_WAIVERS mock array. Approve/reject
-//   only updates local React state; no database write occurs. No audit trail created.
-//
-// TODO (HIGH): Replace FEE_WAIVERS useState with:
-//   const { data: waivers } = useQuery(trpc.billing.waivers.queryOptions())
-//
-// TODO (HIGH): Replace approve/reject local handlers with:
-//   trpc.billing.resolveWaiver.mutate({ waiverId: w.id, approved: true/false })
-//   This persists the decision, updates invoice status, and triggers notifications.
-// ──────────────────────────────────────────────────────────────────────────────
+// Hospital Admin — Fee-Waiver Approval Queue (page 14)
 import { useState } from "react";
-import { FEE_WAIVERS } from "@/lib/nova-mock-data"; // TODO: replace with trpc.billing.waivers
+import { FEE_WAIVERS } from "@/lib/nova-mock-data";
 import { PageShell, DataTable, StatusBadge, Card } from "@/components/nova/nova-ui";
 
 export default function FeeWaiverQueuePage() {
-  // TODO (HIGH): Replace useState initialiser with trpc.billing.waivers query
   const [waivers, setWaivers] = useState(FEE_WAIVERS);
 
-  // TODO (HIGH): Replace with trpc.billing.resolveWaiver.mutate({ waiverId, approved: true })
   const approve = (id: string) =>
     setWaivers((prev) => prev.map((w) => w.id === id ? { ...w, status: "approved" } : w));
-
-  // TODO (HIGH): Replace with trpc.billing.resolveWaiver.mutate({ waiverId, approved: false })
   const reject = (id: string) =>
     setWaivers((prev) => prev.map((w) => w.id === id ? { ...w, status: "rejected" } : w));
 

@@ -1,4 +1,3 @@
-"use client";
 // Nova HMS — Public marketing landing page
 import Link from "next/link";
 import { ArrowRight, Activity, Users, FlaskConical, Pill, ArrowLeftRight, BarChart3, Play, Smartphone } from "lucide-react";

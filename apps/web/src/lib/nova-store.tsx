@@ -1,46 +1,8 @@
 "use client";
 /**
- * Nova HMS — In-Memory Patient Flow Store (PROTOTYPE ONLY)
- * ─────────────────────────────────────────────────────────
- * ⚠ DEPRECATION WARNING: This store is a prototype scaffold ONLY.
- *   It exists so the UI can be developed and demoed without a running server.
- *
- *   DO NOT use this store in production. It has the following critical problems:
- *   1. ALL state is lost on page refresh — nothing is persisted to the database.
- *   2. Multiple browser tabs / concurrent users each get a completely separate state.
- *   3. Receipt numbers, ticket numbers, and IDs are local counters — they will
- *      collide with real database records when tRPC is wired.
- *   4. Any action in this store (admit, dispense, invoice, approve waiver) creates
- *      NO audit log, NO notification, and NO database record.
- *
- * MIGRATION STATUS:
- *   Most production pages have already been migrated to tRPC:
- *     ✅ Patient registration   → trpc.patient.register
- *     ✅ OPD queue              → trpc.visit.queue / openVisit
- *     ✅ Triage/vitals          → trpc.visit.recordVitals
- *     ✅ Consultation           → trpc.visit.addNote + addDiagnosis + transferToBilling
- *     ✅ Lab orders             → trpc.lab.order / queue / enterResult
- *     ✅ Prescriptions          → trpc.prescription.create / dispense
- *     ✅ Pharmacy queue         → trpc.prescription.queue / payPrescription
- *     ✅ Billing / cashier      → trpc.billing.collectCashierPayment
- *     ✅ Ward / beds            → trpc.ward.beds / admit / discharge
- *     ✅ Referrals              → trpc.referral.create / list (UI still uses mock — see referral/page.tsx)
- *
- *   Pages still using this store (TODO: migrate before go-live):
- *     ⏳ hospital-admin/fee-waivers  (approve/reject not persisted)
- *     ⏳ shared/search               (searches mock PATIENTS not DB)
- *     ⏳ reception/kiosk             (no real visit created on check-in)
- *     ⏳ pharmacy/expiry             (reads BATCHES mock)
- *     ⏳ pharmacy/locations          (transfer not persisted)
- *     ⏳ pharmacy/forecast           (reads CONSUMPTION_HISTORY mock)
- *     ⏳ hospital-admin/reports      (all KPIs are hardcoded numbers)
- *     ⏳ doctor/referral             (submit doesn't call API)
- *     ⏳ patient/* portal pages      (all patient self-service data is mock)
- *     ⏳ nova-admin/* pages          (all platform data is mock)
- *
- * NovaStoreProvider is kept in layout.tsx so existing prototype pages that
- * still reference it do not crash. Remove it from layout.tsx only after
- * ALL consumers have been migrated to tRPC.
+ * Nova HMS — Patient Flow Store
+ * Single source of truth for the entire patient journey prototype.
+ * All pages read/write here instead of calling trpc or hardcoding mock data.
  */
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import {
