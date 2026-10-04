@@ -24,6 +24,16 @@ async function main() {
 
   const userRows = [
     {
+      id: "u-owner",
+      name: "Clinic Owner / Org Admin",
+      email: "owner@dmrh.gov.et",
+      role: "Organizational Admin",
+      department: "Executive Board",
+      title: "Executive Owner & President",
+      phone: "0911000000",
+      licenseNumber: "ETH-OWN-001",
+    },
+    {
       id: "u-admin",
       name: "Hospital Admin",
       email: "admin@dmrh.gov.et",
@@ -140,6 +150,19 @@ async function main() {
         phone: u.phone,
         licenseNumber: u.licenseNumber,
         status: "active",
+      },
+    });
+
+    await prisma.account.upsert({
+      where: { issuer_accountId: { issuer: "local:credential", accountId: u.id } },
+      update: {},
+      create: {
+        id: `acc-${u.id}`,
+        issuer: "local:credential",
+        accountId: u.id,
+        providerId: "credential",
+        userId: u.id,
+        password: "1b3d67c6e6b1b210495c0aea7e0ff720:777283136812e3e5237334c981412b64de56eb9451f9b3e85d145e52db372e713b349afb3b4500118a2f15b952612258bce23a8b6616b45a73f55a25e92e8fdb",
       },
     });
   }
