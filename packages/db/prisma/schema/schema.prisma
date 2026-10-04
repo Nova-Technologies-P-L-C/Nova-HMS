@@ -762,6 +762,9 @@ model RolePermission {
   role        String   // "Doctor", "Nurse", "Receptionist", etc.
   permissions String   // JSON array string of permission keys: ["clinical.notes.view", ...]
   description String   @default("")
+  isSystem    Boolean  @default(false)
+  icon        String   @default("🛡️")
+  color       String   @default("blue")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

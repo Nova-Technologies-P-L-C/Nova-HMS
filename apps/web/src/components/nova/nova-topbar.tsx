@@ -40,6 +40,10 @@ const ROLE_CONFIG: Record<
     badge: string;
   }
 > = {
+  "Branch Admin": {
+    icon: ShieldCheck,
+    badge: "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50",
+  },
   "Hospital Admin": {
     icon: ShieldCheck,
     badge: "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50",
@@ -83,6 +87,7 @@ const ROLE_CONFIG: Record<
 };
 
 const ROLE_DEFAULT_ROUTE: Partial<Record<Role, string>> = {
+  "Branch Admin": "/nova/branch-admin",
   "Hospital Admin": "/nova/hospital-admin",
   "Receptionist": "/nova/reception/register",
   "Doctor": "/nova/doctor",

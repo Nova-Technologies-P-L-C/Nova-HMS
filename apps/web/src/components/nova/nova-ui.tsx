@@ -1,5 +1,5 @@
-// Shared micro-components used across Nova HMS screens
 import { type ReactNode } from "react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 // Status badge with semantic colors
 const STATUS_COLORS: Record<string, string> = {
@@ -69,8 +69,169 @@ export function PageShell({ title, subtitle, children, action }: { title: string
   );
 }
 
-// Simple data table
-export function DataTable({ columns, rows }: { columns: string[]; rows: ReactNode[][] }) {
+export interface PaginationProps {
+  currentPage: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  pageSizeOptions?: number[];
+  itemLabel?: string;
+  className?: string;
+}
+
+export function Pagination({
+  currentPage,
+  totalItems,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 25, 50, 100],
+  itemLabel = "items",
+  className = "",
+}: PaginationProps) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const start = totalItems === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+  const end = Math.min(safeCurrentPage * pageSize, totalItems);
+
+  // Generate page numbers with smart ellipsis
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | "...")[] = [1];
+    if (safeCurrentPage > 3) {
+      pages.push("...");
+    }
+    const startWindow = Math.max(2, safeCurrentPage - 1);
+    const endWindow = Math.min(totalPages - 1, safeCurrentPage + 1);
+    for (let p = startWindow; p <= endWindow; p++) {
+      pages.push(p);
+    }
+    if (safeCurrentPage < totalPages - 2) {
+      pages.push("...");
+    }
+    pages.push(totalPages);
+    return pages;
+  };
+
+  const pages = getPageNumbers();
+
+  return (
+    <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-100 text-xs text-slate-600 ${className}`}>
+      {/* Information & Page Size */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span>
+          Showing <strong className="font-semibold text-slate-800">{start}</strong> to{" "}
+          <strong className="font-semibold text-slate-800">{end}</strong> of{" "}
+          <strong className="font-semibold text-slate-800">{totalItems}</strong> {itemLabel}
+        </span>
+
+        {onPageSizeChange && (
+          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+            <span className="text-slate-500">Per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const newSize = Number(e.target.value);
+                onPageSizeChange(newSize);
+                onPageChange(1);
+              }}
+              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 font-medium focus:outline-none focus:border-teal-500 cursor-pointer"
+            >
+              {pageSizeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onPageChange(1)}
+          disabled={safeCurrentPage <= 1}
+          className="p-1.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="First page"
+        >
+          <ChevronsLeft size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(safeCurrentPage - 1)}
+          disabled={safeCurrentPage <= 1}
+          className="p-1.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="Previous page"
+        >
+          <ChevronLeft size={14} />
+        </button>
+
+        <div className="flex items-center gap-1 px-1">
+          {pages.map((p, idx) => {
+            if (p === "...") {
+              return (
+                <span key={`dots-${idx}`} className="px-1.5 py-1 text-slate-400 select-none">
+                  …
+                </span>
+              );
+            }
+            const isCurrent = p === safeCurrentPage;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onPageChange(p)}
+                className={`min-w-7 h-7 px-2 rounded text-xs font-medium transition-colors ${
+                  isCurrent
+                    ? "bg-teal-600 text-white font-semibold shadow-xs"
+                    : "text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200"
+                }`}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onPageChange(safeCurrentPage + 1)}
+          disabled={safeCurrentPage >= totalPages}
+          className="p-1.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="Next page"
+        >
+          <ChevronRight size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(totalPages)}
+          disabled={safeCurrentPage >= totalPages}
+          className="p-1.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors"
+          title="Last page"
+        >
+          <ChevronsRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Simple data table with optional pagination
+export function DataTable({
+  columns,
+  rows,
+  pagination,
+}: {
+  columns: string[];
+  rows: ReactNode[][];
+  pagination?: PaginationProps;
+}) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
       <table className="min-w-full text-sm">
@@ -95,6 +256,7 @@ export function DataTable({ columns, rows }: { columns: string[]; rows: ReactNod
           ))}
         </tbody>
       </table>
+      {pagination && <Pagination {...pagination} />}
     </div>
   );
 }

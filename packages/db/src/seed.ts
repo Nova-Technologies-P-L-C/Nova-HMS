@@ -145,7 +145,20 @@ async function main() {
   }
 
   // Role Permissions Matrix Defaults
-  const defaultRolePermissions: Record<string, { permissions: string[]; description: string }> = {
+  const defaultRolePermissions: Record<string, { permissions: string[]; description: string; icon?: string; color?: string }> = {
+    "Branch Admin": {
+      permissions: [
+        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
+        "lab.order.create", "lab.results.enter", "lab.results.approve",
+        "rx.prescribe", "rx.dispense", "inventory.manage",
+        "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
+        "ward.admit", "ward.discharge", "ward.mar.administer",
+        "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
+      ],
+      description: "Full administrative, financial, clinical, and security privileges across branch operations.",
+      icon: "🛡️",
+      color: "rose",
+    },
     "Hospital Admin": {
       permissions: [
         "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
@@ -153,9 +166,11 @@ async function main() {
         "rx.prescribe", "rx.dispense", "inventory.manage",
         "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
         "ward.admit", "ward.discharge", "ward.mar.administer",
-        "admin.staff.manage", "admin.audit.view", "admin.reports.view"
+        "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
       ],
       description: "Full administrative, financial, clinical, and security privileges across all hospital operations.",
+      icon: "🛡️",
+      color: "rose",
     },
     "Doctor": {
       permissions: [
@@ -226,12 +241,18 @@ async function main() {
       update: {
         permissions: JSON.stringify(config.permissions),
         description: config.description,
+        isSystem: true,
+        icon: config.icon ?? "🛡️",
+        color: config.color ?? "blue",
       },
       create: {
         tenantId: tenant.id,
         role: roleName,
         permissions: JSON.stringify(config.permissions),
         description: config.description,
+        isSystem: true,
+        icon: config.icon ?? "🛡️",
+        color: config.color ?? "blue",
       },
     });
   }

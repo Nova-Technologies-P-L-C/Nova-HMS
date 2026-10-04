@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, KpiCard } from "@/components/nova/nova-ui";
+import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, KpiCard, Pagination } from "@/components/nova/nova-ui";
 import {
   Banknote, Search, Plus, Check, Edit2, Trash2,
   Filter, Tag, Sparkles, AlertCircle, RefreshCw, X
@@ -45,6 +45,10 @@ export default function HospitalTariffsPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [activeOnly, setActiveOnly] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Inline editing state: { [tariffId]: string }
   const [editingPrices, setEditingPrices] = useState<Record<string, string>>({});
@@ -150,6 +154,12 @@ export default function HospitalTariffsPage() {
     return { total, active, labCount, avgPrice };
   }, [tariffs]);
 
+  // Paginated slice for current page
+  const paginatedTariffs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return tariffs.slice(start, start + pageSize);
+  }, [tariffs, currentPage, pageSize]);
+
   // Handle inline price change
   const handlePriceInputChange = (id: string, val: string) => {
     setEditingPrices((prev) => ({ ...prev, [id]: val }));
@@ -249,7 +259,10 @@ export default function HospitalTariffsPage() {
             {CATEGORIES.map((c) => (
               <button
                 key={c.id}
-                onClick={() => setSelectedCategory(c.id)}
+                onClick={() => {
+                  setSelectedCategory(c.id);
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
                   selectedCategory === c.id
                     ? "bg-teal-600 text-white shadow-sm"
@@ -278,13 +291,19 @@ export default function HospitalTariffsPage() {
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Search by service name, code, dept…"
               className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs focus:outline-none focus:border-teal-500"
             />
             {search && (
               <button
-                onClick={() => setSearch("")}
+                onClick={() => {
+                  setSearch("");
+                  setCurrentPage(1);
+                }}
                 className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600"
               >
                 <X size={14} />
@@ -297,7 +316,10 @@ export default function HospitalTariffsPage() {
               <input
                 type="checkbox"
                 checked={activeOnly}
-                onChange={(e) => setActiveOnly(e.target.checked)}
+                onChange={(e) => {
+                  setActiveOnly(e.target.checked);
+                  setCurrentPage(1);
+                }}
                 className="accent-teal-600 w-3.5 h-3.5"
               />
               <span>Show active only</span>
@@ -350,7 +372,7 @@ export default function HospitalTariffsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {tariffs.map((item) => {
+                {paginatedTariffs.map((item) => {
                   const currentValue =
                     editingPrices[item.id] !== undefined
                       ? editingPrices[item.id]
@@ -479,6 +501,18 @@ export default function HospitalTariffsPage() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {tariffs.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={tariffs.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[10, 25, 50, 100]}
+            itemLabel="services"
+          />
         )}
       </Card>
 

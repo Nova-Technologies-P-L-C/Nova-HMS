@@ -1,6 +1,9 @@
 "use client";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 import {
   Activity, Users, Building2, FileText, BarChart3, Settings, ClipboardList,
   Stethoscope, FlaskConical, Pill, CreditCard, ArrowLeftRight, Bed,
@@ -10,15 +13,23 @@ import { useNovaRole } from "./nova-role-context";
 import { type Role } from "@/lib/nova-mock-data";
 
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
+  "Branch Admin": [
+    { label: "Dashboard", href: "/nova/branch-admin", icon: <Home size={16} /> },
+    { label: "Staff & Users", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
+    { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
+    { label: "Service Tariffs & Pricing", href: "/nova/branch-admin/tariffs", icon: <Banknote size={16} /> },
+    { label: "Reports & Analytics", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
+    { label: "Audit & Security", href: "/nova/branch-admin/audit", icon: <ClipboardList size={16} /> },
+    { label: "Settings", href: "/nova/branch-admin/settings", icon: <Settings size={16} /> },
+  ],
   "Hospital Admin": [
     { label: "Dashboard", href: "/nova/hospital-admin", icon: <Home size={16} /> },
+    { label: "Staff & Users", href: "/nova/hospital-admin/staff", icon: <Users size={16} /> },
+    { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
     { label: "Service Tariffs & Pricing", href: "/nova/hospital-admin/tariffs", icon: <Banknote size={16} /> },
-    { label: "Staff & Roles", href: "/nova/hospital-admin/staff", icon: <Users size={16} /> },
-    { label: "Departments", href: "/nova/hospital-admin/departments", icon: <Building2 size={16} /> },
-    { label: "Fee Waivers", href: "/nova/hospital-admin/fee-waivers", icon: <FileText size={16} /> },
-    { label: "Reports", href: "/nova/hospital-admin/reports", icon: <BarChart3 size={16} /> },
+    { label: "Reports & Analytics", href: "/nova/hospital-admin/reports", icon: <BarChart3 size={16} /> },
+    { label: "Audit & Security", href: "/nova/hospital-admin/audit", icon: <ClipboardList size={16} /> },
     { label: "Settings", href: "/nova/hospital-admin/settings", icon: <Settings size={16} /> },
-    { label: "Audit Log", href: "/nova/hospital-admin/audit", icon: <ClipboardList size={16} /> },
   ],
   "Receptionist": [
     { label: "Patient Registration", href: "/nova/reception/register", icon: <User size={16} /> },
@@ -82,14 +93,68 @@ const SHARED_NAV = [
   { label: "QR Scanner", href: "/nova/shared/qr", icon: <QrCode size={16} /> },
   { label: "Notifications", href: "/nova/shared/notifications", icon: <Bell size={16} /> },
   { label: "My Profile", href: "/nova/shared/profile", icon: <User size={16} /> },
-  { label: "Empty / Error states", href: "/nova/shared/empty-states", icon: <Home size={16} /> },
+];
+
+const PERMISSION_NAV_MAP: { permission: string; label: string; href: string; icon: React.ReactNode }[] = [
+  { permission: "clinical.notes.create", label: "Consultation", href: "/nova/doctor/consultation", icon: <Stethoscope size={16} /> },
+  { permission: "clinical.notes.view", label: "Patient EMR", href: "/nova/doctor/emr", icon: <FileText size={16} /> },
+  { permission: "clinical.vitals.record", label: "Vitals Entry", href: "/nova/nurse/vitals", icon: <Activity size={16} /> },
+  { permission: "ward.mar.administer", label: "Nursing Notes & MAR", href: "/nova/nurse/notes", icon: <ClipboardList size={16} /> },
+  { permission: "ward.admit", label: "Bed Board", href: "/nova/ward", icon: <Bed size={16} /> },
+  { permission: "ward.discharge", label: "Admissions", href: "/nova/ward/admissions", icon: <ClipboardList size={16} /> },
+  { permission: "lab.order.create", label: "Lab Order", href: "/nova/doctor/lab-order", icon: <FlaskConical size={16} /> },
+  { permission: "lab.results.enter", label: "Lab Workstation", href: "/nova/lab/result", icon: <FlaskConical size={16} /> },
+  { permission: "rx.prescribe", label: "e-Prescription", href: "/nova/doctor/prescription", icon: <Pill size={16} /> },
+  { permission: "rx.dispense", label: "Rx Dispensing", href: "/nova/pharmacy", icon: <Pill size={16} /> },
+  { permission: "inventory.manage", label: "Inventory Ledger", href: "/nova/pharmacy/inventory", icon: <Layers size={16} /> },
+  { permission: "billing.collect", label: "POS Billing", href: "/nova/billing", icon: <CreditCard size={16} /> },
+  { permission: "billing.waiver.approve", label: "Fee Waivers", href: "/nova/branch-admin/fee-waivers", icon: <FileText size={16} /> },
+  { permission: "tariff.manage", label: "Service Tariffs", href: "/nova/branch-admin/tariffs", icon: <Banknote size={16} /> },
+  { permission: "admin.staff.manage", label: "Staff & Roles", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
+  { permission: "admin.roles.manage", label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
+  { permission: "admin.reports.view", label: "Reports", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
+  { permission: "admin.audit.view", label: "Audit Log", href: "/nova/branch-admin/audit", icon: <ClipboardList size={16} /> },
 ];
 
 export default function NovaSidebar() {
   const pathname = usePathname();
   const { role } = useNovaRole();
 
-  const nav = NAV_BY_ROLE[role] ?? [];
+  const { data: rolePermissionsList = [] } = useQuery({
+    ...trpc.tenant.rolePermissions.queryOptions(),
+    staleTime: 30_000,
+  });
+
+  const activeRoleRecord = rolePermissionsList.find((r) => r.role === role);
+
+  const nav = useMemo(() => {
+    const baseNav = (NAV_BY_ROLE as any)[role] ? [...(NAV_BY_ROLE as any)[role]] : [];
+    const existingHrefs = new Set(baseNav.map((n: any) => n.href));
+    const isAdmin = role === "Branch Admin" || role === "Hospital Admin" || role === "Nova Admin";
+
+    // For non-admin roles (clinical, pharmacy, lab, nursing, reception, or custom merged roles),
+    // dynamically include any extra activities unlocked by granted permissions.
+    // Administrators keep their dedicated, uncluttered executive navigation.
+    if (!isAdmin && activeRoleRecord?.permissions) {
+      const perms = new Set(activeRoleRecord.permissions);
+      for (const item of PERMISSION_NAV_MAP) {
+        if (perms.has(item.permission) && !existingHrefs.has(item.href)) {
+          baseNav.push({
+            label: item.label,
+            href: item.href,
+            icon: item.icon,
+          });
+          existingHrefs.add(item.href);
+        }
+      }
+    }
+
+    if (baseNav.length === 0) {
+      baseNav.push({ label: "Dashboard", href: "/nova/branch-admin", icon: <Home size={16} /> });
+    }
+
+    return baseNav;
+  }, [role, activeRoleRecord]);
 
   return (
     <aside className="flex flex-col h-full w-56 shrink-0 bg-[#0f2435] text-slate-100 border-r border-slate-700">
