@@ -7,12 +7,25 @@ import { trpc } from "@/utils/trpc";
 import {
   Activity, Users, Building2, FileText, BarChart3, Settings, ClipboardList,
   Stethoscope, FlaskConical, Pill, CreditCard, ArrowLeftRight, Bed,
-  Search, QrCode, Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers, Banknote
+  Search, QrCode, Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers, Banknote,
+  Crown
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
 import { type Role } from "@/lib/nova-mock-data";
 
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
+  "Organizational Admin": [
+    { label: "Executive Cockpit", href: "/nova/org-admin", icon: <Crown size={16} /> },
+    { label: "Clinician Productivity", href: "/nova/org-admin/productivity", icon: <Stethoscope size={16} /> },
+    { label: "Financials & Leakage", href: "/nova/org-admin/finance", icon: <Banknote size={16} /> },
+    { label: "Pharmacy Capital Risk", href: "/nova/org-admin/inventory-risk", icon: <Layers size={16} /> },
+    { label: "Service Tariffs & Pricing", href: "/nova/branch-admin/tariffs", icon: <CreditCard size={16} /> },
+    { label: "Staff & Branch Users", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
+    { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
+    { label: "Forensic Audit Trail", href: "/nova/branch-admin/audit", icon: <ClipboardList size={16} /> },
+    { label: "Executive Reports", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
+    { label: "Facility Settings", href: "/nova/branch-admin/settings", icon: <Settings size={16} /> },
+  ],
   "Branch Admin": [
     { label: "Dashboard", href: "/nova/branch-admin", icon: <Home size={16} /> },
     { label: "Staff & Users", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
@@ -130,7 +143,7 @@ export default function NovaSidebar() {
   const nav = useMemo(() => {
     const baseNav = (NAV_BY_ROLE as any)[role] ? [...(NAV_BY_ROLE as any)[role]] : [];
     const existingHrefs = new Set(baseNav.map((n: any) => n.href));
-    const isAdmin = role === "Branch Admin" || role === "Hospital Admin" || role === "Nova Admin";
+    const isAdmin = role === "Organizational Admin" || role === "Branch Admin" || role === "Hospital Admin" || role === "Nova Admin";
 
     // For non-admin roles (clinical, pharmacy, lab, nursing, reception, or custom merged roles),
     // dynamically include any extra activities unlocked by granted permissions.

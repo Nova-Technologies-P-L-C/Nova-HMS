@@ -17,6 +17,7 @@ import {
   ArrowLeftRight,
   Bed,
   Shield,
+  Crown,
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
 import { ROLES, type Role } from "@/lib/nova-mock-data";
@@ -40,6 +41,10 @@ const ROLE_CONFIG: Record<
     badge: string;
   }
 > = {
+  "Organizational Admin": {
+    icon: Crown,
+    badge: "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 hover:bg-amber-200 font-semibold shadow-xs",
+  },
   "Branch Admin": {
     icon: ShieldCheck,
     badge: "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50",
@@ -87,6 +92,7 @@ const ROLE_CONFIG: Record<
 };
 
 const ROLE_DEFAULT_ROUTE: Partial<Record<Role, string>> = {
+  "Organizational Admin": "/nova/org-admin",
   "Branch Admin": "/nova/branch-admin",
   "Hospital Admin": "/nova/hospital-admin",
   "Receptionist": "/nova/reception/register",

@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router, tenantProcedure } from "../index";
 
-const isBranchOrHospitalAdmin = (role?: string) => role === "Branch Admin" || role === "Hospital Admin";
+const isBranchOrHospitalAdmin = (role?: string) =>
+  role === "Branch Admin" || role === "Hospital Admin" || role === "Organizational Admin";
 
 export const tenantRouter = router({
   // Create a new tenant (called during onboarding)
@@ -607,6 +608,20 @@ export const tenantRouter = router({
       }
 
       const defaults: Record<string, { perms: string[]; description: string; icon: string; color: string }> = {
+        "Organizational Admin": {
+          perms: [
+            "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
+            "lab.order.create", "lab.results.enter", "lab.results.approve",
+            "rx.prescribe", "rx.dispense", "inventory.manage",
+            "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
+            "ward.admit", "ward.discharge", "ward.mar.administer",
+            "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view",
+            "owner.executive.view", "owner.financials.audit", "owner.staff.productivity", "owner.branches.manage"
+          ],
+          description: "Executive clinic & company owner with enterprise-wide financial, performance, governance, and audit authority",
+          icon: "👑",
+          color: "amber",
+        },
         "Branch Admin": {
           perms: [
             "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
@@ -852,7 +867,7 @@ export const tenantRouter = router({
           where: { tenantId: ctx.tenantId, submittedAt: { gte: startDate } },
         }),
         prisma.labOrder.findMany({
-          where: { tenantId: ctx.tenantId, createdAt: { gte: startDate } },
+          where: { tenantId: ctx.tenantId, orderedAt: { gte: startDate } },
         }),
         prisma.prescription.findMany({
           where: { tenantId: ctx.tenantId, createdAt: { gte: startDate } },
@@ -885,11 +900,14 @@ export const tenantRouter = router({
       for (const r of receipts) {
         const pm = r.paymentMethod?.toLowerCase() || "cash";
         const key = paymentMethods[pm] ? pm : "cash";
-        paymentMethods[key].amount += r.amount;
-        paymentMethods[key].count += 1;
+        const entry = paymentMethods[key];
+        if (entry) {
+          entry.amount += r.amount;
+          entry.count += 1;
+        }
       }
 
-      if (totalWaiversAmount > 0) {
+      if (totalWaiversAmount > 0 && paymentMethods.waiver) {
         paymentMethods.waiver.amount = totalWaiversAmount;
         paymentMethods.waiver.count = feeWaivers.filter(w => w.status === "approved").length;
       }
@@ -1010,6 +1028,7 @@ export const tenantRouter = router({
           availableBeds,
           maintenanceBeds,
           occupancyRate,
+          admissionsCount: admissions.length,
           totalWaiversAmount,
           waiversCount: feeWaivers.length,
           totalClaimsAmount,
@@ -1047,5 +1066,326 @@ export const tenantRouter = router({
           ...(input.specialistFeeAmount !== undefined ? { specialistFeeAmount: input.specialistFeeAmount } : {}),
         },
       });
+    }),
+
+  // Organizational Admin / Owner Executive Overview procedure
+  ownerOverview: tenantProcedure
+    .input(z.object({
+      range: z.enum(["today", "7d", "30d", "month", "quarter", "all"]).default("30d"),
+    }))
+    .query(async ({ ctx, input }) => {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Organizational or Branch Admins can access Owner Intelligence" });
+      }
+
+      const now = new Date();
+      let startDate: Date;
+      if (input.range === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (input.range === "7d") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (input.range === "30d") {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (input.range === "quarter") {
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      } else if (input.range === "all") {
+        startDate = new Date(2020, 0, 1);
+      } else {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [
+        tenant,
+        visits,
+        receipts,
+        allBeds,
+        admissions,
+        feeWaivers,
+        cbhiClaims,
+        inventoryItems,
+        auditLogs,
+        staffRoles,
+      ] = await Promise.all([
+        prisma.tenant.findUnique({
+          where: { id: ctx.tenantId },
+          select: { id: true, name: true, facilityType: true, region: true, plan: true, cardFeeAmount: true, specialistFeeAmount: true },
+        }),
+        prisma.visit.findMany({
+          where: { tenantId: ctx.tenantId, openedAt: { gte: startDate } },
+          include: {
+            patient: { select: { id: true, nameEn: true, healthId: true, cbhiStatus: true } },
+            notes: { select: { id: true, authorId: true, noteType: true, createdAt: true } },
+            diagnoses: { select: { id: true, description: true } },
+            labOrders: { select: { id: true, testName: true, price: true, status: true, orderedBy: true } },
+            prescriptions: {
+              select: {
+                id: true,
+                prescribedBy: true,
+                lines: { select: { id: true, itemName: true, totalPrice: true } },
+              },
+            },
+            ticket: { select: { id: true, ticketNumber: true, status: true, assignedNurseName: true } },
+          },
+          orderBy: { openedAt: "desc" },
+        }),
+        prisma.paymentReceipt.findMany({
+          where: { tenantId: ctx.tenantId, createdAt: { gte: startDate } },
+          include: { patient: { select: { nameEn: true, healthId: true } } },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.bed.findMany({
+          where: { tenantId: ctx.tenantId },
+        }),
+        prisma.admission.findMany({
+          where: { tenantId: ctx.tenantId, admittedAt: { gte: startDate } },
+          include: { bed: true, patient: { select: { nameEn: true, healthId: true } } },
+        }),
+        prisma.feeWaiver.findMany({
+          where: { tenantId: ctx.tenantId, createdAt: { gte: startDate } },
+        }),
+        prisma.cBHIClaim.findMany({
+          where: { tenantId: ctx.tenantId, submittedAt: { gte: startDate } },
+        }),
+        prisma.inventoryItem.findMany({
+          where: { tenantId: ctx.tenantId },
+          include: { batches: true },
+        }),
+        prisma.auditLog.findMany({
+          where: { tenantId: ctx.tenantId },
+          take: 20,
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.userTenantRole.findMany({
+          where: { tenantId: ctx.tenantId, status: "active" },
+          include: { user: { select: { name: true, email: true } } },
+        }),
+      ]);
+
+      // Build staff map for clinician resolution
+      const staffNameMap: Record<string, string> = {};
+      for (const sr of staffRoles) {
+        staffNameMap[sr.userId] = sr.user.name || sr.title || "Staff Doctor";
+      }
+
+      // Revenue aggregates
+      const totalGrossRevenue = receipts.reduce((sum, r) => sum + r.amount, 0);
+      const todayRevenue = receipts
+        .filter((r) => r.createdAt >= todayStart)
+        .reduce((sum, r) => sum + r.amount, 0);
+      const thisWeekRevenue = receipts
+        .filter((r) => r.createdAt >= weekStart)
+        .reduce((sum, r) => sum + r.amount, 0);
+      const thisMonthRevenue = receipts
+        .filter((r) => r.createdAt >= monthStart)
+        .reduce((sum, r) => sum + r.amount, 0);
+
+      const targetMonthlyRevenue = 200000;
+      const targetAttainment = Math.min(100, Math.round((thisMonthRevenue / targetMonthlyRevenue) * 100));
+
+      // Financial Leakage & Risk
+      const approvedWaivers = feeWaivers.filter((w) => w.status === "approved");
+      const waivedAmount = approvedWaivers.reduce((s, w) => s + w.amount, 0);
+      const pendingClaimsAmount = cbhiClaims
+        .filter((c) => c.status === "submitted" || c.status === "pending")
+        .reduce((s, c) => s + c.amount, 0);
+      const rejectedClaimsAmount = cbhiClaims
+        .filter((c) => c.status === "rejected")
+        .reduce((s, c) => s + c.amount, 0);
+
+      // Payment channel share
+      const channelBreakdown: Record<string, { amount: number; count: number; label: string; color: string }> = {
+        cash: { amount: 0, count: 0, label: "Cash Collections", color: "emerald" },
+        telebirr: { amount: 0, count: 0, label: "Telebirr Digital", color: "blue" },
+        cbe_birr: { amount: 0, count: 0, label: "CBE Birr", color: "purple" },
+        cbhi: { amount: 0, count: 0, label: "CBHI Social Insurance", color: "cyan" },
+        waiver: { amount: waivedAmount, count: approvedWaivers.length, label: "Fee Waivers (Subsidized)", color: "rose" },
+      };
+
+      for (const r of receipts) {
+        const pm = (r.paymentMethod || "cash").toLowerCase();
+        const key = channelBreakdown[pm] ? pm : "cash";
+        const entry = channelBreakdown[key];
+        if (entry) {
+          entry.amount += r.amount;
+          entry.count += 1;
+        }
+      }
+
+      // Departmental revenue contribution breakdown
+      const deptRevenue = {
+        cardConsultation: 0,
+        labDiagnostics: 0,
+        pharmacyDrugs: 0,
+        inpatientBeds: 0,
+        otherServices: 0,
+      };
+
+      for (const r of receipts) {
+        const cat = (r.category || "").toLowerCase();
+        if (cat.includes("card") || cat.includes("consult")) {
+          deptRevenue.cardConsultation += r.amount;
+        } else if (cat.includes("lab")) {
+          deptRevenue.labDiagnostics += r.amount;
+        } else if (cat.includes("pharm") || cat.includes("drug")) {
+          deptRevenue.pharmacyDrugs += r.amount;
+        } else if (cat.includes("bed") || cat.includes("admission") || cat.includes("ward")) {
+          deptRevenue.inpatientBeds += r.amount;
+        } else {
+          deptRevenue.otherServices += r.amount;
+        }
+      }
+
+      // Clinician & Doctor Productivity Scorecard
+      const doctorMap: Record<
+        string,
+        {
+          name: string;
+          consultationsCount: number;
+          prescriptionsCount: number;
+          labOrdersCount: number;
+          diagnosesCount: number;
+          activeVisits: number;
+          completedVisits: number;
+        }
+      > = {};
+
+      for (const v of visits) {
+        const presDoctor = v.prescriptions[0]?.prescribedBy;
+        const labDoctor = v.labOrders[0]?.orderedBy;
+        const noteAuthor = v.notes[0]?.authorId ? staffNameMap[v.notes[0].authorId] || v.notes[0].authorId : undefined;
+        const nurse = v.ticket?.assignedNurseName;
+
+        const docName = presDoctor || labDoctor || noteAuthor || nurse || "General OPD Doctor";
+
+        if (!doctorMap[docName]) {
+          doctorMap[docName] = {
+            name: docName,
+            consultationsCount: 0,
+            prescriptionsCount: 0,
+            labOrdersCount: 0,
+            diagnosesCount: 0,
+            activeVisits: 0,
+            completedVisits: 0,
+          };
+        }
+
+        const stats = doctorMap[docName]!;
+        stats.consultationsCount += 1;
+        if (v.status === "completed") stats.completedVisits += 1;
+        else stats.activeVisits += 1;
+        stats.prescriptionsCount += v.prescriptions.length;
+        stats.labOrdersCount += v.labOrders.length;
+        stats.diagnosesCount += v.diagnoses.length;
+      }
+
+      const clinicianProductivity = Object.values(doctorMap).sort(
+        (a, b) => b.consultationsCount - a.consultationsCount
+      );
+
+      // Bed Economics & Capacity
+      const totalBeds = allBeds.length;
+      const occupiedBeds = allBeds.filter((b) => b.status === "occupied").length;
+      const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+      // Pharmacy Capital & Expiry Risk Analysis
+      let totalStockValuation = 0;
+      let atRiskExpiringValuation = 0;
+      const expiringBatchesList: Array<{
+        itemName: string;
+        lotNumber: string;
+        qty: number;
+        expiryDate: string;
+        unitPrice: number;
+        totalLossAtRisk: number;
+      }> = [];
+
+      const ninetyDaysFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+      for (const item of inventoryItems) {
+        for (const batch of item.batches) {
+          const estimatedCost = 45;
+          const batchValuation = batch.qty * estimatedCost;
+          totalStockValuation += batchValuation;
+
+          const expDate = new Date(batch.expiryDate);
+          if (!isNaN(expDate.getTime()) && expDate <= ninetyDaysFromNow) {
+            atRiskExpiringValuation += batchValuation;
+            if (expiringBatchesList.length < 10) {
+              expiringBatchesList.push({
+                itemName: item.name,
+                lotNumber: batch.lotNumber,
+                qty: batch.qty,
+                expiryDate: batch.expiryDate,
+                unitPrice: estimatedCost,
+                totalLossAtRisk: batchValuation,
+              });
+            }
+          }
+        }
+      }
+
+      const criticalStockouts = inventoryItems.filter((i) => i.status === "critical");
+
+      return {
+        tenant: tenant || {
+          id: ctx.tenantId,
+          name: "Clinic Enterprise",
+          facilityType: "hospital",
+          region: "National",
+          plan: "basic",
+          cardFeeAmount: 50,
+          specialistFeeAmount: 150,
+        },
+        range: input.range,
+        kpis: {
+          totalGrossRevenue,
+          todayRevenue,
+          thisWeekRevenue,
+          thisMonthRevenue,
+          targetMonthlyRevenue,
+          targetAttainment,
+          avgEncounterValue: visits.length > 0 ? Math.round(totalGrossRevenue / visits.length) : 0,
+          totalVisits: visits.length,
+          completedVisits: visits.filter((v) => v.status === "completed").length,
+          activeVisits: visits.filter((v) => v.status !== "completed").length,
+          totalPatientsSeen: new Set(visits.map((v) => v.patientId)).size,
+          cbhiSharePercent: visits.length > 0
+            ? Math.round((visits.filter((v) => v.patient.cbhiStatus).length / visits.length) * 100)
+            : 0,
+          waivedAmount,
+          waiversCount: approvedWaivers.length,
+          pendingClaimsAmount,
+          rejectedClaimsAmount,
+          leakageAtRiskTotal: waivedAmount + rejectedClaimsAmount,
+          totalBeds,
+          occupiedBeds,
+          occupancyRate,
+          activeAdmissionsCount: admissions.filter((a) => a.status === "active").length,
+          totalStockValuation: Math.round(totalStockValuation),
+          atRiskExpiringValuation: Math.round(atRiskExpiringValuation),
+          criticalStockoutsCount: criticalStockouts.length,
+          activeStaffCount: staffRoles.length,
+        },
+        channelBreakdown,
+        deptRevenue,
+        clinicianProductivity,
+        expiringBatchesList,
+        criticalStockouts: criticalStockouts.slice(0, 8).map((i) => ({
+          name: i.name,
+          category: i.category,
+          uomBase: i.uomBase,
+        })),
+        recentAuditEvents: auditLogs.map((a) => ({
+          id: a.id,
+          action: a.action,
+          entity: a.entity,
+          userId: a.userId,
+          createdAt: a.createdAt.toISOString(),
+        })),
+      };
     }),
 });

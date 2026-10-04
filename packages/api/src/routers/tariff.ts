@@ -3,7 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
 
-const isBranchOrHospitalAdmin = (role?: string) => role === "Branch Admin" || role === "Hospital Admin";
+const isBranchOrHospitalAdmin = (role?: string) =>
+  role === "Branch Admin" || role === "Hospital Admin" || role === "Organizational Admin";
 
 export const tariffRouter = router({
   // List all hospital service tariffs with optional filtering

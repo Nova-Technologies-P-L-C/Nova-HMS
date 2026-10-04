@@ -43,6 +43,10 @@ export function requireRole(...roles: string[]) {
     if (allowed.has("Branch Admin") || allowed.has("Hospital Admin")) {
       allowed.add("Branch Admin");
       allowed.add("Hospital Admin");
+      allowed.add("Organizational Admin");
+    }
+    if (ctx.role === "Organizational Admin") {
+      return next({ ctx });
     }
     if (!allowed.has(ctx.role!)) {
       throw new TRPCError({

@@ -262,10 +262,33 @@ export function DataTable({
 }
 
 // Section card
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = "",
+  title,
+  subtitle,
+  action,
+}: {
+  children: ReactNode;
+  className?: string;
+  title?: string;
+  subtitle?: string;
+  action?: ReactNode;
+}) {
   return (
-    <div className={`bg-white rounded-lg border border-slate-200 ${className}`}>
-      {children}
+    <div className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden ${className}`}>
+      {(title || subtitle || action) && (
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            {title && <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{title}</h3>}
+            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
+          </div>
+          {action && <div>{action}</div>}
+        </div>
+      )}
+      <div className={title || subtitle || action ? "p-5" : "p-4"}>
+        {children}
+      </div>
     </div>
   );
 }

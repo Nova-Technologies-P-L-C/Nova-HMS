@@ -3,6 +3,7 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 const ROLE_DASHBOARDS: Record<string, string> = {
+  "Organizational Admin": "/nova/org-admin",
   "Branch Admin": "/nova/branch-admin",
   "Hospital Admin": "/nova/branch-admin",
   Doctor: "/nova/doctor",
@@ -17,6 +18,7 @@ const ROLE_DASHBOARDS: Record<string, string> = {
 };
 
 const DEMO_ACCOUNTS: [string, string][] = [
+  ["owner@dmrh.gov.et", "Clinic Owner / Org Admin"],
   ["admin@dmrh.gov.et", "Branch Admin"],
   ["tigist@dmrh.gov.et", "Doctor"],
   ["girma@dmrh.gov.et", "Receptionist"],
