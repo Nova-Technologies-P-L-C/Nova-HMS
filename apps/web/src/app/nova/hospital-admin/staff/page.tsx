@@ -725,7 +725,13 @@ export default function StaffAndRoleManagementPage() {
                   <option value="all">All Roles ({staffList.length})</option>
                   {availableRoles.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {r === "Nurse"
+                        ? "Nurse (Merged: Triage + Ward)"
+                        : r === "Triage Nurse"
+                        ? "Triage Nurse (Specialized: OPD)"
+                        : r === "Ward Nurse"
+                        ? "Ward Nurse (Specialized: Inpatient)"
+                        : r}
                     </option>
                   ))}
                 </select>
@@ -778,13 +784,20 @@ export default function StaffAndRoleManagementPage() {
 
                         {/* Role Badge & Permissions count */}
                         <td className="px-3 py-3">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                              ROLE_COLORS[staff.role] ?? "bg-slate-100 text-slate-700 border-slate-200"
-                            }`}
-                          >
-                            {ROLE_ICONS[staff.role]} {staff.role}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                ROLE_COLORS[staff.role] ?? "bg-slate-100 text-slate-700 border-slate-200"
+                              }`}
+                            >
+                              {ROLE_ICONS[staff.role]} {staff.role}
+                            </span>
+                            {staff.role === "Nurse" && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                🔄 Merged (2-in-1)
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                             <Key size={10} className="text-teal-600" />
                             {staff.effectivePermissions?.length || 0} activities permitted
@@ -1010,7 +1023,13 @@ export default function StaffAndRoleManagementPage() {
                   >
                     {availableRoles.map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {r === "Nurse"
+                          ? "Nurse (Merged: Triage + Ward)"
+                          : r === "Triage Nurse"
+                          ? "Triage Nurse (Specialized: OPD)"
+                          : r === "Ward Nurse"
+                          ? "Ward Nurse (Specialized: Inpatient)"
+                          : r}
                       </option>
                     ))}
                   </select>
@@ -1111,7 +1130,13 @@ export default function StaffAndRoleManagementPage() {
                   >
                     {availableRoles.map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {r === "Nurse"
+                          ? "Nurse (Merged: Triage + Ward)"
+                          : r === "Triage Nurse"
+                          ? "Triage Nurse (Specialized: OPD)"
+                          : r === "Ward Nurse"
+                          ? "Ward Nurse (Specialized: Inpatient)"
+                          : r}
                       </option>
                     ))}
                   </select>

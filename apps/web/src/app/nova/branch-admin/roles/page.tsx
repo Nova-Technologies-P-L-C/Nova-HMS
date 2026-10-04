@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, Card, StatusBadge } from "@/components/nova/nova-ui";
@@ -119,18 +120,25 @@ const COLOR_OPTIONS = [
   { id: "cyan", label: "Cyan", bg: "bg-cyan-100 text-cyan-800 border-cyan-200" },
 ];
 
-export default function RoleManagementPage() {
+function RoleManagementContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "system" | "custom">("all");
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<any | null>(null);
-  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(() => searchParams.get("action") === "merge");
   const [mergeSourceId, setMergeSourceId] = useState<string>("");
   const [mergeTargetId, setMergeTargetId] = useState<string>("");
   const [roleToDelete, setRoleToDelete] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("action") === "merge") {
+      setIsMergeOpen(true);
+    }
+  }, [searchParams]);
 
   // New role form state
   const [newRoleName, setNewRoleName] = useState("");
@@ -316,6 +324,39 @@ export default function RoleManagementPage() {
         </div>
       </div>
 
+      {/* Merged vs Specialized Roles Architecture Callout */}
+      <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 via-teal-50 to-indigo-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-amber-200/80 dark:border-slate-700 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 flex items-center justify-center font-bold text-base shrink-0 border border-amber-300">
+            🔄
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              Clinical Workforce Architecture: Merged vs. Specialized Roles
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-200 text-amber-900">
+                BA Notice
+              </span>
+            </h4>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+              • <strong className="text-amber-900 dark:text-amber-300">Nurse (Merged Dual Role)</strong>: Combines OPD Triage Intake and Inpatient Ward Care for unified coverage (ideal for night shifts or solo nurses).<br />
+              • <strong className="text-teal-900 dark:text-teal-300">Triage Nurse & Ward Nurse (Specialized)</strong>: Independent single-station roles to maximize patient flow during busy daytime hours.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            setMergeSourceId("");
+            setMergeTargetId("");
+            setIsMergeOpen(true);
+          }}
+          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shrink-0 flex items-center gap-1.5 shadow-sm transition"
+        >
+          <ArrowRightLeft size={14} />
+          Merge / Combine Any Roles
+        </button>
+      </div>
+
       {/* Search and Filters */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
         <div className="relative flex-1 max-w-md">
@@ -379,8 +420,23 @@ export default function RoleManagementPage() {
                         {r.icon || "🛡️"}
                       </div>
                       <div>
-                        <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-1.5">
-                          {r.role}
+                        <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-1.5 flex-wrap">
+                          <span>{r.role}</span>
+                          {r.role === "Nurse" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                              <span>🔄</span> Merged (Triage + Ward)
+                            </span>
+                          )}
+                          {r.role === "Triage Nurse" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300 flex items-center gap-1">
+                              <span>🩺</span> Specialized: OPD Intake
+                            </span>
+                          )}
+                          {r.role === "Ward Nurse" && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300 flex items-center gap-1">
+                              <span>💉</span> Specialized: Inpatient Care
+                            </span>
+                          )}
                         </h4>
                         <p className="text-[11px] text-slate-400">
                           {r.isSystem ? "Core System Role" : "Custom Branch Role"}
@@ -403,6 +459,13 @@ export default function RoleManagementPage() {
                   <p className="text-xs text-slate-600 mt-3 line-clamp-2 min-h-[32px]">
                     {r.description || "No description provided for this role."}
                   </p>
+
+                  {r.role === "Nurse" && (
+                    <div className="mt-2.5 p-2 bg-amber-50/80 border border-amber-200 rounded-lg text-[11px] text-amber-900 flex items-center gap-1.5">
+                      <Info size={12} className="text-amber-700 shrink-0" />
+                      <span>Authorizes staff for both <strong>/nova/triage</strong> and <strong>/nova/nurse</strong>.</span>
+                    </div>
+                  )}
 
                   {/* Member Stats & Badges */}
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
@@ -1117,5 +1180,13 @@ export default function RoleManagementPage() {
         </div>
       )}
     </PageShell>
+  );
+}
+
+export default function RoleManagementPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-xs text-slate-400">Loading branch roles & permissions...</div>}>
+      <RoleManagementContent />
+    </Suspense>
   );
 }
