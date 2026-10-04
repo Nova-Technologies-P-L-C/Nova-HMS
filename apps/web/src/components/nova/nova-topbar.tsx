@@ -5,8 +5,6 @@ import {
   WifiOff,
   Globe,
   LogOut,
-  ChevronDown,
-  Check,
   ShieldCheck,
   Stethoscope,
   Activity,
@@ -20,14 +18,8 @@ import {
   Crown,
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
-import { ROLES, type Role } from "@/lib/nova-mock-data";
+import { type Role } from "@/lib/nova-mock-data";
 import { ModeToggle } from "@/components/mode-toggle";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@my-better-t-app/ui/components/dropdown-menu";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -99,25 +91,8 @@ const ROLE_CONFIG: Record<
   },
 };
 
-const ROLE_DEFAULT_ROUTE: Partial<Record<Role, string>> = {
-  "Organizational Admin": "/nova/org-admin",
-  "Branch Admin": "/nova/branch-admin",
-  "Hospital Admin": "/nova/hospital-admin",
-  "Receptionist": "/nova/reception/register",
-  "Triage Nurse": "/nova/triage",
-  "Doctor": "/nova/doctor",
-  "Ward Nurse": "/nova/nurse",
-  "Nurse": "/nova/nurse",
-  "Lab Technician": "/nova/lab",
-  "Pharmacist": "/nova/pharmacy",
-  "Billing Officer": "/nova/billing",
-  "Referral Coordinator": "/nova/doctor/referral",
-  "Ward Manager": "/nova/hospital-admin",
-  "Nova Admin": "/nova/hospital-admin",
-};
-
 export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
-  const { role, setRole, lang, setLang, userName, userInitials, hospitalName } = useNovaRole();
+  const { role, lang, setLang, userName, userInitials, hospitalName } = useNovaRole();
   const [showOffline, setShowOffline] = useState(offline);
   const router = useRouter();
 
@@ -134,14 +109,6 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
     localStorage.removeItem("nova_user_role");
     localStorage.removeItem("nova_user_name");
     router.push("/nova/login");
-  };
-
-  const handleRoleChange = (newRole: Role) => {
-    setRole(newRole);
-    const target = ROLE_DEFAULT_ROUTE[newRole];
-    if (target) {
-      router.push(target as any);
-    }
   };
 
   const CurrentRoleIcon = ROLE_CONFIG[role]?.icon ?? ShieldCheck;
@@ -176,53 +143,18 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
             {lang === "en" ? "English" : "አማርኛ"}
           </button>
 
-          {/* Role selector & Light/Dark Mode toggle adjacent to each other */}
+          {/* Assigned Role Badge & Light/Dark Mode toggle */}
           <div className="flex items-center gap-1.5 pl-0.5">
-            {/* Role dropdown switcher */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <button
-                    type="button"
-                    className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border transition-all ${
-                      ROLE_CONFIG[role]?.badge ?? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
-                    }`}
-                    title="Active Role — click to switch role"
-                  >
-                    <CurrentRoleIcon size={13} className="shrink-0" />
-                    <span>Role: {role}</span>
-                    <ChevronDown size={12} className="opacity-60 shrink-0 ml-0.5" />
-                  </button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-56 p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-50">
-                <div className="px-2 py-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  Switch Active Role
-                </div>
-                {ROLES.map((r) => {
-                  const isCurrent = role === r;
-                  const itemConfig = ROLE_CONFIG[r];
-                  const ItemIcon = itemConfig?.icon ?? ShieldCheck;
-                  return (
-                    <DropdownMenuItem
-                      key={r}
-                      onClick={() => handleRoleChange(r)}
-                      className={`flex items-center justify-between px-2.5 py-1.5 text-xs rounded-md cursor-pointer transition-colors ${
-                        isCurrent
-                          ? "bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 font-semibold"
-                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <ItemIcon size={14} className={isCurrent ? "text-teal-600 dark:text-teal-400" : "text-slate-400 dark:text-slate-500"} />
-                        <span>{r}</span>
-                      </span>
-                      {isCurrent && <Check size={13} className="text-teal-600 dark:text-teal-400" />}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Read-only official assigned role badge */}
+            <div
+              className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border select-none ${
+                ROLE_CONFIG[role]?.badge ?? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+              }`}
+              title={`Assigned Station Role: ${role}`}
+            >
+              <CurrentRoleIcon size={13} className="shrink-0" />
+              <span>Role: {role}</span>
+            </div>
 
             {/* Light / Dark Mode Toggle right next to the role */}
             <ModeToggle />
