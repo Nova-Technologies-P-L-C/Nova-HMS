@@ -11,7 +11,18 @@ export default function NurseDashboard() {
   });
 
   return (
-    <PageShell title="Nurse Dashboard" subtitle="Ward patients">
+    <PageShell
+      title="Ward Nurse Dashboard"
+      subtitle="Inpatient Bed Census · MAR drug administration · Bedside care & nursing shift handover"
+      action={
+        <Link
+          href={"/nova/triage" as any}
+          className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5 shadow-sm"
+        >
+          <span>🩺</span> Go to Triage Station →
+        </Link>
+      }
+    >
       <div className="grid grid-cols-3 gap-4 mb-6">
         <KpiCard label="Assigned patients" value={admissions.length} accent />
         <KpiCard label="Vitals due" value={admissions.length} sub="check each patient" />

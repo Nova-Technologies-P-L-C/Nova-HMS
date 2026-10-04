@@ -155,7 +155,18 @@ export const visitRouter = router({
       include: {
         visit: {
           include: {
-            patient: { select: { id: true, nameEn: true, nameAm: true, healthId: true, cbhiStatus: true } },
+            patient: {
+              select: {
+                id: true,
+                nameEn: true,
+                nameAm: true,
+                healthId: true,
+                cbhiStatus: true,
+                sex: true,
+                dob: true,
+                phone: true,
+              },
+            },
           },
         },
       },

@@ -661,12 +661,29 @@ export const tenantRouter = router({
           icon: "🩺",
           color: "blue",
         },
-        "Nurse": {
+        "Triage Nurse": {
           perms: [
-            "clinical.notes.view", "clinical.vitals.record",
+            "clinical.vitals.record", "clinical.queue.manage", "clinical.notes.view", "clinical.referral.create"
+          ],
+          description: "OPD & Emergency front intake, rapid vital signs recording, acuity tagging (NEWS2/BMI), and queue routing",
+          icon: "🩺",
+          color: "teal",
+        },
+        "Ward Nurse": {
+          perms: [
+            "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record",
             "ward.admit", "ward.discharge", "ward.mar.administer"
           ],
-          description: "Triage, bedside care, medication administration record (MAR), and nurse notes",
+          description: "Inpatient bedside care, scheduled Medication Administration Record (MAR), and nurse shift handover notes",
+          icon: "💉",
+          color: "emerald",
+        },
+        "Nurse": {
+          perms: [
+            "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record",
+            "ward.admit", "ward.discharge", "ward.mar.administer"
+          ],
+          description: "General clinical nursing alias with ward care, vitals triage, and medication administration (MAR)",
           icon: "💉",
           color: "emerald",
         },

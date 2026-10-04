@@ -58,10 +58,21 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "e-Prescription", href: "/nova/doctor/prescription", icon: <Pill size={16} /> },
     { label: "Referral", href: "/nova/doctor/referral", icon: <ArrowLeftRight size={16} /> },
   ],
+  "Triage Nurse": [
+    { label: "Triage Intake Station", href: "/nova/triage", icon: <Activity size={16} /> },
+    { label: "OPD Queue Board", href: "/nova/reception/queue", icon: <ClipboardList size={16} /> },
+    { label: "Rapid Vitals Entry", href: "/nova/nurse/vitals", icon: <Stethoscope size={16} /> },
+  ],
+  "Ward Nurse": [
+    { label: "Inpatient Bed Census", href: "/nova/nurse", icon: <Bed size={16} /> },
+    { label: "MAR Drug Schedule", href: "/nova/nurse/mar", icon: <Pill size={16} /> },
+    { label: "Shift Nursing Notes", href: "/nova/nurse/notes", icon: <FileText size={16} /> },
+    { label: "Bedside Vitals", href: "/nova/nurse/vitals", icon: <Activity size={16} /> },
+  ],
   "Nurse": [
-    { label: "My Patients", href: "/nova/nurse", icon: <Users size={16} /> },
-    { label: "Vitals Entry", href: "/nova/nurse/vitals", icon: <Activity size={16} /> },
-    { label: "MAR", href: "/nova/nurse/mar", icon: <Pill size={16} /> },
+    { label: "Inpatient Beds", href: "/nova/nurse", icon: <Bed size={16} /> },
+    { label: "Triage Station", href: "/nova/triage", icon: <Activity size={16} /> },
+    { label: "MAR Drug Schedule", href: "/nova/nurse/mar", icon: <Pill size={16} /> },
     { label: "Nursing Notes", href: "/nova/nurse/notes", icon: <FileText size={16} /> },
   ],
   "Lab Technician": [

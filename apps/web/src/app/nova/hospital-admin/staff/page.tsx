@@ -18,6 +18,8 @@ const CLINICAL_ROLES = [
   "Branch Admin",
   "Hospital Admin",
   "Doctor",
+  "Triage Nurse",
+  "Ward Nurse",
   "Nurse",
   "Receptionist",
   "Lab Technician",
@@ -33,6 +35,8 @@ const ROLE_ICONS: Record<string, string> = {
   "Branch Admin": "🛡️",
   "Hospital Admin": "🛡️",
   "Doctor": "👨‍⚕️",
+  "Triage Nurse": "🩺",
+  "Ward Nurse": "💉",
   "Nurse": "👩‍⚕️",
   "Receptionist": "📋",
   "Lab Technician": "🔬",
@@ -46,7 +50,9 @@ const ROLE_COLORS: Record<string, string> = {
   "Branch Admin": "bg-indigo-50 text-indigo-700 border-indigo-200",
   "Hospital Admin": "bg-red-50 text-red-700 border-red-200",
   "Doctor": "bg-teal-50 text-teal-700 border-teal-200",
-  "Nurse": "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "Triage Nurse": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "Ward Nurse": "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "Nurse": "bg-sky-50 text-sky-700 border-sky-200",
   "Receptionist": "bg-amber-50 text-amber-700 border-amber-200",
   "Lab Technician": "bg-purple-50 text-purple-700 border-purple-200",
   "Pharmacist": "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -359,9 +365,11 @@ export default function StaffAndRoleManagementPage() {
     const total = staffList.length;
     const active = staffList.filter((s: any) => s.status === "active").length;
     const doctors = staffList.filter((s: any) => s.role === "Doctor").length;
-    const nurses = staffList.filter((s: any) => s.role === "Nurse").length;
+    const nurses = staffList.filter((s: any) =>
+      ["Nurse", "Triage Nurse", "Ward Nurse"].includes(s.role)
+    ).length;
     const clinicalCount = staffList.filter((s: any) =>
-      ["Doctor", "Nurse", "Lab Technician", "Pharmacist"].includes(s.role)
+      ["Doctor", "Nurse", "Triage Nurse", "Ward Nurse", "Lab Technician", "Pharmacist"].includes(s.role)
     ).length;
     return { total, active, doctors, nurses, clinicalCount };
   }, [staffList]);

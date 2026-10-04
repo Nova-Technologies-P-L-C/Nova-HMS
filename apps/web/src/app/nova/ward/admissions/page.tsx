@@ -279,7 +279,7 @@ export default function AdmissionsPage() {
                       <option value="">Select duty nurse…</option>
                       {nurses.map((n) => (
                         <option key={n.id} value={n.id}>
-                          {n.name} ({n.title || "Staff Nurse"})
+                          {n.name} ({n.title || n.role || "Staff Nurse"})
                         </option>
                       ))}
                     </select>

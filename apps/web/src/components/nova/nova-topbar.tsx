@@ -61,6 +61,14 @@ const ROLE_CONFIG: Record<
     icon: Stethoscope,
     badge: "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50",
   },
+  "Triage Nurse": {
+    icon: Activity,
+    badge: "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/50",
+  },
+  "Ward Nurse": {
+    icon: Bed,
+    badge: "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50",
+  },
   "Nurse": {
     icon: Activity,
     badge: "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50",
@@ -96,7 +104,9 @@ const ROLE_DEFAULT_ROUTE: Partial<Record<Role, string>> = {
   "Branch Admin": "/nova/branch-admin",
   "Hospital Admin": "/nova/hospital-admin",
   "Receptionist": "/nova/reception/register",
+  "Triage Nurse": "/nova/triage",
   "Doctor": "/nova/doctor",
+  "Ward Nurse": "/nova/nurse",
   "Nurse": "/nova/nurse",
   "Lab Technician": "/nova/lab",
   "Pharmacist": "/nova/pharmacy",

@@ -307,8 +307,8 @@ export default function OPDQueueBoardPage() {
       </div>
 
       <div className="mt-4 flex gap-3">
-        <Link href="/nova/nurse/vitals" className="text-sm px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-          Go to Nurse Triage →
+        <Link href={"/nova/triage" as any} className="text-sm px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 flex items-center gap-1.5 font-medium shadow-sm">
+          <span>🩺</span> Go to Triage Station →
         </Link>
         <Link href="/nova/doctor" className="text-sm px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded hover:border-teal-400">
           Doctor queue →

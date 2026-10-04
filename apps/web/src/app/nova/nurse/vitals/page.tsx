@@ -1,5 +1,6 @@
 "use client";
 import { useState, Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
@@ -100,7 +101,18 @@ function VitalsContent() {
   });
 
   return (
-    <PageShell title="Nurse Triage — Vitals Entry" subtitle="Step 2 of patient journey · Patient queue & nurse duty assignment">
+    <PageShell
+      title="Nurse Triage — Vitals Entry"
+      subtitle="Step 2 of patient journey · Rapid vitals recording & triage assessment"
+      action={
+        <Link
+          href={"/nova/triage" as any}
+          className="px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
+        >
+          <span>🩺</span> Dedicated Triage Station →
+        </Link>
+      }
+    >
       <div className="flex items-center gap-2 mb-5 text-xs text-slate-500">
         <span className="px-2 py-1 bg-slate-200 rounded">1 Register</span>
         <span className="text-slate-300">→</span>

@@ -26,7 +26,12 @@ export const wardRouter = router({
     const roles = await prisma.userTenantRole.findMany({
       where: {
         tenantId: ctx.tenantId,
-        OR: [{ role: "Nurse" }, { department: { contains: "Nurs" } }],
+        OR: [
+          { role: "Nurse" },
+          { role: "Ward Nurse" },
+          { role: "Triage Nurse" },
+          { department: { contains: "Nurs" } },
+        ],
       },
     });
 
