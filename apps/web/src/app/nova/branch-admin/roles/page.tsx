@@ -203,6 +203,20 @@ function RoleManagementContent() {
     })
   );
 
+  const [splitSuccessMsg, setSplitSuccessMsg] = useState<string | null>(null);
+
+  const splitRolesMutation = useMutation(
+    trpc.tenant.revertOrSplitMergedRoles.mutationOptions({
+      onSuccess: (data) => {
+        queryClient.invalidateQueries(trpc.tenant.getRolesWithStats.pathFilter());
+        queryClient.invalidateQueries(trpc.tenant.rolePermissions.pathFilter());
+        queryClient.invalidateQueries(trpc.tenant.staff.pathFilter());
+        setSplitSuccessMsg(data.message);
+        setTimeout(() => setSplitSuccessMsg(null), 10000);
+      },
+    })
+  );
+
   const resetCreateForm = () => {
     setNewRoleName("");
     setNewRoleDesc("");
@@ -256,6 +270,23 @@ function RoleManagementContent() {
 
           <button
             onClick={() => {
+              if (
+                confirm(
+                  "Reset merged roles back to dedicated stations? This will re-compartmentalize Triage Nurse and Ward Nurse permissions and re-route staff back to their specific clinical stations."
+                )
+              ) {
+                splitRolesMutation.mutate({ splitGeneralNurse: true, resetPermissions: true });
+              }
+            }}
+            disabled={splitRolesMutation.isPending}
+            className="px-3 py-1.5 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 flex items-center gap-1.5 transition shadow-sm"
+          >
+            <RotateCcw size={13} className={splitRolesMutation.isPending ? "animate-spin" : ""} />
+            {splitRolesMutation.isPending ? "Re-compartmentalizing..." : "Reset Merged Roles"}
+          </button>
+
+          <button
+            onClick={() => {
               setIsMergeOpen(true);
             }}
             className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 flex items-center gap-1.5 transition shadow-sm"
@@ -276,6 +307,26 @@ function RoleManagementContent() {
           </button>
         </div>
       </div>
+
+      {/* Split/Reset Roles Success Banner */}
+      {splitSuccessMsg && (
+        <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl flex items-start gap-3 text-xs text-emerald-900 dark:text-emerald-200 animate-in fade-in slide-in-from-top-2 shadow-xs">
+          <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+          <div>
+            <h5 className="font-bold text-sm">Confirmed: Roles Restored to Dedicated Stations!</h5>
+            <p className="mt-0.5 leading-relaxed">{splitSuccessMsg}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <Link href={"/nova/triage" as any} className="font-bold underline text-emerald-700 hover:text-emerald-800">
+                Verify Triage Station →
+              </Link>
+              <span>•</span>
+              <Link href={"/nova/nurse" as any} className="font-bold underline text-emerald-700 hover:text-emerald-800">
+                Verify Ward Station →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

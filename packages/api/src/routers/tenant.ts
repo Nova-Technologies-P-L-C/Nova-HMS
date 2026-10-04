@@ -561,6 +561,120 @@ export const tenantRouter = router({
       };
     }),
 
+  // Revert or split merged roles back to dedicated stations (Triage Nurse vs Ward Nurse)
+  revertOrSplitMergedRoles: tenantProcedure
+    .input(
+      z.object({
+        splitGeneralNurse: z.boolean().default(true),
+        resetPermissions: z.boolean().default(true),
+      }).default({ splitGeneralNurse: true, resetPermissions: true })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Branch Admin can split or reset roles" });
+      }
+
+      // 1. Ensure Triage Nurse and Ward Nurse role definitions exist with pristine permissions
+      const triagePerms = [
+        "clinical.vitals.record", "clinical.queue.manage", "clinical.notes.view", "clinical.referral.create"
+      ];
+      const wardPerms = [
+        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record",
+        "ward.admit", "ward.discharge", "ward.mar.administer"
+      ];
+
+      await Promise.all([
+        prisma.rolePermission.upsert({
+          where: { tenantId_role: { tenantId: ctx.tenantId, role: "Triage Nurse" } },
+          update: input.resetPermissions ? {
+            permissions: JSON.stringify(triagePerms),
+            description: "OPD & Emergency front intake, rapid vital signs recording, acuity tagging (NEWS2/BMI), and queue routing",
+            icon: "🩺",
+            color: "teal",
+            isSystem: true,
+          } : {},
+          create: {
+            tenantId: ctx.tenantId,
+            role: "Triage Nurse",
+            permissions: JSON.stringify(triagePerms),
+            description: "OPD & Emergency front intake, rapid vital signs recording, acuity tagging (NEWS2/BMI), and queue routing",
+            icon: "🩺",
+            color: "teal",
+            isSystem: true,
+          },
+        }),
+        prisma.rolePermission.upsert({
+          where: { tenantId_role: { tenantId: ctx.tenantId, role: "Ward Nurse" } },
+          update: input.resetPermissions ? {
+            permissions: JSON.stringify(wardPerms),
+            description: "Inpatient bedside care, scheduled Medication Administration Record (MAR), and nurse shift handover notes",
+            icon: "💉",
+            color: "cyan",
+            isSystem: true,
+          } : {},
+          create: {
+            tenantId: ctx.tenantId,
+            role: "Ward Nurse",
+            permissions: JSON.stringify(wardPerms),
+            description: "Inpatient bedside care, scheduled Medication Administration Record (MAR), and nurse shift handover notes",
+            icon: "💉",
+            color: "cyan",
+            isSystem: true,
+          },
+        }),
+      ]);
+
+      // 2. If splitGeneralNurse is true, examine staff currently under the merged "Nurse" role
+      let movedToTriage: string[] = [];
+      let movedToWard: string[] = [];
+
+      if (input.splitGeneralNurse) {
+        const mergedStaff = await prisma.userTenantRole.findMany({
+          where: { tenantId: ctx.tenantId, role: "Nurse" },
+          include: { user: { select: { id: true, name: true, email: true } } },
+        });
+
+        for (const staff of mergedStaff) {
+          const dept = (staff.department || "").toLowerCase();
+          const title = (staff.title || "").toLowerCase();
+          const isTriage = dept.includes("triage") || dept.includes("opd") || dept.includes("emerg") || title.includes("triage");
+
+          const newRole = isTriage ? "Triage Nurse" : "Ward Nurse";
+          await prisma.userTenantRole.update({
+            where: { id: staff.id },
+            data: { role: newRole },
+          });
+
+          if (isTriage) {
+            movedToTriage.push(staff.user.name);
+          } else {
+            movedToWard.push(staff.user.name);
+          }
+        }
+      }
+
+      // 3. Audit log
+      await prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId,
+          userId: ctx.userId ?? "Branch Admin",
+          action: `Reset merged roles back to dedicated stations: ${movedToTriage.length} staff re-assigned to Triage Nurse, ${movedToWard.length} staff re-assigned to Ward Nurse`,
+          entity: "RolePermission",
+          entityId: "system-reset",
+        },
+      });
+
+      return {
+        success: true,
+        movedToTriage,
+        movedToWard,
+        triageCount: movedToTriage.length,
+        wardCount: movedToWard.length,
+        timestamp: new Date().toISOString(),
+        message: `Successfully re-compartmentalized roles! Dedicated stations restored with ${movedToTriage.length} staff at Triage and ${movedToWard.length} staff at Inpatient Wards.`,
+      };
+    }),
+
   // Update permissions for a specific role (Branch Admin only)
   updateRolePermissions: tenantProcedure
     .input(

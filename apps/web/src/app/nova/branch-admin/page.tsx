@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, KpiCard, Card, StatusBadge } from "@/components/nova/nova-ui";
 import {
@@ -22,9 +23,11 @@ import {
   Sparkles,
   Stethoscope,
   Bed,
+  RotateCcw,
 } from "lucide-react";
 
 export default function BranchAdminDashboard() {
+  const queryClient = useQueryClient();
   const { data: stats } = useQuery(trpc.tenant.dashboardStats.queryOptions());
   const { data: queue = [] } = useQuery(trpc.visit.queue.queryOptions());
   const { data: auditLogs = [] } = useQuery(trpc.tenant.auditLog.queryOptions());
@@ -40,6 +43,23 @@ export default function BranchAdminDashboard() {
   const wardRole = roles.find((r) => r.role === "Ward Nurse");
   const customMergedRoles = roles.filter(
     (r) => !r.isSystem && (r.role.toLowerCase().includes("merge") || r.description.toLowerCase().includes("merge"))
+  );
+
+  // Re-compartmentalize / Reset State
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
+
+  const splitRolesMutation = useMutation(
+    trpc.tenant.revertOrSplitMergedRoles.mutationOptions({
+      onSuccess: (data) => {
+        queryClient.invalidateQueries(trpc.tenant.getRolesWithStats.pathFilter());
+        queryClient.invalidateQueries(trpc.tenant.rolePermissions.pathFilter());
+        queryClient.invalidateQueries(trpc.tenant.staff.pathFilter());
+        setIsResetOpen(false);
+        setResetSuccessMessage(data.message);
+        setTimeout(() => setResetSuccessMessage(null), 10000);
+      },
+    })
   );
 
   return (
@@ -129,8 +149,35 @@ export default function BranchAdminDashboard() {
               <ArrowRightLeft size={14} />
               Merge Roles Tool
             </Link>
+            <button
+              onClick={() => setIsResetOpen(true)}
+              className="px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 text-xs font-semibold rounded-lg transition shadow-xs flex items-center gap-1.5"
+            >
+              <RotateCcw size={14} />
+              Reset Roles to Dedicated Stations
+            </button>
           </div>
         </div>
+
+        {/* Success Confirmation Toast Banner */}
+        {resetSuccessMessage && (
+          <div className="mx-5 mt-4 p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl flex items-start gap-3 text-xs text-emerald-900 dark:text-emerald-200 animate-in fade-in slide-in-from-top-2 shadow-xs">
+            <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <h5 className="font-bold text-sm">Confirmed: Roles Restored to Dedicated Stations!</h5>
+              <p className="mt-0.5 leading-relaxed">{resetSuccessMessage}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <Link href={"/nova/triage" as any} className="font-bold underline text-emerald-700 hover:text-emerald-800">
+                  Verify Triage Station →
+                </Link>
+                <span>•</span>
+                <Link href={"/nova/nurse" as any} className="font-bold underline text-emerald-700 hover:text-emerald-800">
+                  Verify Ward Station →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 3-Column Comparison Grid: Merged Nurse vs Triage Nurse vs Ward Nurse */}
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -464,6 +511,77 @@ export default function BranchAdminDashboard() {
           <ClipboardList size={15} /> Full Audit Trail
         </Link>
       </div>
+
+      {/* Reset Merged Roles to Dedicated Stations Confirmation Modal */}
+      {isResetOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                  <RotateCcw size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                    Reset Merged Roles to Dedicated Stations
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Confirm workforce re-compartmentalization
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsResetOpen(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-3.5 text-xs text-slate-600 dark:text-slate-300">
+              <p>
+                This operation will re-establish the strict operational separation between <strong>Triage Nurse (OPD Intake)</strong> and <strong>Ward Nurse (Inpatient Bedside)</strong>:
+              </p>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl space-y-2 border border-slate-200 dark:border-slate-700">
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-teal-600">1. Triage Nurse:</span>
+                  <span>Restored to pure OPD intake, rapid vitals, and queue dispatching.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-cyan-600">2. Ward Nurse:</span>
+                  <span>Restored to pure inpatient care, bed census, and MAR drug rounds.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-amber-600">3. Staff Re-assignment:</span>
+                  <span>Any personnel in the merged 'Nurse' role will be routed to their specific workstation based on department.</span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500">
+                A confirmation audit record will be generated immediately for facility compliance.
+              </p>
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setIsResetOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={splitRolesMutation.isPending}
+                onClick={() => splitRolesMutation.mutate({ splitGeneralNurse: true, resetPermissions: true })}
+                className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RotateCcw size={13} className={splitRolesMutation.isPending ? "animate-spin" : ""} />
+                {splitRolesMutation.isPending ? "Re-compartmentalizing..." : "Execute Station Reset"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageShell>
   );
 }
