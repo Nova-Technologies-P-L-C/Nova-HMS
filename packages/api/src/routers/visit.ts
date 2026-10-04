@@ -199,23 +199,163 @@ export const visitRouter = router({
       });
     }),
 
-  // Add clinical note
+  // Add clinical/nursing note (auto-resolves or creates visit if needed)
   addNote: tenantProcedure
-    .input(z.object({
-      visitId: z.string(),
-      noteType: z.string().default("consultation"),
-      chiefComplaint: z.string().default(""),
-      history: z.string().default(""),
-      examination: z.string().default(""),
-      assessment: z.string().default(""),
-      plan: z.string().default(""),
-    }))
+    .input(
+      z.object({
+        visitId: z.string().optional(),
+        patientId: z.string().optional(),
+        noteType: z.string().default("consultation"),
+        chiefComplaint: z.string().default(""),
+        history: z.string().default(""),
+        examination: z.string().default(""),
+        assessment: z.string().default(""),
+        plan: z.string().default(""),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      await prisma.visit.findFirstOrThrow({ where: { id: input.visitId, tenantId: ctx.tenantId } });
+      let resolvedVisitId = input.visitId;
+
+      if (!resolvedVisitId) {
+        if (!input.patientId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Either visitId or patientId is required" });
+        }
+
+        // Find existing open visit for patient
+        let openVisit = await prisma.visit.findFirst({
+          where: { tenantId: ctx.tenantId, patientId: input.patientId, status: "open" },
+          orderBy: { openedAt: "desc" },
+        });
+
+        if (!openVisit) {
+          // Auto-create an active inpatient/nursing visit
+          openVisit = await prisma.visit.create({
+            data: {
+              tenantId: ctx.tenantId,
+              patientId: input.patientId,
+              type: "inpatient",
+              status: "open",
+            },
+          });
+        }
+        resolvedVisitId = openVisit.id;
+      } else {
+        await prisma.visit.findFirstOrThrow({ where: { id: resolvedVisitId, tenantId: ctx.tenantId } });
+      }
+
       return prisma.clinicalNote.create({
-        data: { ...input, authorId: ctx.userId },
+        data: {
+          visitId: resolvedVisitId,
+          noteType: input.noteType,
+          chiefComplaint: input.chiefComplaint,
+          history: input.history,
+          examination: input.examination,
+          assessment: input.assessment,
+          plan: input.plan,
+          authorId: ctx.userId,
+        },
       });
     }),
+
+  // Get all clinical & nursing notes for a patient across visits
+  patientNotes: tenantProcedure
+    .input(z.object({ patientId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const visits = await prisma.visit.findMany({
+        where: { tenantId: ctx.tenantId, patientId: input.patientId },
+        select: { id: true },
+      });
+      const visitIds = visits.map((v) => v.id);
+
+      return prisma.clinicalNote.findMany({
+        where: { visitId: { in: visitIds } },
+        orderBy: { createdAt: "desc" },
+      });
+    }),
+
+  // Get full nurse worklist (admitted ward patients + OPD triage patients)
+  nurseWorklist: tenantProcedure.query(async ({ ctx }) => {
+    const admissions = await prisma.admission.findMany({
+      where: { tenantId: ctx.tenantId, status: "active" },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            nameEn: true,
+            nameAm: true,
+            healthId: true,
+            sex: true,
+            dob: true,
+            phone: true,
+            cbhiStatus: true,
+          },
+        },
+        bed: true,
+      },
+      orderBy: { admittedAt: "desc" },
+    });
+
+    const opdTickets = await prisma.oPDTicket.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        status: { in: ["waiting", "urgent", "being-seen"] },
+      },
+      include: {
+        visit: {
+          include: {
+            patient: {
+              select: {
+                id: true,
+                nameEn: true,
+                nameAm: true,
+                healthId: true,
+                sex: true,
+                dob: true,
+                phone: true,
+                cbhiStatus: true,
+              },
+            },
+            vitals: { orderBy: { recordedAt: "desc" }, take: 1 },
+          },
+        },
+      },
+      orderBy: { issuedAt: "asc" },
+    });
+
+    return {
+      wardAdmissions: admissions.map((a) => {
+        const diffMs = Math.max(0, Date.now() - new Date(a.admittedAt).getTime());
+        const daysStayed = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        return {
+          id: a.id,
+          patientId: a.patientId,
+          visitId: a.visitId,
+          patient: a.patient,
+          ward: a.bed.ward,
+          room: a.bed.room,
+          admittedAt: a.admittedAt,
+          daysStayed,
+          assignedNurseId: a.assignedNurseId,
+          assignedNurseName: a.assignedNurseName || "Unassigned",
+          type: "inpatient" as const,
+        };
+      }),
+      opdQueue: opdTickets.map((t) => ({
+        id: t.id,
+        ticketNumber: t.ticketNumber,
+        patientId: t.visit.patientId,
+        visitId: t.visit.id,
+        patient: t.visit.patient,
+        status: t.status,
+        issuedAt: t.issuedAt,
+        assignedNurseId: t.assignedNurseId,
+        assignedNurseName: t.assignedNurseName || "Unassigned",
+        hasVitals: t.visit.vitals.length > 0,
+        latestVitals: t.visit.vitals[0] || null,
+        type: "opd" as const,
+      })),
+    };
+  }),
 
   // Add diagnosis
   addDiagnosis: tenantProcedure

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, History, Pill, FileText, FlaskConical, ArrowRight } from "lucide-react";
+import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
 
 function ConsultationContent() {
   const router = useRouter();
@@ -49,6 +50,22 @@ function ConsultationContent() {
     await addNote.mutateAsync({ visitId, noteType: "consultation", chiefComplaint: complaint, examination: notes, assessment: diagnosis, plan: "" });
     await addDiagnosis.mutateAsync({ visitId, icdCode: icd, description: diagnosis, notes });
     setSaved(true);
+  };
+
+  const handleSelectDiagnosis = (d: { icdCode: string; description: string; notes?: string }) => {
+    setIcd(d.icdCode);
+    setDiagnosis(d.description);
+    if (d.notes) {
+      setNotes((prev) => (prev ? `${prev}\n[History Note]: ${d.notes}` : d.notes || ""));
+    }
+  };
+
+  const handleSelectPrescription = (med: { drug: string; dose: string; freq: string; days: number }) => {
+    router.push(
+      `/nova/doctor/prescription?visitId=${visitId}&drug=${encodeURIComponent(med.drug)}&dose=${encodeURIComponent(
+        med.dose
+      )}&freq=${encodeURIComponent(med.freq)}&days=${med.days}`
+    );
   };
 
   const isLoading = addNote.isPending || addDiagnosis.isPending || transferToBilling.isPending;
@@ -193,19 +210,59 @@ function ConsultationContent() {
               })()}
             </Card>
           )}
-          {visit && visit.diagnoses.length > 0 && (
-            <Card className="p-4">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Previous diagnoses</p>
-              {visit.diagnoses.map((d) => (
-                <div key={d.id} className="mb-3 pb-3 border-b border-slate-100 last:border-0 last:mb-0">
-                  <p className="text-xs font-mono text-slate-400">{new Date(d.diagnosedAt).toLocaleDateString()}</p>
-                  <p className="text-sm text-slate-700 font-medium">{d.description}</p>
-                  <p className="text-xs text-slate-500">{d.icdCode}</p>
-                </div>
-              ))}
-            </Card>
-          )}
+          <Card className="p-4 space-y-2">
+            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2 font-semibold">Clinical Actions</p>
+            <Link
+              href={`/nova/doctor/prescription?visitId=${visitId}`}
+              className="flex items-center justify-between w-full px-3 py-2 bg-teal-50 border border-teal-200 text-teal-700 rounded text-xs font-semibold hover:bg-teal-100 transition-colors"
+            >
+              <span className="flex items-center gap-1.5"><Pill size={14} /> Prescribe Medications</span>
+              <ArrowRight size={13} />
+            </Link>
+            <Link
+              href={`/nova/doctor/lab-order?visitId=${visitId}`}
+              className="flex items-center justify-between w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded text-xs font-semibold hover:bg-blue-100 transition-colors"
+            >
+              <span className="flex items-center gap-1.5"><FlaskConical size={14} /> Order Lab Tests</span>
+              <ArrowRight size={13} />
+            </Link>
+            <Link
+              href={`/nova/doctor/emr?visitId=${visitId}`}
+              className="flex items-center justify-between w-full px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded text-xs font-semibold hover:bg-slate-200 transition-colors"
+            >
+              <span className="flex items-center gap-1.5"><FileText size={14} /> View Full EMR</span>
+              <ArrowRight size={13} />
+            </Link>
+          </Card>
         </div>
+      </div>
+
+      {/* Patient Longitudinal History: Previous Prescriptions, Diagnoses, Notes, Labs */}
+      <div className="mt-8 pt-6 border-t border-slate-200">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-teal-600" />
+              <h3 className="font-bold text-slate-800 text-base">
+                Patient Medical History & Previous Treatments
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Longitudinal records across all visits · Previous prescriptions, nursing notes, diagnoses & lab reports for{" "}
+              <strong>{visit?.patient?.nameEn || "patient"}</strong>
+            </p>
+          </div>
+          <span className="text-xs px-2.5 py-1 bg-teal-50 border border-teal-200 text-teal-700 font-semibold rounded-full">
+            💡 1-Click Re-prescribe & Auto-fill Diagnosis
+          </span>
+        </div>
+
+        <PatientHistoryViewer
+          visitId={visitId}
+          onSelectDiagnosis={handleSelectDiagnosis}
+          onSelectPrescription={handleSelectPrescription}
+          showAllergyAdder={true}
+        />
       </div>
     </PageShell>
   );

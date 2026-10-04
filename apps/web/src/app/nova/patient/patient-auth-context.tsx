@@ -113,18 +113,51 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
       return phoneMatches && nameMatches;
     });
 
-    if (!match) {
-      return {
-        success: false,
-        error:
-          "No registered patient record found matching this name and phone number. Please check the spelling or visit the hospital reception desk to register first.",
-      };
+    if (match) {
+      setPatient(match);
+      localStorage.setItem("nova_patient_session", JSON.stringify(match));
+      return { success: true };
     }
 
-    // Successfully verified against reception records!
-    setPatient(match);
-    localStorage.setItem("nova_patient_session", JSON.stringify(match));
-    return { success: true };
+    // If not found in local mock data, query backend database directly
+    try {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000";
+      const resp = await fetch(`${serverUrl}/trpc/patient.portalLogin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: cleanPhone, name: cleanName }),
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        const dbPatient = json?.result?.data;
+        if (dbPatient && dbPatient.healthId) {
+          const sessionData: PatientSession = {
+            id: dbPatient.id,
+            name: dbPatient.name,
+            nameAm: dbPatient.nameAm,
+            dob: dbPatient.dob,
+            sex: dbPatient.sex,
+            phone: dbPatient.phone,
+            healthId: dbPatient.healthId,
+            kebele: dbPatient.kebele,
+            cbhi: dbPatient.cbhi,
+            visits: dbPatient.visits || 1,
+            lastVisit: dbPatient.lastVisit || "Today",
+          };
+          setPatient(sessionData);
+          localStorage.setItem("nova_patient_session", JSON.stringify(sessionData));
+          return { success: true };
+        }
+      }
+    } catch (e) {
+      console.warn("Backend patient login error:", e);
+    }
+
+    return {
+      success: false,
+      error:
+        "No registered patient record found matching this name and phone number. Please check the spelling or visit the hospital reception desk to register first.",
+    };
   }, []);
 
   const logout = useCallback(() => {

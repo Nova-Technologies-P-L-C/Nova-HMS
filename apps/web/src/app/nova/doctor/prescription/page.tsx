@@ -1,10 +1,11 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, StatusBadge } from "@/components/nova/nova-ui";
-import { CheckCircle, Plus, Trash2 } from "lucide-react";
+import { CheckCircle, Plus, Trash2, ArrowLeft } from "lucide-react";
+import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
 
 type RxLine = { drug: string; dose: string; freq: string; days: string };
 
@@ -28,6 +29,26 @@ function PrescriptionContent() {
   const [lines, setLines] = useState<RxLine[]>([{ drug: "", dose: "1 tablet", freq: "3x daily", days: "7" }]);
   const [pharmNotes, setPharmNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  // Check URL query parameters for prefilled medication (e.g. from 1-click re-prescribe)
+  useEffect(() => {
+    const qDrug = params.get("drug");
+    if (qDrug) {
+      const qDose = params.get("dose") || "1 tablet";
+      const qFreq = params.get("freq") || "3x daily";
+      const qDays = params.get("days") || "7";
+      setLines([{ drug: qDrug, dose: qDose, freq: qFreq, days: qDays }]);
+    }
+  }, [params]);
+
+  const handleRePrescribe = (med: { drug: string; dose: string; freq: string; days: number }) => {
+    setLines((prev) => {
+      if (prev.length === 1 && !prev[0].drug.trim()) {
+        return [{ drug: med.drug, dose: med.dose, freq: med.freq, days: String(med.days) }];
+      }
+      return [...prev, { drug: med.drug, dose: med.dose, freq: med.freq, days: String(med.days) }];
+    });
+  };
 
   const writePrescription = useMutation(trpc.prescription.create.mutationOptions({
     onSuccess: () => qc.invalidateQueries({ queryKey: trpc.prescription.queue.queryKey() }),
@@ -86,91 +107,95 @@ function PrescriptionContent() {
         </div>
       )}
 
-      <div className="max-w-2xl space-y-5">
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-800">Medications</h3>
-            <button onClick={addLine} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
-              <Plus size={13} /> Add medication
-            </button>
-          </div>
-          <div className="space-y-4">
-            {lines.map((line, i) => (
-              <div key={i} className="p-3 rounded-lg border border-slate-100 bg-slate-50">
-                <div className="grid grid-cols-2 gap-3 mb-2">
-                  <FormField label="Drug / strength">
-                    <input
-                      list="drug-list"
-                      value={line.drug}
-                      onChange={(e) => update(i, "drug", e.target.value)}
-                      className={inputCls}
-                      placeholder="e.g. Amoxicillin 500mg"
-                    />
-                    <datalist id="drug-list">
-                      {COMMON_DRUGS.map((d) => <option key={d} value={d} />)}
-                    </datalist>
-                  </FormField>
-                  <FormField label="Dose">
-                    <input value={line.dose} onChange={(e) => update(i, "dose", e.target.value)} className={inputCls} placeholder="1 tablet" />
-                  </FormField>
-                  <FormField label="Frequency">
-                    <select value={line.freq} onChange={(e) => update(i, "freq", e.target.value)} className={inputCls}>
-                      {["Once daily", "2x daily", "3x daily", "4x daily", "Every 8hrs", "As needed"].map((f) => <option key={f}>{f}</option>)}
-                    </select>
-                  </FormField>
-                  <FormField label="Duration (days)">
-                    <input type="number" min={1} value={line.days} onChange={(e) => update(i, "days", e.target.value)} className={inputCls} />
-                  </FormField>
-                </div>
-                {lines.length > 1 && (
-                  <button onClick={() => removeLine(i)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
-                    <Trash2 size={12} /> Remove
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <h3 className="font-semibold text-slate-800 mb-3">Notes to pharmacist</h3>
-          <textarea
-            className={`${inputCls} resize-none h-16`}
-            value={pharmNotes}
-            onChange={(e) => setPharmNotes(e.target.value)}
-            placeholder="Any special dispensing instructions…"
-          />
-        </Card>
-
-        {prevRx.length > 0 && (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left: Active Prescription Writer */}
+        <div className="lg:col-span-6 space-y-5">
           <Card className="p-5">
-            <h3 className="font-semibold text-slate-800 mb-3">Previous prescriptions</h3>
-            <div className="space-y-2">
-              {prevRx.map((rx) => (
-                <div key={rx.id} className="text-sm py-1.5 border-b border-slate-100 last:border-0">
-                  {rx.lines.map((l) => (
-                    <div key={l.id} className="flex items-center justify-between">
-                      <span className="text-slate-700">{l.itemName} · {l.dose} · {l.frequency}</span>
-                      <StatusBadge status={rx.status} />
-                    </div>
-                  ))}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-slate-800">Medications</h3>
+              <button onClick={addLine} className="flex items-center gap-1 text-xs text-teal-600 hover:underline">
+                <Plus size={13} /> Add medication
+              </button>
+            </div>
+            <div className="space-y-4">
+              {lines.map((line, i) => (
+                <div key={i} className="p-3 rounded-lg border border-slate-100 bg-slate-50">
+                  <div className="grid grid-cols-2 gap-3 mb-2">
+                    <FormField label="Drug / strength">
+                      <input
+                        list="drug-list"
+                        value={line.drug}
+                        onChange={(e) => update(i, "drug", e.target.value)}
+                        className={inputCls}
+                        placeholder="e.g. Amoxicillin 500mg"
+                      />
+                      <datalist id="drug-list">
+                        {COMMON_DRUGS.map((d) => <option key={d} value={d} />)}
+                      </datalist>
+                    </FormField>
+                    <FormField label="Dose">
+                      <input value={line.dose} onChange={(e) => update(i, "dose", e.target.value)} className={inputCls} placeholder="1 tablet" />
+                    </FormField>
+                    <FormField label="Frequency">
+                      <select value={line.freq} onChange={(e) => update(i, "freq", e.target.value)} className={inputCls}>
+                        {["Once daily", "2x daily", "3x daily", "4x daily", "Every 8hrs", "As needed"].map((f) => <option key={f}>{f}</option>)}
+                      </select>
+                    </FormField>
+                    <FormField label="Duration (days)">
+                      <input type="number" min={1} value={line.days} onChange={(e) => update(i, "days", e.target.value)} className={inputCls} />
+                    </FormField>
+                  </div>
+                  {lines.length > 1 && (
+                    <button onClick={() => removeLine(i)} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
+                      <Trash2 size={12} /> Remove
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           </Card>
-        )}
 
-        {writePrescription.error && <p className="text-sm text-red-600">{writePrescription.error.message}</p>}
+          <Card className="p-5">
+            <h3 className="font-semibold text-slate-800 mb-3">Notes to pharmacist</h3>
+            <textarea
+              className={`${inputCls} resize-none h-16`}
+              value={pharmNotes}
+              onChange={(e) => setPharmNotes(e.target.value)}
+              placeholder="Any special dispensing instructions…"
+            />
+          </Card>
 
-        <div className="flex gap-2">
-          <button
-            onClick={handleSubmit}
-            disabled={!visitId || lines.every((l) => !l.drug) || writePrescription.isPending}
-            className={`${btnPrimary} disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {writePrescription.isPending ? "Sending…" : "Send to pharmacy →"}
-          </button>
-          <button onClick={() => router.back()} className={btnSecondary}>Cancel</button>
+          {writePrescription.error && <p className="text-sm text-red-600">{writePrescription.error.message}</p>}
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={!visitId || lines.every((l) => !l.drug) || writePrescription.isPending}
+              className={`${btnPrimary} disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {writePrescription.isPending ? "Sending…" : "Send to pharmacy →"}
+            </button>
+            <button onClick={() => router.back()} className={btnSecondary}>Cancel</button>
+          </div>
+        </div>
+
+        {/* Right: Patient Longitudinal History & Previous Prescriptions */}
+        <div className="lg:col-span-6 space-y-3">
+          <div className="flex items-center justify-between pb-1">
+            <h3 className="font-bold text-slate-800 text-sm">
+              Longitudinal History & Past Prescriptions
+            </h3>
+            <span className="text-[11px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded font-medium border border-teal-200">
+              💡 Click "+ Re-prescribe" to copy into prescription
+            </span>
+          </div>
+
+          <PatientHistoryViewer
+            visitId={visitId}
+            onSelectPrescription={handleRePrescribe}
+            defaultTab="prescriptions"
+            showAllergyAdder={true}
+          />
         </div>
       </div>
     </PageShell>

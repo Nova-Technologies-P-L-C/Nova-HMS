@@ -276,7 +276,7 @@ export const billingRouter = router({
       const isCbhi = !!visit.patient.cbhiStatus;
       const unbilledItems: Array<{
         id: string;
-        type: "card_fee" | "consultation" | "lab" | "drug";
+        type: "card_fee" | "consultation" | "lab" | "drug" | "bed" | "nursing_care";
         name: string;
         amount: number;
         paymentStatus: string;
@@ -336,6 +336,43 @@ export const billingRouter = router({
         }
       }
 
+      // 5. Inpatient Ward & Bed Accommodation Charges + Nursing Care
+      const admissions = await prisma.admission.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          OR: [
+            { visitId: visit.id },
+            { patientId: visit.patientId, status: "active" },
+          ],
+        },
+        include: { bed: true },
+      });
+
+      for (const adm of admissions) {
+        const diffMs = Math.max(0, Date.now() - new Date(adm.admittedAt).getTime());
+        const days = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        const bedCharge = days * adm.dailyRate;
+        const nursingCharge = days * adm.nursingDailyFee;
+
+        unbilledItems.push({
+          id: `bed-${adm.id}`,
+          type: "bed",
+          name: `Inpatient Bed: ${adm.bed?.ward ?? "General Ward"} Bed ${adm.bed?.room ?? "01"} (${days}d @ ETB ${adm.dailyRate}/d)`,
+          amount: bedCharge,
+          paymentStatus: isCbhi ? "cbhi_covered" : adm.paymentStatus,
+          receiptNumber: adm.receiptNumber || undefined,
+        });
+
+        unbilledItems.push({
+          id: `nursing-${adm.id}`,
+          type: "nursing_care",
+          name: `Inpatient Nursing & Staff Care (${days}d @ ETB ${adm.nursingDailyFee}/d)`,
+          amount: nursingCharge,
+          paymentStatus: isCbhi ? "cbhi_covered" : adm.paymentStatus,
+          receiptNumber: adm.receiptNumber || undefined,
+        });
+      }
+
       const totalUnpaid = unbilledItems
         .filter((i) => i.paymentStatus === "unpaid")
         .reduce((s, i) => s + i.amount, 0);
@@ -368,8 +405,10 @@ export const billingRouter = router({
       visitId: z.string(),
       payCardFee: z.boolean().default(false),
       payConsultation: z.boolean().default(true),
+      payAdmissionCharges: z.boolean().default(true),
       labOrderIds: z.array(z.string()).default([]),
       prescriptionLineIds: z.array(z.string()).default([]),
+      admissionIds: z.array(z.string()).default([]),
       paymentMethod: z.enum(["cash", "telebirr", "cbe_birr", "card"]),
       reference: z.string().default(""),
       notes: z.string().default(""),
@@ -420,6 +459,31 @@ export const billingRouter = router({
         for (const l of lines) {
           total += l.totalPrice;
           descriptionList.push(l.itemName);
+        }
+      }
+
+      // 5. Inpatient Ward & Nursing Care
+      let admsToUpdate: any[] = [];
+      if (input.payAdmissionCharges) {
+        admsToUpdate = await prisma.admission.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            paymentStatus: "unpaid",
+            OR: [
+              { visitId: visit.id },
+              { patientId: visit.patientId, status: "active" },
+              input.admissionIds.length > 0 ? { id: { in: input.admissionIds } } : {},
+            ],
+          },
+          include: { bed: true },
+        });
+
+        for (const adm of admsToUpdate) {
+          const diffMs = Math.max(0, Date.now() - new Date(adm.admittedAt).getTime());
+          const days = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+          const bedTotal = days * (adm.dailyRate + adm.nursingDailyFee);
+          total += bedTotal;
+          descriptionList.push(`Inpatient Bed & Nursing (${adm.bed?.ward ?? "Ward"} Bed ${adm.bed?.room ?? "01"}, ${days}d)`);
         }
       }
 
@@ -480,6 +544,17 @@ export const billingRouter = router({
             paidAt: new Date(),
             receiptNumber,
             paymentMethod: input.paymentMethod,
+          },
+        });
+      }
+
+      // Update Inpatient Admissions to paid
+      if (admsToUpdate && admsToUpdate.length > 0) {
+        await prisma.admission.updateMany({
+          where: { id: { in: admsToUpdate.map((a) => a.id) } },
+          data: {
+            paymentStatus: "paid",
+            receiptNumber,
           },
         });
       }

@@ -59,6 +59,25 @@ export default function PatientRegistrationPage() {
       paymentReference,
     });
     await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
+    try {
+      const existingStr = localStorage.getItem("nova_registered_patients");
+      const list = existingStr ? JSON.parse(existingStr) : [];
+      list.unshift({
+        id: patient.id,
+        name: patient.nameEn,
+        nameAm: patient.nameAm || form.nameAm,
+        dob: form.dob,
+        sex: form.sex,
+        phone: form.phone,
+        healthId: patient.healthId,
+        kebele: form.kebele,
+        cbhi: form.cbhiStatus,
+        visits: 1,
+        lastVisit: "Today",
+      });
+      localStorage.setItem("nova_registered_patients", JSON.stringify(list));
+    } catch {}
+
     setSubmitted({
       healthId: patient.healthId,
       ticket: ticket.ticketNumber,

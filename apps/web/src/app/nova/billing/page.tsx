@@ -78,6 +78,7 @@ function BillingDashboardContent() {
       visitId: selectedVisitId,
       payCardFee: payCard,
       payConsultation,
+      payAdmissionCharges: true,
       labOrderIds: selectedLabs,
       prescriptionLineIds: selectedDrugs,
       paymentMethod: payMethod,
@@ -103,6 +104,12 @@ function BillingDashboardContent() {
     for (const drugId of selectedDrugs) {
       const d = payables.items.find((i) => i.id === drugId);
       if (d && d.paymentStatus === "unpaid") dynamicTotal += d.amount;
+    }
+    // Include Inpatient Bed & Nursing Care charges
+    if (!payables.patient.cbhiStatus) {
+      for (const item of payables.items.filter((i) => (i.type === "bed" || i.type === "nursing_care") && i.paymentStatus === "unpaid")) {
+        dynamicTotal += item.amount;
+      }
     }
   }
 
@@ -438,6 +445,33 @@ function BillingDashboardContent() {
                       </span>
                     </div>
                   </label>
+                );
+              })}
+
+              {/* 5. Inpatient Ward Bed & Nursing Care Charges */}
+              {payables.items.filter((i) => i.type === "bed" || i.type === "nursing_care").map((i) => {
+                const isBed = i.type === "bed";
+                return (
+                  <div key={i.id} className="flex items-center justify-between p-3 rounded-lg border border-teal-100 bg-teal-50/40">
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">{isBed ? "🛏️" : "👩‍⚕️"}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{i.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {isBed ? "Inpatient room & bed accommodation tariff" : "Daily inpatient nursing & clinical care service"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-800">ETB {i.amount}</span>
+                      <span className={`text-[11px] px-2 py-0.5 rounded font-semibold ${
+                        i.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
+                        isCbhi || i.paymentStatus === "cbhi_covered" ? "bg-teal-100 text-teal-800" : "bg-amber-100 text-amber-800 border border-amber-200"
+                      }`}>
+                        {i.paymentStatus === "paid" ? "✓ PAID" : isCbhi ? "CBHI COVERED" : "UNPAID WARD CHARGE"}
+                      </span>
+                    </div>
+                  </div>
                 );
               })}
 

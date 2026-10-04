@@ -94,7 +94,23 @@ export const labRouter = router({
       include: {
         visit: {
           include: {
-            patient: { select: { nameEn: true, nameAm: true, healthId: true } },
+            patient: {
+              select: {
+                id: true,
+                nameEn: true,
+                nameAm: true,
+                healthId: true,
+                sex: true,
+                dob: true,
+                phone: true,
+                kebele: true,
+                cbhiStatus: true,
+              },
+            },
+            admissions: {
+              where: { status: "active" },
+              include: { bed: true },
+            },
           },
         },
       },
@@ -110,7 +126,23 @@ export const labRouter = router({
         result: true,
         visit: {
           include: {
-            patient: { select: { id: true, nameEn: true, nameAm: true, healthId: true } },
+            patient: {
+              select: {
+                id: true,
+                nameEn: true,
+                nameAm: true,
+                healthId: true,
+                sex: true,
+                dob: true,
+                phone: true,
+                kebele: true,
+                cbhiStatus: true,
+              },
+            },
+            admissions: {
+              where: { status: "active" },
+              include: { bed: true },
+            },
           },
         },
       },
@@ -142,8 +174,8 @@ export const labRouter = router({
       results: z.array(z.object({
         name: z.string(),
         value: z.string(),
-        unit: z.string(),
-        refRange: z.string(),
+        unit: z.string().default(""),
+        refRange: z.string().default(""),
         flag: z.enum(["normal", "high", "low", "critical"]).default("normal"),
       })),
       interpretation: z.string().default(""),

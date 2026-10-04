@@ -133,6 +133,7 @@ model Visit {
   invoice       Invoice?
   referrals     Referral[]
   receipts      PaymentReceipt[]
+  admissions    Admission[]
 
   @@index([tenantId])
   @@index([patientId])
@@ -141,20 +142,22 @@ model Visit {
 
 // ─── OPD TICKET ───────────────────────────────────────────
 model OPDTicket {
-  id           String    @id @default(cuid())
-  tenantId     String
-  visitId      String    @unique
-  ticketNumber String
-  status       String    @default("waiting")
-  issuedAt     DateTime  @default(now())
-  calledAt     DateTime?
-  completedAt  DateTime?
-  waitMinutes   Int?
-  feeAmount     Float     @default(50.0)
-  paymentStatus String    @default("unpaid")
-  paidAt        DateTime?
-  receiptNumber String    @default("")
-  paymentMethod String    @default("")
+  id                String    @id @default(cuid())
+  tenantId          String
+  visitId           String    @unique
+  ticketNumber      String
+  status            String    @default("waiting")
+  issuedAt          DateTime  @default(now())
+  calledAt          DateTime?
+  completedAt       DateTime?
+  waitMinutes       Int?
+  feeAmount         Float     @default(50.0)
+  paymentStatus     String    @default("unpaid")
+  paidAt            DateTime?
+  receiptNumber     String    @default("")
+  paymentMethod     String    @default("")
+  assignedNurseId   String?
+  assignedNurseName String?
 
   visit Visit @relation(fields: [visitId], references: [id])
 
@@ -615,11 +618,13 @@ model Referral {
 
 // ─── BED ──────────────────────────────────────────────────
 model Bed {
-  id       String @id @default(cuid())
-  tenantId String
-  ward     String
-  room     String
-  status   String @default("available")
+  id         String @id @default(cuid())
+  tenantId   String
+  ward       String
+  room       String
+  status     String @default("available")
+  tariffCode String @default("BED_GEN_WARD")
+  dailyRate  Float  @default(120.0)
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id])
   admissions Admission[]
@@ -630,19 +635,30 @@ model Bed {
 
 // ─── ADMISSION ────────────────────────────────────────────
 model Admission {
-  id           String    @id @default(cuid())
-  tenantId     String
-  patientId    String
-  bedId        String
-  admittedAt   DateTime  @default(now())
-  dischargedAt DateTime?
-  status       String    @default("active")
+  id                 String    @id @default(cuid())
+  tenantId           String
+  patientId          String
+  visitId            String?
+  bedId              String
+  assignedNurseId    String?
+  assignedNurseName  String?
+  dailyRate          Float     @default(120.0)
+  nursingDailyFee    Float     @default(70.0)
+  paymentStatus      String    @default("unpaid") // unpaid, paid, cbhi_covered
+  receiptNumber      String?
+  dischargeCondition String?
+  admittedAt         DateTime  @default(now())
+  dischargedAt       DateTime?
+  status             String    @default("active") // active, discharged
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
-  patient Patient @relation(fields: [patientId], references: [id])
-  bed     Bed     @relation(fields: [bedId], references: [id])
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  patient Patient  @relation(fields: [patientId], references: [id])
+  bed     Bed      @relation(fields: [bedId], references: [id])
+  visit   Visit?   @relation(fields: [visitId], references: [id])
 
   @@index([tenantId])
+  @@index([patientId])
+  @@index([visitId])
   @@map("admission")
 }
 

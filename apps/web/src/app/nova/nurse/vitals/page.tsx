@@ -83,8 +83,24 @@ function VitalsContent() {
     );
   }
 
+  const { data: nurses = [] } = useQuery(trpc.ward.nurses.queryOptions());
+  const [filterNurse, setFilterNurse] = useState<string>("all");
+
+  const assignTicketNurse = useMutation({
+    ...trpc.ward.assignNurseToTicket.mutationOptions(),
+    onSuccess: () => {
+      refetchQueue();
+    },
+  });
+
+  const displayedPatients = waitingPatients.filter((q) => {
+    if (filterNurse === "all") return true;
+    if (filterNurse === "unassigned") return !q.assignedNurseId;
+    return q.assignedNurseId === filterNurse;
+  });
+
   return (
-    <PageShell title="Nurse Triage — Vitals Entry" subtitle="Step 2 of patient journey">
+    <PageShell title="Nurse Triage — Vitals Entry" subtitle="Step 2 of patient journey · Patient queue & nurse duty assignment">
       <div className="flex items-center gap-2 mb-5 text-xs text-slate-500">
         <span className="px-2 py-1 bg-slate-200 rounded">1 Register</span>
         <span className="text-slate-300">→</span>
@@ -99,31 +115,90 @@ function VitalsContent() {
 
       {/* Always show selector panel + currently selected patient at top */}
       <Card className="p-4 mb-5 border-slate-200">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-medium text-slate-700">Select patient to triage</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-semibold text-slate-800">Select patient to triage</p>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-slate-400">Filter:</span>
+              <select
+                className="text-xs py-1 px-2 rounded border border-slate-200 bg-white"
+                value={filterNurse}
+                onChange={(e) => setFilterNurse(e.target.value)}
+              >
+                <option value="all">All Waiting ({waitingPatients.length})</option>
+                <option value="unassigned">Unassigned ({waitingPatients.filter((p) => !p.assignedNurseId).length})</option>
+                {nurses.map((n) => (
+                  <option key={n.id} value={n.id}>Assigned: {n.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <button onClick={() => refetchQueue()} className="text-xs text-teal-600 hover:underline">↻ Refresh queue</button>
         </div>
-        {waitingPatients.length === 0 ? (
-          <p className="text-sm text-slate-400">No patients waiting in queue right now.</p>
+
+        {displayedPatients.length === 0 ? (
+          <p className="text-sm text-slate-400 py-3 text-center">No patients matching this filter in queue right now.</p>
         ) : (
           <div className="space-y-2">
-            {waitingPatients.map((q) => (
-              <button
+            {displayedPatients.map((q) => (
+              <div
                 key={q.id}
-                onClick={() => setSelectedVisitId(q.visitId)}
-                className={`w-full text-left px-3 py-2 rounded border text-sm flex items-center justify-between transition-colors ${
+                className={`w-full px-3 py-2.5 rounded-lg border text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-colors ${
                   selectedVisitId === q.visitId
-                    ? "border-teal-500 bg-teal-50"
+                    ? "border-teal-500 bg-teal-50/70"
                     : "border-slate-200 hover:border-teal-400 bg-white"
                 }`}
               >
-                <span>
+                <div
+                  className="cursor-pointer flex-1"
+                  onClick={() => setSelectedVisitId(q.visitId)}
+                >
                   <strong className="font-mono text-teal-700">{q.ticketNumber}</strong>
-                  <span className="ml-2 text-slate-700">{q.visit.patient.nameEn}</span>
-                  <span className="ml-2 text-xs text-slate-400">{q.visit.patient.healthId}</span>
-                </span>
-                <StatusBadge status={q.status} />
-              </button>
+                  <span className="ml-2 font-medium text-slate-800">{q.visit.patient.nameEn}</span>
+                  <span className="ml-2 text-xs text-slate-400 font-mono">{q.visit.patient.healthId}</span>
+                  {q.visit.patient.cbhiStatus && (
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800">
+                      CBHI
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Nurse Assignment dropdown */}
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-[11px] text-slate-400">Nurse:</span>
+                    <select
+                      className="text-xs py-1 px-1.5 rounded border border-slate-200 bg-slate-50 text-slate-700"
+                      value={q.assignedNurseId || ""}
+                      onChange={(e) => {
+                        const nurse = nurses.find((n) => n.id === e.target.value);
+                        if (nurse) {
+                          assignTicketNurse.mutate({
+                            ticketId: q.id,
+                            assignedNurseId: nurse.id,
+                            assignedNurseName: nurse.name,
+                          });
+                        }
+                      }}
+                    >
+                      <option value="">Unassigned</option>
+                      {nurses.map((n) => (
+                        <option key={n.id} value={n.id}>{n.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <StatusBadge status={q.status} />
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVisitId(q.visitId)}
+                    className="text-xs px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded font-medium transition-colors"
+                  >
+                    Triage →
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
