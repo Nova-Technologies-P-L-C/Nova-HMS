@@ -119,16 +119,22 @@ const SHARED_NAV = [
   { label: "My Profile", href: "/nova/shared/profile", icon: <User size={16} /> },
 ];
 
-const PERMISSION_NAV_MAP: { permission: string; label: string; href: string; icon: React.ReactNode }[] = [
-  { permission: "clinical.notes.create", label: "Consultation", href: "/nova/doctor/consultation", icon: <Stethoscope size={16} /> },
-  { permission: "clinical.notes.view", label: "Patient EMR", href: "/nova/doctor/emr", icon: <FileText size={16} /> },
+const PERMISSION_NAV_MAP: {
+  permission: string;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  doctorOnly?: boolean;
+}[] = [
+  { permission: "clinical.notes.create", label: "Consultation", href: "/nova/doctor/consultation", icon: <Stethoscope size={16} />, doctorOnly: true },
+  { permission: "clinical.notes.view", label: "Patient EMR", href: "/nova/doctor/emr", icon: <FileText size={16} />, doctorOnly: true },
   { permission: "clinical.vitals.record", label: "Vitals Entry", href: "/nova/nurse/vitals", icon: <Activity size={16} /> },
   { permission: "ward.mar.administer", label: "Nursing Notes & MAR", href: "/nova/nurse/notes", icon: <ClipboardList size={16} /> },
   { permission: "ward.admit", label: "Bed Board", href: "/nova/ward", icon: <Bed size={16} /> },
   { permission: "ward.discharge", label: "Admissions", href: "/nova/ward/admissions", icon: <ClipboardList size={16} /> },
-  { permission: "lab.order.create", label: "Lab Order", href: "/nova/doctor/lab-order", icon: <FlaskConical size={16} /> },
+  { permission: "lab.order.create", label: "Lab Order", href: "/nova/doctor/lab-order", icon: <FlaskConical size={16} />, doctorOnly: true },
   { permission: "lab.results.enter", label: "Lab Workstation", href: "/nova/lab/result", icon: <FlaskConical size={16} /> },
-  { permission: "rx.prescribe", label: "e-Prescription", href: "/nova/doctor/prescription", icon: <Pill size={16} /> },
+  { permission: "rx.prescribe", label: "e-Prescription", href: "/nova/doctor/prescription", icon: <Pill size={16} />, doctorOnly: true },
   { permission: "rx.dispense", label: "Rx Dispensing", href: "/nova/pharmacy", icon: <Pill size={16} /> },
   { permission: "inventory.manage", label: "Inventory Ledger", href: "/nova/pharmacy/inventory", icon: <Layers size={16} /> },
   { permission: "billing.collect", label: "POS Billing", href: "/nova/billing", icon: <CreditCard size={16} /> },
@@ -152,9 +158,11 @@ export default function NovaSidebar() {
   const activeRoleRecord = rolePermissionsList.find((r) => r.role === role);
 
   const nav = useMemo(() => {
-    const baseNav = (NAV_BY_ROLE as any)[role] ? [...(NAV_BY_ROLE as any)[role]] : [];
+    let baseNav = (NAV_BY_ROLE as any)[role] ? [...(NAV_BY_ROLE as any)[role]] : [];
     const existingHrefs = new Set(baseNav.map((n: any) => n.href));
     const isAdmin = role === "Organizational Admin" || role === "Branch Admin" || role === "Hospital Admin" || role === "Nova Admin";
+    const isDoctor = role === "Doctor";
+    const isNurseRole = role === "Ward Nurse" || role === "Triage Nurse" || role === "Nurse";
 
     // For non-admin roles (clinical, pharmacy, lab, nursing, reception, or custom merged roles),
     // dynamically include any extra activities unlocked by granted permissions.
@@ -162,6 +170,17 @@ export default function NovaSidebar() {
     if (!isAdmin && activeRoleRecord?.permissions) {
       const perms = new Set(activeRoleRecord.permissions);
       for (const item of PERMISSION_NAV_MAP) {
+        // Enforce strict clinical boundaries:
+        // Consultation and physician-specific clinical routes are strictly restricted to Doctors
+        if (item.doctorOnly && !isDoctor) {
+          continue;
+        }
+
+        // Nurses must never receive doctor encounter or consultation routes
+        if (isNurseRole && item.href.startsWith("/nova/doctor/")) {
+          continue;
+        }
+
         if (perms.has(item.permission) && !existingHrefs.has(item.href)) {
           baseNav.push({
             label: item.label,
@@ -171,6 +190,11 @@ export default function NovaSidebar() {
           existingHrefs.add(item.href);
         }
       }
+    }
+
+    // Explicit safeguard: Ensure Consultation is NEVER in navigation for nurses or non-doctors
+    if (!isDoctor && !isAdmin) {
+      baseNav = baseNav.filter((n: any) => n.href !== "/nova/doctor/consultation");
     }
 
     if (baseNav.length === 0) {

@@ -5,17 +5,22 @@ import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
-import { CheckCircle, History, Pill, FileText, FlaskConical, ArrowRight } from "lucide-react";
+import { CheckCircle, History, Pill, FileText, FlaskConical, ArrowRight, Stethoscope, Bed, ShieldAlert } from "lucide-react";
 import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
+import { useNovaRole } from "@/components/nova/nova-role-context";
 
 function ConsultationContent() {
   const router = useRouter();
   const params = useSearchParams();
+  const { role } = useNovaRole();
   const visitId = params.get("visitId") ?? "";
+
+  const isDoctor = role === "Doctor";
+  const isAdmin = role === "Organizational Admin" || role === "Branch Admin" || role === "Hospital Admin" || role === "Nova Admin";
 
   const { data: visit } = useQuery({
     ...trpc.visit.get.queryOptions({ visitId }),
-    enabled: !!visitId,
+    enabled: !!visitId && (isDoctor || isAdmin),
   });
 
   const [complaint, setComplaint] = useState("Patient presents with sore throat, mild fever for 3 days.");
@@ -69,6 +74,78 @@ function ConsultationContent() {
   };
 
   const isLoading = addNote.isPending || addDiagnosis.isPending || transferToBilling.isPending;
+
+  // Strict Clinical Role Boundary: Consultation is strictly reserved for Doctors
+  if (!isDoctor && !isAdmin) {
+    return (
+      <PageShell
+        title="Consultation Encounter"
+        subtitle="Clinical Access Governance"
+      >
+        <Card className="max-w-xl mx-auto p-8 my-8 text-center border-amber-200 bg-amber-50/50 shadow-sm">
+          <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-300">
+            <Stethoscope size={32} />
+          </div>
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300 mb-3">
+            Doctor Role Exclusive
+          </span>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Physician Consultation Station</h2>
+          <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+            Medical consultation encounters, clinical diagnoses (ICD-10), and treatment orders are reserved exclusively for licensed <strong>Medical Doctors</strong>.
+          </p>
+
+          <div className="p-4 bg-white rounded-lg border border-slate-200 text-left text-xs space-y-2 mb-6 shadow-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-slate-500 font-medium">Your Current Role:</span>
+              <span className="font-bold text-slate-800 px-2 py-0.5 bg-slate-100 rounded">{role}</span>
+            </div>
+            <p className="text-slate-600">
+              {role === "Ward Nurse" || role === "Nurse" ? (
+                <>For inpatient bedside charting, scheduled Medication Administration (MAR), and nurse shift handovers, please access <strong>Shift Nursing Notes</strong>.</>
+              ) : role === "Triage Nurse" ? (
+                <>For emergency and OPD front intake, vitals, and acuity tagging, please access the <strong>Triage Intake Station</strong>.</>
+              ) : (
+                <>Please access your assigned department workstation from the navigation sidebar.</>
+              )}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {role === "Ward Nurse" || role === "Nurse" ? (
+              <>
+                <Link
+                  href="/nova/nurse/notes"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-sm"
+                >
+                  <FileText size={16} /> Open Shift Nursing Notes →
+                </Link>
+                <Link
+                  href="/nova/nurse"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200"
+                >
+                  <Bed size={16} /> Inpatient Bed Census
+                </Link>
+              </>
+            ) : role === "Triage Nurse" ? (
+              <Link
+                href={"/nova/triage" as any}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-sm"
+              >
+                Go to Triage Station →
+              </Link>
+            ) : (
+              <button
+                onClick={() => router.back()}
+                className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200"
+              >
+                ← Return to Previous Page
+              </button>
+            )}
+          </div>
+        </Card>
+      </PageShell>
+    );
+  }
 
   if (saved && visit) {
     return (
