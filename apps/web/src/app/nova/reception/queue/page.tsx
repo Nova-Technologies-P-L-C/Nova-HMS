@@ -262,38 +262,28 @@ export default function OPDQueueBoardPage() {
                 </td>
                 <td className="px-4 py-3"><StatusBadge status={q.status} /></td>
                 <td className="px-4 py-3">
-                  <div className="flex gap-2 flex-wrap">
-                    {q.status === "waiting" && (
-                      <>
-                        <button
-                          onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
-                          className="text-xs px-2 py-1 bg-teal-50 text-teal-700 rounded hover:bg-teal-100 border border-teal-200"
-                        >
-                          Call in
-                        </button>
-                        <Link
-                          href={`/nova/nurse/vitals?visitId=${q.visitId}`}
-                          className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 border border-blue-200"
-                        >
-                          Triage →
-                        </Link>
-                      </>
-                    )}
-                    {q.status === "urgent" && (
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {(q.status === "waiting" || q.status === "urgent") && (
                       <button
                         onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
-                        className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                        className={`text-xs px-2.5 py-1 rounded font-medium border ${
+                          q.status === "urgent"
+                            ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                            : "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100"
+                        }`}
                       >
-                        Urgent — call in
+                        {q.status === "urgent" ? "Call Urgent" : "Call to Desk"}
                       </button>
                     )}
                     {q.status === "being-seen" && (
-                      <button
-                        onClick={() => updateStatus.mutate({ ticketId: q.id, status: "done" })}
-                        className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200"
-                      >
-                        Mark done
-                      </button>
+                      <span className="text-xs text-teal-700 font-medium bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                        At Desk
+                      </span>
+                    )}
+                    {q.status === "done" && (
+                      <span className="text-xs text-slate-400">
+                        Encounter Complete
+                      </span>
                     )}
                   </div>
                 </td>

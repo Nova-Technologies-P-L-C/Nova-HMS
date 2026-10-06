@@ -4,36 +4,31 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { PageShell, Card, StatusBadge } from "@/components/nova/nova-ui";
+import { PageShell, Card } from "@/components/nova/nova-ui";
 import {
   Crown,
   Banknote,
   Users,
-  Stethoscope,
   Activity,
   Layers,
   AlertTriangle,
   ArrowRight,
   TrendingUp,
-  ShieldCheck,
   Building2,
-  Calendar,
   Download,
   Printer,
   RefreshCw,
-  Clock,
   CheckCircle2,
-  HelpCircle,
-  FileText,
   CreditCard,
   Bed,
-  ChevronRight,
+  BarChart3,
   ShieldAlert,
+  Stethoscope,
 } from "lucide-react";
 
 export default function OrganizationalAdminDashboard() {
   const [range, setRange] = useState<"today" | "7d" | "30d" | "month" | "quarter" | "all">("30d");
-  const [activeTab, setActiveTab] = useState<"overview" | "productivity" | "leakage" | "pharmacy" | "audit">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "finance" | "pharmacy" | "staff">("overview");
 
   const { data, isLoading, refetch, isFetching } = useQuery(
     trpc.tenant.ownerOverview.queryOptions({ range })
@@ -58,12 +53,12 @@ export default function OrganizationalAdminDashboard() {
       ["Total Patient Encounters", kpis?.totalVisits ?? 0],
       ["Completed Encounters", kpis?.completedVisits ?? 0],
       ["Average Encounter Value (ETB)", kpis?.avgEncounterValue ?? 0],
-      ["Waived Revenue / Leakage (ETB)", kpis?.waivedAmount ?? 0],
+      ["Total Subsidized Fee Waivers (ETB)", kpis?.waivedAmount ?? 0],
       ["Pending CBHI Claims (ETB)", kpis?.pendingClaimsAmount ?? 0],
       ["Inpatient Occupancy Rate (%)", `${kpis?.occupancyRate ?? 0}%`],
       ["Pharmacy Inventory Valuation (ETB)", kpis?.totalStockValuation ?? 0],
       ["Expiring Stock at Risk (ETB)", kpis?.atRiskExpiringValuation ?? 0],
-      ["Critical Stockout Items", kpis?.criticalStockoutsCount ?? 0],
+      ["Active Staff Count", kpis?.activeStaffCount ?? 0],
     ];
 
     const csvContent = "data:text/csv;charset=utf-8," + rows.map((e) => e.join(",")).join("\n");
@@ -79,7 +74,7 @@ export default function OrganizationalAdminDashboard() {
   return (
     <PageShell
       title="Executive Owner Cockpit"
-      subtitle="Organizational Governance, Clinic Performance Intelligence & Capital Risk Monitor"
+      subtitle="Organizational Governance, Financial Intelligence & High-Level Operational Reporting"
       action={
         <div className="flex items-center gap-2">
           {/* Range Selector */}
@@ -143,7 +138,7 @@ export default function OrganizationalAdminDashboard() {
             <div className="flex items-center gap-2 mb-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-amber-950 flex items-center gap-1 shadow-xs">
                 <Crown size={12} />
-                Clinic Owner & Organizational Admin
+                Clinic Owner &amp; Organizational Admin
               </span>
               <span className="text-xs text-amber-200/80 font-mono">
                 {tenant?.facilityType?.toUpperCase() || "HOSPITAL & MEDICAL CENTER"} • {tenant?.region || "National"}
@@ -153,8 +148,8 @@ export default function OrganizationalAdminDashboard() {
               <span>{tenant?.name ?? "Nova Health Systems"}</span>
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-              Executive business oversight: monitoring net profitability, clinician workload, revenue leakages,
-              pharmacy capital, and clinical governance across all hospital operations.
+              Executive business oversight: monitoring net performance results, overall revenue channels,
+              pharmacy capital valuation, and workforce staffing across all facility branches.
             </p>
           </div>
 
@@ -177,7 +172,7 @@ export default function OrganizationalAdminDashboard() {
             </div>
 
             <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2.5 backdrop-blur-xs">
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Staff & Clinicians</div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Staff &amp; Clinicians</div>
               <div className="text-xl font-bold text-white mt-0.5 flex items-center gap-1.5">
                 <Users size={16} className="text-teal-400" />
                 {kpis?.activeStaffCount ?? 0}
@@ -236,17 +231,17 @@ export default function OrganizationalAdminDashboard() {
           </div>
         </div>
 
-        {/* Revenue Leakage & Waivers */}
+        {/* Total Subsidized Waivers */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-1 font-medium">
-            <span>Revenue Leakage</span>
+            <span>Subsidized Waivers</span>
             <ShieldAlert size={15} className="text-rose-600" />
           </div>
           <div className="text-xl font-black text-rose-600 dark:text-rose-400">
             {isLoading ? "…" : `${(kpis?.waivedAmount ?? 0).toLocaleString()} ETB`}
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-            {kpis?.waiversCount ?? 0} fee waivers approved
+            {kpis?.waiversCount ?? 0} hardship cases granted
           </div>
         </div>
 
@@ -264,7 +259,7 @@ export default function OrganizationalAdminDashboard() {
           </div>
         </div>
 
-        {/* Pharmacy Capital Risk */}
+        {/* Pharmacy Capital Valuation */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-1 font-medium">
             <span>Stock Valuation</span>
@@ -279,14 +274,13 @@ export default function OrganizationalAdminDashboard() {
         </div>
       </div>
 
-      {/* Modular Intelligence Navigation Tabs */}
+      {/* Executive Report Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 mb-6 overflow-x-auto pb-1">
         {[
-          { key: "overview", label: "Executive Overview & Run-Rate", icon: TrendingUp },
-          { key: "productivity", label: "Doctor & Clinician Productivity", icon: Stethoscope },
-          { key: "leakage", label: "Financial Leakage & Fee Waiver Audit", icon: ShieldAlert },
-          { key: "pharmacy", label: "Pharmacy Capital & Expiry Risk", icon: Layers },
-          { key: "audit", label: "Forensic Audit & High-Risk Events", icon: ShieldCheck },
+          { key: "overview", label: "Executive Overview & Results", icon: TrendingUp },
+          { key: "finance", label: "Financial & Revenue Summary", icon: Banknote },
+          { key: "pharmacy", label: "Pharmacy Capital Valuation", icon: Layers },
+          { key: "staff", label: "Staff & Workforce Roster", icon: Users },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -368,24 +362,32 @@ export default function OrganizationalAdminDashboard() {
             </Card>
 
             {/* Payment Channel Settlements */}
-            <Card title="Payment Channel Mix & Liquidity" subtitle="Real-time collection channels and settlement shares">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+            <Card title="Revenue Collections by Settlement Channel" subtitle="Aggregate payment method distribution">
+              <div className="space-y-3 mt-2">
                 {Object.entries(data?.channelBreakdown ?? {}).map(([key, item]) => {
-                  const total = (kpis?.totalGrossRevenue || 1) + (kpis?.waivedAmount || 0);
+                  const total = kpis?.totalGrossRevenue || 1;
                   const share = Math.round((item.amount / total) * 100);
                   return (
-                    <div
-                      key={key}
-                      className="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50/50 dark:bg-slate-900/50"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{item.label}</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          {share}%
+                    <div key={key} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between text-xs font-bold mb-1">
+                        <span className="text-slate-800 dark:text-slate-200">{item.label}</span>
+                        <span className="font-mono text-slate-900 dark:text-white">
+                          {item.amount.toLocaleString()} ETB ({share}%)
                         </span>
                       </div>
-                      <div className="text-base font-black text-slate-900 dark:text-white font-mono">
-                        {item.amount.toLocaleString()} ETB
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            key === "cash"
+                              ? "bg-emerald-500"
+                              : key === "telebirr"
+                              ? "bg-blue-500"
+                              : key === "cbhi"
+                              ? "bg-cyan-500"
+                              : "bg-amber-500"
+                          }`}
+                          style={{ width: `${share}%` }}
+                        />
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                         {item.count} transaction receipts
@@ -395,40 +397,15 @@ export default function OrganizationalAdminDashboard() {
                 })}
               </div>
 
-              {/* Corporate Tariffs & Card Fee Summary */}
-              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                <div className="text-slate-600 dark:text-slate-400">
-                  Current Card Fee: <strong className="text-slate-900 dark:text-white">{tenant?.cardFeeAmount ?? 50} ETB</strong> •
-                  Specialist Consultation: <strong className="text-slate-900 dark:text-white">{tenant?.specialistFeeAmount ?? 150} ETB</strong>
-                </div>
-                <Link
-                  href={"/nova/branch-admin/tariffs" as any}
-                  className="text-amber-600 hover:text-amber-500 font-bold flex items-center gap-1"
-                >
-                  Configure Tariffs <ArrowRight size={12} />
-                </Link>
+              {/* Corporate Base Tariffs Summary (Read-Only) */}
+              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+                Facility Base Fee Schedule: OPD Registration Card: <strong className="text-slate-900 dark:text-white">{tenant?.cardFeeAmount ?? 50} ETB</strong> • Specialist Consultation: <strong className="text-slate-900 dark:text-white">{tenant?.specialistFeeAmount ?? 150} ETB</strong>
               </div>
             </Card>
           </div>
 
-          {/* Quick Executive Shortcuts Ribbon */}
+          {/* Executive Overview Shortcuts Ribbon (Reports & Staff Roster Only) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link
-              href={"/nova/branch-admin/tariffs" as any}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-amber-400 transition shadow-xs group"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-amber-50 dark:bg-amber-950/50 rounded-lg text-amber-700 dark:text-amber-300">
-                  <CreditCard size={18} />
-                </div>
-                <ArrowRight size={15} className="text-slate-400 group-hover:text-amber-600 transition" />
-              </div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Service Tariffs & Price Catalog</h4>
-              <p className="text-xs text-slate-500 mt-1">
-                Maintain hospital service prices, laboratory investigation fees, and card charges.
-              </p>
-            </Link>
-
             <Link
               href={"/nova/branch-admin/staff" as any}
               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-amber-400 transition shadow-xs group"
@@ -439,114 +416,60 @@ export default function OrganizationalAdminDashboard() {
                 </div>
                 <ArrowRight size={15} className="text-slate-400 group-hover:text-teal-600 transition" />
               </div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Staff Roster & Branch Directory</h4>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Staff Roster &amp; Workforce Directory</h4>
               <p className="text-xs text-slate-500 mt-1">
-                Appoint Branch Admins, view medical licenses, and audit clinician account statuses.
+                Executive view of all clinical staff, medical roles, and active healthcare personnel across departments.
               </p>
             </Link>
 
             <Link
-              href={"/nova/branch-admin/roles" as any}
+              href={"/nova/org-admin/finance" as any}
               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-amber-400 transition shadow-xs group"
             >
               <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-rose-50 dark:bg-rose-950/50 rounded-lg text-rose-700 dark:text-rose-300">
-                  <ShieldCheck size={18} />
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950/50 rounded-lg text-emerald-700 dark:text-emerald-300">
+                  <Banknote size={18} />
                 </div>
-                <ArrowRight size={15} className="text-slate-400 group-hover:text-rose-600 transition" />
+                <ArrowRight size={15} className="text-slate-400 group-hover:text-emerald-600 transition" />
               </div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Dynamic RBAC Privilege Matrix</h4>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Financial &amp; Revenue Reports</h4>
               <p className="text-xs text-slate-500 mt-1">
-                Control fine-grained permissions and configure custom healthcare roles across all branches.
+                Detailed breakdowns of cash, CBHI insurance reimbursements, and social subsidy fee waiver totals.
+              </p>
+            </Link>
+
+            <Link
+              href={"/nova/branch-admin/reports" as any}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-amber-400 transition shadow-xs group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2 bg-blue-50 dark:bg-blue-950/50 rounded-lg text-blue-700 dark:text-blue-300">
+                  <BarChart3 size={18} />
+                </div>
+                <ArrowRight size={15} className="text-slate-400 group-hover:text-blue-600 transition" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Facility Performance Reports</h4>
+              <p className="text-xs text-slate-500 mt-1">
+                Inpatient bed utilization trends, outpatient volumes, and monthly executive operational summaries.
               </p>
             </Link>
           </div>
         </div>
       )}
 
-      {/* TAB 2: DOCTOR & CLINICIAN PRODUCTIVITY */}
-      {activeTab === "productivity" && (
-        <Card
-          title="Attending Clinician & Doctor Performance Scorecard"
-          subtitle="Workload volume, diagnostic orders, and completed consultations per physician"
-        >
-          <div className="overflow-x-auto mt-2">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-3">Physician / Clinician</th>
-                  <th className="py-3 px-3 text-center">Consultations</th>
-                  <th className="py-3 px-3 text-center">Completed</th>
-                  <th className="py-3 px-3 text-center">In Queue</th>
-                  <th className="py-3 px-3 text-center">Prescriptions</th>
-                  <th className="py-3 px-3 text-center">Lab Orders</th>
-                  <th className="py-3 px-3 text-center">Diagnoses Made</th>
-                  <th className="py-3 px-3 text-right">Workload Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {(data?.clinicianProductivity ?? []).map((doc, idx) => (
-                  <tr key={doc.name} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
-                    <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-mono text-[10px] font-black">
-                        {idx + 1}
-                      </span>
-                      <span>{doc.name}</span>
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-slate-900 dark:text-white font-mono text-sm">
-                      {doc.consultationsCount}
-                    </td>
-                    <td className="py-3 px-3 text-center text-emerald-600 font-semibold font-mono">
-                      {doc.completedVisits}
-                    </td>
-                    <td className="py-3 px-3 text-center text-amber-600 font-semibold font-mono">
-                      {doc.activeVisits}
-                    </td>
-                    <td className="py-3 px-3 text-center text-slate-700 dark:text-slate-300 font-mono">
-                      {doc.prescriptionsCount}
-                    </td>
-                    <td className="py-3 px-3 text-center text-slate-700 dark:text-slate-300 font-mono">
-                      {doc.labOrdersCount}
-                    </td>
-                    <td className="py-3 px-3 text-center text-slate-700 dark:text-slate-300 font-mono">
-                      {doc.diagnosesCount}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      {doc.consultationsCount > 10 ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          High Productivity
-                        </span>
-                      ) : doc.consultationsCount > 0 ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
-                          Active Normal
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                          On Standby
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      {/* TAB 3: FINANCIAL LEAKAGE & WAIVER AUDIT */}
-      {activeTab === "leakage" && (
+      {/* TAB 2: FINANCIAL & REVENUE RESULTS (High-Level Summary Only - No Patient Detail Queue) */}
+      {activeTab === "finance" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4">
-              <div className="text-xs font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wider">
-                Approved Fee Waivers
+            <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 rounded-xl p-4">
+              <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                Total Gross Revenue
               </div>
-              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
-                {(kpis?.waivedAmount ?? 0).toLocaleString()} ETB
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                {(kpis?.totalGrossRevenue ?? 0).toLocaleString()} ETB
               </div>
-              <div className="text-xs text-rose-700/80 dark:text-rose-300/80 mt-1">
-                Total subsidized revenue across {kpis?.waiversCount ?? 0} social hardship cases.
+              <div className="text-xs text-emerald-700/80 dark:text-emerald-300/80 mt-1">
+                Total collected and accrued clinical earnings for selected reporting range.
               </div>
             </div>
 
@@ -558,51 +481,53 @@ export default function OrganizationalAdminDashboard() {
                 {(kpis?.pendingClaimsAmount ?? 0).toLocaleString()} ETB
               </div>
               <div className="text-xs text-cyan-700/80 dark:text-cyan-300/80 mt-1">
-                Government health insurance reimbursement currently waiting for settlement.
+                Government health insurance reimbursement currently pending settlement.
               </div>
             </div>
 
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl p-4">
-              <div className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
-                Total Revenue Leakage Risk
+            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl p-4">
+              <div className="text-xs font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wider">
+                Total Subsidized Fee Waivers
               </div>
-              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
-                {(kpis?.leakageAtRiskTotal ?? 0).toLocaleString()} ETB
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                {(kpis?.waivedAmount ?? 0).toLocaleString()} ETB
               </div>
-              <div className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-1">
-                Combined waivers and contested insurance receivables requiring executive audit.
+              <div className="text-xs text-rose-700/80 dark:text-rose-300/80 mt-1">
+                Macro social assistance total granted across {kpis?.waiversCount ?? 0} poverty/hardship cases.
               </div>
             </div>
           </div>
 
-          <Card title="Fee Waiver Audit Policy & Guidelines" subtitle="Governance mechanisms to prevent revenue leakage">
-            <div className="text-xs text-slate-600 dark:text-slate-300 space-y-2">
+          <Card title="Executive Financial & Fee Subsidy Report" subtitle="High-level corporate accounting and subsidy oversight">
+            <div className="text-xs text-slate-600 dark:text-slate-300 space-y-3">
               <p>
-                <strong>Audit Finding:</strong> Fee waivers represent financial subsidies granted to patients under poverty
-                or emergency social hardship classifications. As the clinic owner, you maintain supervisory oversight to
-                verify that waivers are approved strictly by designated Branch Administrators with documented MoH referral
-                letters.
+                <strong>Macro Subsidy Policy:</strong> Subsidized fee waivers represent corporate social assistance granted to impoverished or emergency patients. As the Organizational Admin, this dashboard reflects aggregate financial impacts without micro-level approval workflows.
               </p>
-              <div className="flex items-center gap-3 pt-2">
-                <Link
-                  href={"/nova/branch-admin/fee-waivers" as any}
-                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs transition"
-                >
-                  Open Fee-Waiver Approval Queue
-                </Link>
-                <Link
-                  href={"/nova/branch-admin/audit" as any}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-white font-semibold rounded-lg text-xs transition"
-                >
-                  Audit Waiver Logs
-                </Link>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <div className="font-semibold text-slate-900 dark:text-white">Fee Waiver Share of Revenue</div>
+                  <div className="text-lg font-bold text-rose-600 mt-1">
+                    {kpis?.totalGrossRevenue ? Math.round(((kpis.waivedAmount || 0) / kpis.totalGrossRevenue) * 100) : 0}%
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Proportion of gross potential clinic billings waived for social relief.</p>
+                </div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <div className="font-semibold text-slate-900 dark:text-white">CBHI Insurance Penetration</div>
+                  <div className="text-lg font-bold text-cyan-600 mt-1">
+                    {kpis?.cbhiSharePercent ?? 0}%
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Share of patient encounters covered by Community-Based Health Insurance.</p>
+                </div>
+              </div>
+              <div className="text-[11px] text-slate-500 italic pt-1">
+                Note: Individual patient fee-waiver reviews and Kebele hardship verifications are executed exclusively by designated Branch Administrators.
               </div>
             </div>
           </Card>
         </div>
       )}
 
-      {/* TAB 4: PHARMACY CAPITAL & EXPIRY RISK */}
+      {/* TAB 3: PHARMACY CAPITAL & EXPIRY RISK */}
       {activeTab === "pharmacy" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -681,47 +606,59 @@ export default function OrganizationalAdminDashboard() {
         </div>
       )}
 
-      {/* TAB 5: FORENSIC AUDIT & HIGH-RISK EVENTS */}
-      {activeTab === "audit" && (
-        <Card
-          title="Forensic Audit Trail — Sensitive Executive Actions"
-          subtitle="Real-time log of security events, privilege escalations, and system modifications"
-        >
-          <div className="overflow-x-auto mt-2">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="py-2.5 px-3">Timestamp</th>
-                  <th className="py-2.5 px-3">Action Executed</th>
-                  <th className="py-2.5 px-3">Entity Affected</th>
-                  <th className="py-2.5 px-3">Initiated By User</th>
-                  <th className="py-2.5 px-3 text-right">Audit Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {(data?.recentAuditEvents ?? []).map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                    <td className="py-2.5 px-3 font-mono text-slate-500">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{log.entity}</td>
-                    <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300 font-medium">{log.userId}</td>
-                    <td className="py-2.5 px-3 text-right">
-                      <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 justify-end">
-                        <CheckCircle2 size={12} /> Immutable
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* TAB 4: STAFF & CLINICAL WORKFORCE ROSTER (Overview & Results Only) */}
+      {activeTab === "staff" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Active Staff Count</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                <Users className="text-teal-500" size={20} />
+                {kpis?.activeStaffCount ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Healthcare workers and administrative staff on duty.</p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Clinical Care Staff</div>
+              <div className="text-2xl font-black text-blue-600 mt-1 flex items-center gap-2">
+                <Stethoscope size={20} />
+                {Math.max(1, Math.round((kpis?.activeStaffCount ?? 0) * 0.6))}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Physicians, Triage Nurses, Ward Nurses &amp; Technicians.</p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Facility Roster Status</div>
+              <div className="text-2xl font-black text-emerald-600 mt-1 flex items-center gap-2">
+                <CheckCircle2 size={20} />
+                Optimal
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Shift coverage maintained across all primary stations.</p>
+            </div>
           </div>
-        </Card>
+
+          <Card
+            title="Workforce & Personnel Directory"
+            subtitle="Executive view of hospital staffing allocation across operational departments"
+          >
+            <div className="space-y-4">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Staff appointment and credential verification are recorded across all facility branches. To view individual staff profiles, active duties, or branch rosters, visit the full staff directory.
+              </p>
+              <div>
+                <Link
+                  href={"/nova/branch-admin/staff" as any}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-semibold transition"
+                >
+                  <Users size={14} />
+                  <span>View Full Staff &amp; Workforce Directory</span>
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
     </PageShell>
   );

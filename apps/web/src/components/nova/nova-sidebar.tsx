@@ -16,15 +16,10 @@ import { type Role } from "@/lib/nova-mock-data";
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
   "Organizational Admin": [
     { label: "Executive Cockpit", href: "/nova/org-admin", icon: <Crown size={16} /> },
-    { label: "Clinician Productivity", href: "/nova/org-admin/productivity", icon: <Stethoscope size={16} /> },
-    { label: "Financials & Leakage", href: "/nova/org-admin/finance", icon: <Banknote size={16} /> },
-    { label: "Pharmacy Capital Risk", href: "/nova/org-admin/inventory-risk", icon: <Layers size={16} /> },
-    { label: "Service Tariffs & Pricing", href: "/nova/branch-admin/tariffs", icon: <CreditCard size={16} /> },
-    { label: "Staff & Branch Users", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
-    { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
-    { label: "Forensic Audit Trail", href: "/nova/branch-admin/audit", icon: <ClipboardList size={16} /> },
+    { label: "Financial & Revenue Reports", href: "/nova/org-admin/finance", icon: <Banknote size={16} /> },
+    { label: "Pharmacy Capital Valuation", href: "/nova/org-admin/inventory-risk", icon: <Layers size={16} /> },
+    { label: "Staff & Workforce Roster", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
     { label: "Executive Reports", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
-    { label: "Facility Settings", href: "/nova/branch-admin/settings", icon: <Settings size={16} /> },
   ],
   "Branch Admin": [
     { label: "Dashboard", href: "/nova/branch-admin", icon: <Home size={16} /> },
@@ -45,8 +40,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "Settings", href: "/nova/hospital-admin/settings", icon: <Settings size={16} /> },
   ],
   "Receptionist": [
-    { label: "Patient Registration", href: "/nova/reception/register", icon: <User size={16} /> },
-    { label: "Kiosk Check-in", href: "/nova/reception/kiosk", icon: <QrCode size={16} /> },
+    { label: "Patient Registration & Kiosk", href: "/nova/reception/register", icon: <User size={16} /> },
     { label: "OPD Queue Board", href: "/nova/reception/queue", icon: <Activity size={16} /> },
     { label: "Appointments", href: "/nova/reception/appointments", icon: <ClipboardList size={16} /> },
   ],
@@ -240,25 +234,29 @@ export default function NovaSidebar() {
           );
         })}
 
-        {/* Shared */}
-        <p className="text-xs text-slate-500 uppercase tracking-wider px-2 py-1 mt-3">Shared</p>
-        {SHARED_NAV.map((item) => {
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href as any}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded text-sm mb-0.5 transition-colors ${
-                active
-                  ? "bg-teal-600 text-white"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          );
-        })}
+        {/* Shared - hidden for Organizational Admin */}
+        {role !== "Organizational Admin" && !pathname.startsWith("/nova/org-admin") && (
+          <>
+            <p className="text-xs text-slate-500 uppercase tracking-wider px-2 py-1 mt-3">Shared</p>
+            {SHARED_NAV.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href as any}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded text-sm mb-0.5 transition-colors ${
+                    active
+                      ? "bg-teal-600 text-white"
+                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Public pages link */}

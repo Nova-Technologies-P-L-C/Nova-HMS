@@ -171,13 +171,8 @@ export default function OwnerFinancialsPage() {
               </p>
             </div>
 
-            <div className="pt-2 flex items-center gap-3">
-              <Link
-                href={"/nova/branch-admin/fee-waivers" as any}
-                className="px-3 py-1.5 bg-slate-900 dark:bg-slate-800 text-white font-bold rounded-lg text-xs hover:bg-slate-700 transition"
-              >
-                Inspect Branch Fee-Waiver Queue
-              </Link>
+            <div className="pt-2 text-[11px] text-slate-500 italic">
+              Note: Individual fee-waiver reviews and patient hardship verifications are executed exclusively at the branch administrative level.
             </div>
           </div>
         </Card>
