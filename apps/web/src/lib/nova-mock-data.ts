@@ -12,6 +12,7 @@ export const ROLES = [
   "Lab Technician",
   "Pharmacist",
   "Billing Officer",
+  "Accountant",
   "Referral Coordinator",
   "Ward Manager",
   "Nova Admin",

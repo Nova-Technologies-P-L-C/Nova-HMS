@@ -18,6 +18,7 @@ import {
   Crown,
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
+import { useNovaTheme } from "./nova-theme-context";
 import { type Role } from "@/lib/nova-mock-data";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useState } from "react";
@@ -77,6 +78,10 @@ const ROLE_CONFIG: Record<
     icon: CreditCard,
     badge: "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/50",
   },
+  "Accountant": {
+    icon: CreditCard,
+    badge: "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/50",
+  },
   "Referral Coordinator": {
     icon: ArrowLeftRight,
     badge: "bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/50",
@@ -93,6 +98,7 @@ const ROLE_CONFIG: Record<
 
 export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
   const { role, lang, setLang, userName, userInitials, hospitalName } = useNovaRole();
+  const { theme } = useNovaTheme();
   const [showOffline, setShowOffline] = useState(offline);
   const router = useRouter();
 
@@ -130,7 +136,7 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
         <div className="text-sm text-slate-500 dark:text-slate-400">
           <span className="text-slate-400 dark:text-slate-500">Nova HMS</span>
           <span className="mx-1 text-slate-300 dark:text-slate-600">/</span>
-          <span className="text-slate-700 dark:text-slate-200 font-medium">{hospitalName}</span>
+          <span className="text-slate-700 dark:text-slate-200 font-medium">{theme.hospitalName || hospitalName}</span>
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -184,7 +190,10 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
 
           {/* Avatar + name — real logged-in user */}
           <Link href="/nova/shared/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="w-7 h-7 rounded-full bg-teal-600 text-white text-xs font-bold flex items-center justify-center">
+            <div
+              className="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-xs"
+              style={{ backgroundColor: theme.primaryColor }}
+            >
               {userInitials || "?"}
             </div>
             <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">{userName || "—"}</span>

@@ -47,34 +47,34 @@ export default function DoctorDashboard() {
           <p className="font-medium text-slate-800 text-sm">Today's patient queue</p>
           <div className="flex items-center gap-3">
             <button onClick={() => refetch()} className="text-xs text-slate-400 hover:text-teal-600">↻ Refresh</button>
-            <Link href="/nova/reception/queue" className="text-xs text-teal-600 hover:underline flex items-center gap-1">Full board <ArrowRight size={11} /></Link>
+            <Link href="/nova/reception/queue" className="text-xs text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1">Full board <ArrowRight size={11} /></Link>
           </div>
         </div>
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-slate-50 dark:divide-slate-800">
           {active.map((q) => (
-            <div key={q.id} className={`flex items-center justify-between px-4 py-3 ${q.status === "urgent" ? "bg-red-50" : ""}`}>
+            <div key={q.id} className={`flex items-center justify-between px-4 py-3 ${q.status === "urgent" ? "bg-red-50 dark:bg-red-950/20" : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"} transition-colors`}>
               <div className="flex items-center gap-3">
-                <span className="font-mono font-bold text-slate-700 w-16">{q.ticketNumber}</span>
+                <span className="font-mono font-bold text-slate-700 dark:text-slate-300 w-16">{q.ticketNumber}</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-slate-800">{q.visit.patient.nameEn}</p>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{q.visit.patient.nameEn}</p>
                     {q.paymentStatus === "paid" && (
-                      <span className="text-[11px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium border border-emerald-200">
+                      <span className="text-[11px] px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-full font-medium border border-emerald-200 dark:border-emerald-800">
                         ✓ Card Fee Paid
                       </span>
                     )}
                     {q.paymentStatus === "cbhi_covered" && (
-                      <span className="text-[11px] px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full font-medium border border-teal-200">
+                      <span className="text-[11px] px-2 py-0.5 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 rounded-full font-medium border border-teal-200 dark:border-teal-800">
                         🛡️ CBHI
                       </span>
                     )}
                     {q.paymentStatus === "emergency_exempt" && (
-                      <span className="text-[11px] px-2 py-0.5 bg-red-50 text-red-700 rounded-full font-medium border border-red-200">
+                      <span className="text-[11px] px-2 py-0.5 bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-full font-medium border border-red-200 dark:border-red-800">
                         🚨 Emergency
                       </span>
                     )}
                     {q.paymentStatus === "unpaid" && (
-                      <span className="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-800 rounded-full font-semibold border border-amber-300">
+                      <span className="text-[11px] px-2 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-full font-semibold border border-amber-300 dark:border-amber-700">
                         ⚠️ Card Fee Unpaid ({q.feeAmount} ETB)
                       </span>
                     )}
@@ -87,7 +87,7 @@ export default function DoctorDashboard() {
                 <Link
                   href={`/nova/doctor/emr?visitId=${q.visitId}`}
                   onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
-                  className="text-xs px-2.5 py-1 bg-white border border-slate-200 text-slate-700 rounded hover:border-teal-400"
+                  className="text-xs px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded hover:border-teal-400 transition-colors"
                 >
                   View EMR
                 </Link>

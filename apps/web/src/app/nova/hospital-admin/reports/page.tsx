@@ -7,11 +7,12 @@ import {
   BarChart3, TrendingUp, Users, Bed, Activity, FileText,
   Download, Printer, RefreshCw, Search, Calendar, Building2,
   ShieldCheck, Pill, FlaskConical, AlertTriangle, CreditCard,
-  ArrowUpRight, Tag, Filter, CheckCircle2, ChevronRight, Layers, Banknote
+  ArrowUpRight, Tag, Filter, CheckCircle2, ChevronRight, Layers, Banknote, Globe
 } from "lucide-react";
+import NovaHmisDhis2Tab from "@/components/nova/nova-hmis-dhis2-tab";
 
 type DateRange = "today" | "7d" | "30d" | "month" | "quarter" | "all";
-type ActiveTab = "overview" | "finance" | "clinical" | "wards" | "diagnostics" | "ledger";
+type ActiveTab = "overview" | "finance" | "clinical" | "wards" | "diagnostics" | "ledger" | "hmis";
 
 export default function ReportsPage() {
   const [range, setRange] = useState<DateRange>("month");
@@ -286,6 +287,7 @@ export default function ReportsPage() {
           { id: "wards", label: "Inpatient & Bed Census", icon: <Bed size={14} /> },
           { id: "diagnostics", label: "Lab & Pharmacy Diagnostics", icon: <FlaskConical size={14} /> },
           { id: "ledger", label: "Itemized Operational Ledger", icon: <FileText size={14} /> },
+          { id: "hmis", label: "🇪🇹 National e-HMIS / DHIS2", icon: <Globe size={14} /> },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -987,6 +989,11 @@ export default function ReportsPage() {
           </Card>
         </div>
       )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 7: ETHIOPIAN NATIONAL e-HMIS / DHIS2
+         ───────────────────────────────────────────────────────────── */}
+      {activeTab === "hmis" && <NovaHmisDhis2Tab />}
     </PageShell>
   );
 }

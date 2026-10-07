@@ -25,6 +25,7 @@ const CLINICAL_ROLES = [
   "Lab Technician",
   "Pharmacist",
   "Billing Officer",
+  "Accountant",
   "Referral Coordinator",
   "Ward Manager",
 ] as const;
@@ -42,6 +43,7 @@ const ROLE_ICONS: Record<string, string> = {
   "Lab Technician": "🔬",
   "Pharmacist": "💊",
   "Billing Officer": "💳",
+  "Accountant": "💳",
   "Referral Coordinator": "🚑",
   "Ward Manager": "🛏️",
 };
@@ -57,6 +59,7 @@ const ROLE_COLORS: Record<string, string> = {
   "Lab Technician": "bg-purple-50 text-purple-700 border-purple-200",
   "Pharmacist": "bg-emerald-50 text-emerald-700 border-emerald-200",
   "Billing Officer": "bg-blue-50 text-blue-700 border-blue-200",
+  "Accountant": "bg-blue-50 text-blue-700 border-blue-200",
   "Referral Coordinator": "bg-indigo-50 text-indigo-700 border-indigo-200",
   "Ward Manager": "bg-orange-50 text-orange-700 border-orange-200",
 };
@@ -548,16 +551,16 @@ export default function StaffAndRoleManagementPage() {
           </div>
 
           {/* Active Role Control Panel */}
-          <Card className="p-5 border-teal-200 bg-gradient-to-r from-teal-50/30 via-white to-white">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <Card className="p-5 border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50/30 dark:from-teal-950/20 via-white dark:via-slate-900 to-white dark:to-slate-900">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <span className="text-3xl">{ROLE_ICONS[selectedRole] ?? "🛡️"}</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-800 text-base">{selectedRole} Role Controls</h3>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">{selectedRole} Role Controls</h3>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                        ROLE_COLORS[selectedRole] ?? "bg-slate-100 text-slate-700"
+                        ROLE_COLORS[selectedRole] ?? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
                       }`}
                     >
                       {rolePermsMap[selectedRole]?.size || 0} / {ALL_ACTIVITIES.length} Activities Enabled

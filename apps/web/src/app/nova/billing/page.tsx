@@ -116,7 +116,7 @@ function BillingDashboardContent() {
   const isCbhi = payables?.patient.cbhiStatus;
 
   return (
-    <PageShell title="Cashier & Billing Role" subtitle="End-of-Visit Centralized Settlement, Receipts & Discharge Clearance">
+    <PageShell title="Accountant & Billing POS Counter" subtitle="End-of-Visit Centralized Settlement, Receipts & Discharge Clearance">
       {/* Official Receipt Modal */}
       {issuedReceipt && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4">
@@ -257,18 +257,18 @@ function BillingDashboardContent() {
       </div>
 
       {/* Cashier Point of Sale (POS) Counter */}
-      <Card className="p-6 mb-8 border-teal-200 bg-gradient-to-r from-teal-50/30 via-white to-white">
+      <Card className="p-6 mb-8 border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50/30 dark:from-teal-950/20 via-white dark:via-slate-900 to-white dark:to-slate-900">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-teal-600 text-white rounded-lg">
               <DollarSign size={20} />
             </div>
             <div>
-              <h2 className="font-bold text-slate-800 text-base">Consolidated Cashier Checkout (POS)</h2>
-              <p className="text-xs text-slate-500">Settle all accumulated diagnostic investigations, prescriptions, and fees in one place</p>
+              <h2 className="font-bold text-slate-800 dark:text-slate-100 text-base">Consolidated Cashier Checkout (POS)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Settle all accumulated diagnostic investigations, prescriptions, and fees in one place</p>
             </div>
           </div>
-          <span className="text-xs px-2.5 py-1 bg-teal-100 text-teal-800 font-semibold rounded-full">
+          <span className="text-xs px-2.5 py-1 bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 font-semibold rounded-full">
             Cashier Desk Active
           </span>
         </div>

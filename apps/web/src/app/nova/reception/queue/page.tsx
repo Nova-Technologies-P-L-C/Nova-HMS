@@ -93,24 +93,24 @@ export default function OPDQueueBoardPage() {
       subtitle={`${waiting.length} waiting · ${now.length} being seen · ${done.length} done`}
       action={
         <div className="flex gap-2">
-          <button onClick={() => refetch()} className="px-3 py-2 bg-white border border-slate-200 text-slate-700 text-sm rounded hover:border-teal-400">↻ Refresh</button>
-          <Link href="/nova/reception/register" className="px-3 py-2 bg-white border border-slate-200 text-slate-700 text-sm rounded hover:border-teal-400">+ Register patient</Link>
+          <button onClick={() => refetch()} className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm rounded hover:border-teal-400 transition-colors">↻ Refresh</button>
+          <Link href="/nova/reception/register" className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm rounded hover:border-teal-400 transition-colors">+ Register patient</Link>
           <button onClick={() => setFullscreen(true)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm rounded hover:bg-teal-700 font-medium">
             <Monitor size={15} /> Kiosk display
           </button>
         </div>
       }
     >
-      <div className="flex items-center gap-2 mb-5 text-xs text-slate-500">
-        <span className="px-2 py-1 bg-slate-200 text-slate-600 rounded">1 Register</span>
-        <span className="text-slate-300">→</span>
+      <div className="flex items-center gap-2 mb-5 text-xs text-slate-500 dark:text-slate-400">
+        <span className="px-2 py-1 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded">1 Register</span>
+        <span className="text-slate-300 dark:text-slate-600">→</span>
         <span className="px-2 py-1 bg-teal-600 text-white rounded font-medium">2 Queue & Card Fee</span>
-        <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-slate-100 rounded">3 Triage</span>
-        <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-slate-100 rounded">4 Doctor</span>
-        <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-slate-100 rounded">5 Billing</span>
+        <span className="text-slate-300 dark:text-slate-600">→</span>
+        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800/60 rounded">3 Triage</span>
+        <span className="text-slate-300 dark:text-slate-600">→</span>
+        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800/60 rounded">4 Doctor</span>
+        <span className="text-slate-300 dark:text-slate-600">→</span>
+        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800/60 rounded">5 Billing</span>
       </div>
 
       {/* Reception Card Fee Collection Modal */}
@@ -193,30 +193,30 @@ export default function OPDQueueBoardPage() {
         </div>
       ))}
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
               {["Ticket", "Patient", "Health ID", "Payer Type", "Card Fee / Payment", "Queue Status", "Actions"].map((h) => (
-                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {queue.map((q) => (
-              <tr key={q.id} className={`border-b border-slate-100 last:border-0 ${q.status === "urgent" ? "bg-red-50" : "hover:bg-slate-50"}`}>
+              <tr key={q.id} className={`border-b border-slate-100 dark:border-slate-800/60 last:border-0 ${q.status === "urgent" ? "bg-red-50 dark:bg-red-950/20" : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"} transition-colors`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[q.status] ?? "bg-slate-300"}`} />
-                    <span className="font-mono font-bold text-slate-800">{q.ticketNumber}</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{q.ticketNumber}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 font-medium text-slate-800">{q.visit.patient.nameEn}</td>
-                <td className="px-4 py-3 text-xs text-slate-500">{q.visit.patient.healthId}</td>
+                <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{q.visit.patient.nameEn}</td>
+                <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{q.visit.patient.healthId}</td>
                 <td className="px-4 py-3 text-xs">
                   {q.visit.patient.cbhiStatus
-                    ? <span className="text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded border border-teal-200">🛡️ CBHI</span>
-                    : <span className="text-slate-500">Self-pay</span>}
+                    ? <span className="text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-800">🛡️ CBHI</span>
+                    : <span className="text-slate-500 dark:text-slate-400">Self-pay</span>}
                 </td>
                 <td className="px-4 py-3">
                   {q.paymentStatus === "paid" && (

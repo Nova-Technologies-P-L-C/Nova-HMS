@@ -8,9 +8,10 @@ import {
   Activity, Users, Building2, FileText, BarChart3, Settings, ClipboardList,
   Stethoscope, FlaskConical, Pill, CreditCard, ArrowLeftRight, Bed,
   Search, QrCode, Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers, Banknote,
-  Crown
+  Crown, Palette
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
+import { useNovaTheme } from "./nova-theme-context";
 import { type Role } from "@/lib/nova-mock-data";
 
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
@@ -28,6 +29,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "Service Tariffs & Pricing", href: "/nova/branch-admin/tariffs", icon: <Banknote size={16} /> },
     { label: "Reports & Analytics", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
     { label: "Audit & Security", href: "/nova/branch-admin/audit", icon: <ClipboardList size={16} /> },
+    { label: "UI Appearance & Branding", href: "/nova/branch-admin/appearance", icon: <Palette size={16} /> },
     { label: "Settings", href: "/nova/branch-admin/settings", icon: <Settings size={16} /> },
   ],
   "Hospital Admin": [
@@ -37,6 +39,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "Service Tariffs & Pricing", href: "/nova/hospital-admin/tariffs", icon: <Banknote size={16} /> },
     { label: "Reports & Analytics", href: "/nova/hospital-admin/reports", icon: <BarChart3 size={16} /> },
     { label: "Audit & Security", href: "/nova/hospital-admin/audit", icon: <ClipboardList size={16} /> },
+    { label: "UI Appearance & Branding", href: "/nova/branch-admin/appearance", icon: <Palette size={16} /> },
     { label: "Settings", href: "/nova/hospital-admin/settings", icon: <Settings size={16} /> },
   ],
   "Receptionist": [
@@ -85,7 +88,13 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "ROP Alerts", href: "/nova/pharmacy/rop-alerts", icon: <Activity size={16} /> },
   ],
   "Billing Officer": [
-    { label: "Billing Dashboard", href: "/nova/billing", icon: <CreditCard size={16} /> },
+    { label: "Billing & POS Counter", href: "/nova/billing", icon: <CreditCard size={16} /> },
+    { label: "CBHI Claims", href: "/nova/billing/cbhi", icon: <ShieldCheck size={16} /> },
+    { label: "Fee Waivers", href: "/nova/billing/waivers", icon: <FileText size={16} /> },
+    { label: "Invoices", href: "/nova/billing/invoices", icon: <ClipboardList size={16} /> },
+  ],
+  "Accountant": [
+    { label: "Billing & POS Counter", href: "/nova/billing", icon: <CreditCard size={16} /> },
     { label: "CBHI Claims", href: "/nova/billing/cbhi", icon: <ShieldCheck size={16} /> },
     { label: "Fee Waivers", href: "/nova/billing/waivers", icon: <FileText size={16} /> },
     { label: "Invoices", href: "/nova/billing/invoices", icon: <ClipboardList size={16} /> },
@@ -198,18 +207,57 @@ export default function NovaSidebar() {
     return baseNav;
   }, [role, activeRoleRecord]);
 
+  const { theme } = useNovaTheme();
+  const isWhiteSidebar = theme.sidebarTheme === "white";
+
   return (
-    <aside className="flex flex-col h-full w-56 shrink-0 bg-[#0f2435] text-slate-100 border-r border-slate-700">
+    <aside
+      className={`flex flex-col h-full w-56 shrink-0 transition-colors ${
+        isWhiteSidebar
+          ? "bg-white text-slate-800 border-r border-slate-200"
+          : "text-slate-100 border-r border-slate-700/60"
+      }`}
+      style={{ backgroundColor: theme.sidebarBg }}
+    >
       {/* Logo */}
-      <div className="flex items-center gap-2 px-4 py-4 border-b border-slate-700">
-        <div className="w-7 h-7 rounded bg-teal-500 flex items-center justify-center font-bold text-white text-sm">N</div>
-        <span className="font-semibold text-white tracking-wide">Nova HMS</span>
+      <div
+        className={`flex items-center gap-2.5 px-4 py-4 border-b ${
+          isWhiteSidebar ? "border-slate-200" : "border-slate-700/60"
+        }`}
+      >
+        <div
+          className="w-7 h-7 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
+          style={{
+            backgroundColor: theme.primaryColor,
+            borderRadius: `${Math.min(theme.radius, 10)}px`,
+          }}
+        >
+          {theme.logoBadge || "N"}
+        </div>
+        <span
+          className={`font-semibold tracking-wide truncate text-sm ${
+            isWhiteSidebar ? "text-slate-900" : "text-white"
+          }`}
+          title={theme.hospitalName || "Nova HMS"}
+        >
+          {theme.hospitalName || "Nova HMS"}
+        </span>
       </div>
 
       {/* Role badge — locked to logged-in user's role */}
       <div className="px-3 pt-3 pb-2">
-        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Role</p>
-        <div className="px-2 py-1.5 bg-teal-700/40 border border-teal-600/50 rounded text-xs text-teal-200 font-medium">
+        <p className={`text-[10px] uppercase tracking-wider mb-1 font-semibold ${isWhiteSidebar ? "text-slate-400" : "text-slate-500"}`}>
+          Role
+        </p>
+        <div
+          className="px-2 py-1.5 border text-xs font-semibold"
+          style={{
+            backgroundColor: isWhiteSidebar ? `${theme.primaryColor}15` : `${theme.primaryColor}25`,
+            borderColor: `${theme.primaryColor}50`,
+            color: isWhiteSidebar ? theme.primaryColor : "#e2e8f0",
+            borderRadius: `${Math.min(theme.radius, 8)}px`,
+          }}
+        >
           {role}
         </div>
       </div>
@@ -222,14 +270,29 @@ export default function NovaSidebar() {
             <Link
               key={item.href}
               href={item.href as any}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded text-sm mb-0.5 transition-colors ${
+              style={
                 active
-                  ? "bg-teal-600 text-white"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  ? {
+                      backgroundColor: theme.primaryColor,
+                      color: "#ffffff",
+                      borderRadius: `${Math.min(theme.radius, 8)}px`,
+                    }
+                  : {
+                      borderRadius: `${Math.min(theme.radius, 8)}px`,
+                    }
+              }
+              className={`flex items-center gap-2.5 px-3 py-2 text-sm mb-0.5 font-medium transition-colors ${
+                active
+                  ? "shadow-xs"
+                  : isWhiteSidebar
+                  ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  : "text-slate-300 hover:bg-white/10 hover:text-white"
               }`}
             >
-              {item.icon}
-              {item.label}
+              <span className={active ? "text-white" : isWhiteSidebar ? "text-slate-500" : "text-slate-400"}>
+                {item.icon}
+              </span>
+              <span className="truncate">{item.label}</span>
             </Link>
           );
         })}
@@ -237,21 +300,38 @@ export default function NovaSidebar() {
         {/* Shared - hidden for Organizational Admin */}
         {role !== "Organizational Admin" && !pathname.startsWith("/nova/org-admin") && (
           <>
-            <p className="text-xs text-slate-500 uppercase tracking-wider px-2 py-1 mt-3">Shared</p>
+            <p className={`text-[10px] uppercase tracking-wider px-2 py-1 mt-3 font-semibold ${isWhiteSidebar ? "text-slate-400" : "text-slate-500"}`}>
+              Shared
+            </p>
             {SHARED_NAV.map((item) => {
               const active = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href as any}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded text-sm mb-0.5 transition-colors ${
+                  style={
                     active
-                      ? "bg-teal-600 text-white"
-                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                      ? {
+                          backgroundColor: theme.primaryColor,
+                          color: "#ffffff",
+                          borderRadius: `${Math.min(theme.radius, 8)}px`,
+                        }
+                      : {
+                          borderRadius: `${Math.min(theme.radius, 8)}px`,
+                        }
+                  }
+                  className={`flex items-center gap-2.5 px-3 py-2 text-sm mb-0.5 font-medium transition-colors ${
+                    active
+                      ? "shadow-xs"
+                      : isWhiteSidebar
+                      ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      : "text-slate-300 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  {item.icon}
-                  {item.label}
+                  <span className={active ? "text-white" : isWhiteSidebar ? "text-slate-500" : "text-slate-400"}>
+                    {item.icon}
+                  </span>
+                  <span className="truncate">{item.label}</span>
                 </Link>
               );
             })}
@@ -260,8 +340,13 @@ export default function NovaSidebar() {
       </nav>
 
       {/* Public pages link */}
-      <div className="px-3 py-3 border-t border-slate-700">
-        <Link href="/nova" className="flex items-center gap-2 text-xs text-slate-400 hover:text-teal-400 transition-colors">
+      <div className={`px-3 py-3 border-t ${isWhiteSidebar ? "border-slate-200" : "border-slate-700/60"}`}>
+        <Link
+          href="/nova"
+          className={`flex items-center gap-2 text-xs transition-colors ${
+            isWhiteSidebar ? "text-slate-500 hover:text-slate-800" : "text-slate-400 hover:text-white"
+          }`}
+        >
           <Globe size={13} />
           Public / Marketing pages
         </Link>

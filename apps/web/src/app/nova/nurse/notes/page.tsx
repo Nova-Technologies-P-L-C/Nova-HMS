@@ -294,16 +294,16 @@ export default function NursingNotesPage() {
           ) : (
             <>
               {/* Patient Banner */}
-              <Card className="p-4 bg-gradient-to-r from-teal-50/50 via-white to-white border-teal-200 flex flex-wrap items-center justify-between gap-3">
+              <Card className="p-4 bg-gradient-to-r from-teal-50/50 dark:from-teal-950/20 via-white dark:via-slate-900 to-white dark:to-slate-900 border-teal-200 dark:border-teal-800 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-xl bg-teal-600 text-white font-black text-sm flex items-center justify-center shrink-0">
                     {selectedItem.patient.nameEn.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-slate-900 text-base">
+                    <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
                       {selectedItem.patient.nameEn}
                     </h3>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       MRN: <span className="font-mono font-medium">{selectedItem.patient.healthId}</span> · {selectedItem.badge} · Duty Nurse: <strong>{selectedItem.assignedNurseName}</strong>
                     </p>
                   </div>

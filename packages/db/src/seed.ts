@@ -246,10 +246,9 @@ async function main() {
     },
     "Receptionist": {
       permissions: [
-        "clinical.vitals.record", "clinical.referral.create",
-        "billing.view", "billing.collect"
+        "clinical.referral.create"
       ],
-      description: "Patient registration, card room check-in, OPD queue assignment, and card fee collection.",
+      description: "Front-desk intake, patient registration, kiosk check-in, and OPD queue ticketing.",
     },
     "Lab Technician": {
       permissions: [
@@ -266,6 +265,13 @@ async function main() {
       description: "Prescription verification, drug dispensing, pharmaceutical inventory management, batches, and RRF requisition.",
     },
     "Billing Officer": {
+      permissions: [
+        "billing.view", "billing.collect", "billing.waiver.request",
+        "admin.reports.view"
+      ],
+      description: "Centralized visit billing, cashier receipts, CBHI claims processing, and fee waiver submissions.",
+    },
+    "Accountant": {
       permissions: [
         "billing.view", "billing.collect", "billing.waiver.request",
         "admin.reports.view"

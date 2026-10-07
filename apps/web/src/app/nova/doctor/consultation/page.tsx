@@ -82,24 +82,24 @@ function ConsultationContent() {
         title="Consultation Encounter"
         subtitle="Clinical Access Governance"
       >
-        <Card className="max-w-xl mx-auto p-8 my-8 text-center border-amber-200 bg-amber-50/50 shadow-sm">
-          <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-300">
+        <Card className="max-w-xl mx-auto p-8 my-8 text-center border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 shadow-xs">
+          <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-300 dark:border-amber-700">
             <Stethoscope size={32} />
           </div>
-          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300 mb-3">
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 mb-3">
             Doctor Role Exclusive
           </span>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">Physician Consultation Station</h2>
-          <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Physician Consultation Station</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
             Medical consultation encounters, clinical diagnoses (ICD-10), and treatment orders are reserved exclusively for licensed <strong>Medical Doctors</strong>.
           </p>
 
-          <div className="p-4 bg-white rounded-lg border border-slate-200 text-left text-xs space-y-2 mb-6 shadow-xs">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <span className="text-slate-500 font-medium">Your Current Role:</span>
-              <span className="font-bold text-slate-800 px-2 py-0.5 bg-slate-100 rounded">{role}</span>
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-left text-xs space-y-2 mb-6 shadow-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">Your Current Role:</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">{role}</span>
             </div>
-            <p className="text-slate-600">
+            <p className="text-slate-600 dark:text-slate-300">
               {role === "Ward Nurse" || role === "Nurse" ? (
                 <>For inpatient bedside charting, scheduled Medication Administration (MAR), and nurse shift handovers, please access <strong>Shift Nursing Notes</strong>.</>
               ) : role === "Triage Nurse" ? (
@@ -115,13 +115,13 @@ function ConsultationContent() {
               <>
                 <Link
                   href="/nova/nurse/notes"
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-sm"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-xs"
                 >
                   <FileText size={16} /> Open Shift Nursing Notes →
                 </Link>
                 <Link
                   href="/nova/nurse"
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700"
                 >
                   <Bed size={16} /> Inpatient Bed Census
                 </Link>
@@ -129,14 +129,14 @@ function ConsultationContent() {
             ) : role === "Triage Nurse" ? (
               <Link
                 href={"/nova/triage" as any}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-sm"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-xs"
               >
                 Go to Triage Station →
               </Link>
             ) : (
               <button
                 onClick={() => router.back()}
-                className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200"
+                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700"
               >
                 ← Return to Previous Page
               </button>
@@ -213,12 +213,12 @@ function ConsultationContent() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="md:col-span-2 space-y-5">
           <Card className="p-5">
-            <h3 className="font-semibold text-slate-800 mb-3">Chief complaint</h3>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Chief complaint</h3>
             <textarea className={`${inputCls} resize-none h-20`} value={complaint} onChange={(e) => setComplaint(e.target.value)} />
           </Card>
 
           <Card className="p-5">
-            <h3 className="font-semibold text-slate-800 mb-4">Diagnosis</h3>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Diagnosis</h3>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="ICD-10 code">
                 <input className={inputCls} value={icd} onChange={(e) => setIcd(e.target.value)} placeholder="J06.9" />
@@ -235,7 +235,7 @@ function ConsultationContent() {
           </Card>
 
           <Card className="p-5">
-            <h3 className="font-semibold text-slate-800 mb-3">Treatment plan</h3>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Treatment plan</h3>
             <div className="space-y-2">
               {[
                 { label: "Write prescription", val: planRx, set: setPlanRx },
@@ -244,7 +244,7 @@ function ConsultationContent() {
               ].map((item) => (
                 <label key={item.label} className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={item.val} onChange={(e) => item.set(e.target.checked)} className="accent-teal-600 w-4 h-4" />
-                  <span className="text-sm text-slate-700">{item.label}</span>
+                  <span className="text-sm text-slate-700 dark:text-slate-300">{item.label}</span>
                 </label>
               ))}
             </div>
@@ -262,12 +262,12 @@ function ConsultationContent() {
 
         <div className="space-y-4">
           {visit && (
-            <Card className="p-4 bg-slate-50">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Patient</p>
-              <p className="font-semibold text-slate-800">{visit.patient.nameEn}</p>
-              <p className="text-xs text-slate-500">{visit.patient.healthId} · {visit.patient.sex === "M" ? "Male" : "Female"}</p>
-              <p className="text-xs text-slate-500 mt-1">DOB: {visit.patient.dob}</p>
-              {visit.patient.cbhiStatus && <p className="text-xs text-teal-600 mt-1">✓ CBHI</p>}
+            <Card className="p-4 bg-slate-50 dark:bg-slate-800/60">
+              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Patient</p>
+              <p className="font-semibold text-slate-800 dark:text-slate-100">{visit.patient.nameEn}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{visit.patient.healthId} · {visit.patient.sex === "M" ? "Male" : "Female"}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">DOB: {visit.patient.dob}</p>
+              {visit.patient.cbhiStatus && <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">✓ CBHI</p>}
             </Card>
           )}
           {visit && visit.vitals.length > 0 && (
@@ -288,24 +288,24 @@ function ConsultationContent() {
             </Card>
           )}
           <Card className="p-4 space-y-2">
-            <p className="text-xs text-slate-500 uppercase tracking-wider mb-2 font-semibold">Clinical Actions</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 font-semibold">Clinical Actions</p>
             <Link
               href={`/nova/doctor/prescription?visitId=${visitId}`}
-              className="flex items-center justify-between w-full px-3 py-2 bg-teal-50 border border-teal-200 text-teal-700 rounded text-xs font-semibold hover:bg-teal-100 transition-colors"
+              className="flex items-center justify-between w-full px-3 py-2 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded text-xs font-semibold hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
             >
               <span className="flex items-center gap-1.5"><Pill size={14} /> Prescribe Medications</span>
               <ArrowRight size={13} />
             </Link>
             <Link
               href={`/nova/doctor/lab-order?visitId=${visitId}`}
-              className="flex items-center justify-between w-full px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded text-xs font-semibold hover:bg-blue-100 transition-colors"
+              className="flex items-center justify-between w-full px-3 py-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             >
               <span className="flex items-center gap-1.5"><FlaskConical size={14} /> Order Lab Tests</span>
               <ArrowRight size={13} />
             </Link>
             <Link
               href={`/nova/doctor/emr?visitId=${visitId}`}
-              className="flex items-center justify-between w-full px-3 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded text-xs font-semibold hover:bg-slate-200 transition-colors"
+              className="flex items-center justify-between w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
               <span className="flex items-center gap-1.5"><FileText size={14} /> View Full EMR</span>
               <ArrowRight size={13} />
@@ -315,21 +315,21 @@ function ConsultationContent() {
       </div>
 
       {/* Patient Longitudinal History: Previous Prescriptions, Diagnoses, Notes, Labs */}
-      <div className="mt-8 pt-6 border-t border-slate-200">
+      <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-teal-600" />
-              <h3 className="font-bold text-slate-800 text-base">
+              <History className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">
                 Patient Medical History & Previous Treatments
               </h3>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Longitudinal records across all visits · Previous prescriptions, nursing notes, diagnoses & lab reports for{" "}
               <strong>{visit?.patient?.nameEn || "patient"}</strong>
             </p>
           </div>
-          <span className="text-xs px-2.5 py-1 bg-teal-50 border border-teal-200 text-teal-700 font-semibold rounded-full">
+          <span className="text-xs px-2.5 py-1 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 font-semibold rounded-full">
             💡 1-Click Re-prescribe & Auto-fill Diagnosis
           </span>
         </div>

@@ -46,7 +46,7 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
 
   if (!ready) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-slate-950">
         <div className="flex items-center gap-3 text-slate-400">
           <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm">Loading…</span>
@@ -63,7 +63,7 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
 
   // Authenticated app pages — full shell
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
       <NovaSidebar />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <NovaTopbar />

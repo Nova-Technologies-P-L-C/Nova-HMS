@@ -6,7 +6,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
 import { useNovaRole } from "@/components/nova/nova-role-context";
-import { Banknote, ArrowRight } from "lucide-react";
+import { Banknote, ArrowRight, Palette } from "lucide-react";
 
 export default function HospitalSettingsPage() {
   const { lang, setLang } = useNovaRole();
@@ -47,11 +47,35 @@ export default function HospitalSettingsPage() {
   return (
     <PageShell title="Hospital Settings" subtitle="Branding, language, fee tariffs, and clinical configuration">
       <div className="max-w-2xl space-y-6">
+        {/* Appearance & Branding Quick Launch Banner */}
+        <div className="p-4 rounded-xl border border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50 dark:from-teal-950/40 via-white dark:via-slate-900 to-teal-50/30 dark:to-teal-950/20 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Palette size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">UI Appearance & Theme Customizer</h3>
+                <span className="text-[10px] px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 font-bold rounded-full uppercase tracking-wider">New</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Full visual control: light/dark mode, 6 medical brand colors, UI density, and live split-screen preview studio.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={"/nova/branch-admin/appearance" as any}
+            className="px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 shadow-xs"
+          >
+            Open Theme Studio <ArrowRight size={13} />
+          </Link>
+        </div>
+
         {/* Registration & Card Fee Tariffs */}
-        <Card className="p-5 border-teal-200 bg-gradient-to-r from-teal-50/50 to-white">
+        <Card className="p-5 border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50/50 dark:from-teal-950/30 to-white dark:to-slate-900">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-slate-800">OPD Card & Registration Fee Tariffs</h3>
-            <span className="text-xs px-2 py-0.5 bg-teal-100 text-teal-800 rounded font-medium">Admin Controlled</span>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-100">OPD Card & Registration Fee Tariffs</h3>
+            <span className="text-xs px-2 py-0.5 bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 rounded font-medium">Admin Controlled</span>
           </div>
           <p className="text-xs text-slate-500 mb-4">
             Configure the mandatory card and consultation fee charged to patients at reception upon arrival. CBHI patients are automatically 100% exempt from this cash fee.

@@ -57,18 +57,18 @@ export default function PharmacyQueuePage() {
       {/* Pharmacy Payment Modal */}
       {payingRx && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
-              <h3 className="font-bold text-slate-800 text-base">Collect Pharmacy Payment</h3>
-              <button onClick={() => setPayingRx(null)} className="text-slate-400 hover:text-slate-600 text-sm">✕</button>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">Collect Pharmacy Payment</h3>
+              <button onClick={() => setPayingRx(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm">✕</button>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800">{payingRx.patientName}</p>
-              <p className="text-xs text-slate-500">{payingRx.drugs}</p>
-              <p className="text-sm font-bold text-teal-800 mt-1">Total Due: ETB {payingRx.total}</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{payingRx.patientName}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{payingRx.drugs}</p>
+              <p className="text-sm font-bold text-teal-800 dark:text-teal-400 mt-1">Total Due: ETB {payingRx.total}</p>
             </div>
             <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-700 block">Payment Method:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Payment Method:</label>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 {(["cash", "telebirr", "cbe_birr"] as const).map((m) => (
                   <button
@@ -76,7 +76,7 @@ export default function PharmacyQueuePage() {
                     type="button"
                     onClick={() => setModalMethod(m)}
                     className={`py-2 px-3 rounded-lg border font-medium text-center transition-all ${
-                      modalMethod === m ? "bg-teal-600 text-white border-teal-600" : "bg-white text-slate-700 border-slate-200 hover:border-teal-400"
+                      modalMethod === m ? "bg-teal-600 text-white border-teal-600" : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-teal-400"
                     }`}
                   >
                     {m === "cash" ? "💵 Cash" : m === "telebirr" ? "📱 Telebirr" : "🏦 CBE Birr"}
@@ -85,18 +85,18 @@ export default function PharmacyQueuePage() {
               </div>
               {(modalMethod === "telebirr" || modalMethod === "cbe_birr") && (
                 <div>
-                  <label className="text-xs text-slate-600 block mb-1">Transaction Ref / ID:</label>
+                  <label className="text-xs text-slate-600 dark:text-slate-300 block mb-1">Transaction Ref / ID:</label>
                   <input
                     value={modalRef}
                     onChange={(e) => setModalRef(e.target.value)}
                     placeholder="e.g. TLB-998241"
-                    className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-teal-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded text-sm focus:outline-none focus:border-teal-500"
                   />
                 </div>
               )}
             </div>
-            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
-              <button type="button" onClick={() => setPayingRx(null)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded text-sm hover:bg-slate-50">Cancel</button>
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button type="button" onClick={() => setPayingRx(null)} className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded text-sm hover:bg-slate-50 dark:hover:bg-slate-800">Cancel</button>
               <button
                 type="button"
                 disabled={payRxMutation.isPending}
@@ -119,11 +119,11 @@ export default function PharmacyQueuePage() {
       {/* Tab switcher */}
       <div className="flex gap-1 mb-4">
         <button onClick={() => setTab("pending")}
-          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "pending" ? "bg-teal-600 text-white border-teal-600" : "bg-white border-slate-200 text-slate-600 hover:border-teal-400"}`}>
+          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "pending" ? "bg-teal-600 text-white border-teal-600" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400"}`}>
           Pending ({rxList.length})
         </button>
         <button onClick={() => setTab("dispensed")}
-          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "dispensed" ? "bg-teal-600 text-white border-teal-600" : "bg-white border-slate-200 text-slate-600 hover:border-teal-400"}`}>
+          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "dispensed" ? "bg-teal-600 text-white border-teal-600" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400"}`}>
           Dispensed ({dispensedList.length})
         </button>
       </div>
@@ -132,7 +132,7 @@ export default function PharmacyQueuePage() {
 
       {!isLoading && shownList.length === 0 && (
         <Card className="p-12 text-center">
-          <Pill size={32} className="text-slate-300 mx-auto mb-3" />
+          <Pill size={32} className="text-slate-300 dark:text-slate-600 mx-auto mb-3" />
           <p className="text-slate-400 text-sm">{tab === "pending" ? "No pending prescriptions." : "No dispensed prescriptions yet."}</p>
         </Card>
       )}
@@ -149,15 +149,15 @@ export default function PharmacyQueuePage() {
             <Card key={rx.id} className={`overflow-hidden transition-all ${isSelected ? "border-teal-400" : ""}`}>
               {/* Header row */}
               <div
-                className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 ${rx.status === "pending" ? "" : "bg-slate-50"}`}
+                className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${rx.status === "pending" ? "" : "bg-slate-50/60 dark:bg-slate-800/30"}`}
                 onClick={() => setSelected(isSelected ? null : rx.id)}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 font-bold text-xs flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center shrink-0">
                     {rx.visit.patient.nameEn.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 text-sm truncate">{rx.visit.patient.nameEn}</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm truncate">{rx.visit.patient.nameEn}</p>
                     <p className="text-xs text-slate-400">{rx.visit.patient.healthId} · {rx.lines.length} medication{rx.lines.length > 1 ? "s" : ""} · Total: ETB {totalCost}</p>
                   </div>
                 </div>

@@ -14,6 +14,7 @@ const ROLE_DASHBOARDS: Record<string, string> = {
   "Lab Technician": "/nova/lab",
   Pharmacist: "/nova/pharmacy",
   "Billing Officer": "/nova/billing",
+  Accountant: "/nova/billing",
   "Referral Coordinator": "/nova/referral",
   "Ward Manager": "/nova/ward",
   "Nova Admin": "/nova/nova-admin",
@@ -28,7 +29,7 @@ const DEMO_ACCOUNTS: [string, string][] = [
   ["girma@dmrh.gov.et", "Receptionist"],
   ["bereket@dmrh.gov.et", "Lab Tech"],
   ["selam@dmrh.gov.et", "Pharmacist"],
-  ["hiwot@dmrh.gov.et", "Billing"],
+  ["hiwot@dmrh.gov.et", "Accountant / Cashier POS"],
   ["solomon@dmrh.gov.et", "Referral"],
 ];
 

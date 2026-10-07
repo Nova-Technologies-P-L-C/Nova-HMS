@@ -1032,8 +1032,8 @@ function RoleManagementContent() {
                   <p className="font-semibold">How Role Merging Works:</p>
                   <p className="text-[11px] mt-0.5">
                     1. All staff currently assigned to the <strong>Source Role</strong> will automatically be reassigned to the <strong>Target Role</strong>.<br />
-                    2. The permissions of the Source Role will be added to the Target Role.<br />
-                    3. The Source Role will then be safely retired and removed.
+                    2. The permissions of the Source Role will be consolidated into the Target Role (e.g., merging Accountant into Receptionist gives Receptionist POS billing).<br />
+                    3. Custom source roles are retired; system core templates remain preserved for future re-assignment.
                   </p>
                 </div>
               </div>
@@ -1042,7 +1042,7 @@ function RoleManagementContent() {
                 {/* Source Role Selection */}
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Source Role <span className="text-red-500">*</span> (Will be retired)
+                    Source Role <span className="text-red-500">*</span> (Privileges to merge)
                   </label>
                   <select
                     value={mergeSourceId}
@@ -1051,18 +1051,13 @@ function RoleManagementContent() {
                   >
                     <option value="">-- Select Source Role --</option>
                     {roles
-                      .filter((r) => !r.isSystem && r.id !== mergeTargetId)
+                      .filter((r) => r.id !== mergeTargetId)
                       .map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.icon} {r.role} ({r.memberCount} members)
+                          {r.icon} {r.role} ({r.isSystem ? "System" : "Custom"} · {r.memberCount} members)
                         </option>
                       ))}
                   </select>
-                  {roles.filter((r) => !r.isSystem).length === 0 && (
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      No custom roles available to merge. System core roles cannot be retired.
-                    </p>
-                  )}
                 </div>
 
                 {/* Target Role Selection */}
