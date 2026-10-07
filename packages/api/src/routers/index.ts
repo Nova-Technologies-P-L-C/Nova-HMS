@@ -12,6 +12,7 @@ import { notificationRouter } from "./notification";
 import { wardRouter } from "./ward";
 import { auditRouter } from "./misc";
 import { tariffRouter } from "./tariff";
+import { doctorRouter } from "./doctor";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => "OK"),
@@ -32,6 +33,7 @@ export const appRouter = router({
   ward: wardRouter,
   audit: auditRouter,
   tariff: tariffRouter,
+  doctor: doctorRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -25,6 +25,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
   "Branch Admin": [
     { label: "Dashboard", href: "/nova/branch-admin", icon: <Home size={16} /> },
     { label: "Staff & Users", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
+    { label: "Doctor Duty Roster", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
     { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
     { label: "Service Tariffs & Pricing", href: "/nova/branch-admin/tariffs", icon: <Banknote size={16} /> },
     { label: "Reports & Analytics", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
@@ -35,6 +36,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
   "Hospital Admin": [
     { label: "Dashboard", href: "/nova/hospital-admin", icon: <Home size={16} /> },
     { label: "Staff & Users", href: "/nova/hospital-admin/staff", icon: <Users size={16} /> },
+    { label: "Doctor Duty Roster", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
     { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
     { label: "Service Tariffs & Pricing", href: "/nova/hospital-admin/tariffs", icon: <Banknote size={16} /> },
     { label: "Reports & Analytics", href: "/nova/hospital-admin/reports", icon: <BarChart3 size={16} /> },
@@ -43,6 +45,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "Settings", href: "/nova/hospital-admin/settings", icon: <Settings size={16} /> },
   ],
   "Receptionist": [
+    { label: "Doctor Presence & Roster", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
     { label: "Patient Registration & Kiosk", href: "/nova/reception/register", icon: <User size={16} /> },
     { label: "OPD Queue Board", href: "/nova/reception/queue", icon: <Activity size={16} /> },
     { label: "Appointments", href: "/nova/reception/appointments", icon: <ClipboardList size={16} /> },
@@ -57,6 +60,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
   ],
   "Triage Nurse": [
     { label: "Triage Intake Station", href: "/nova/triage", icon: <Activity size={16} /> },
+    { label: "Doctor Availability", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
     { label: "OPD Queue Board", href: "/nova/reception/queue", icon: <ClipboardList size={16} /> },
     { label: "Rapid Vitals Entry", href: "/nova/nurse/vitals", icon: <Stethoscope size={16} /> },
   ],

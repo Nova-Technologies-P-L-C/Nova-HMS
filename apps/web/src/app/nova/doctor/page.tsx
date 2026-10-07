@@ -22,8 +22,88 @@ export default function DoctorDashboard() {
   const urgent = active.filter((q) => q.status === "urgent").length;
   const beingSeen = active.filter((q) => q.status === "being-seen").length;
 
+  const { data: presenceData } = useQuery(trpc.doctor.listPresence.queryOptions());
+  const updateDoctorStatus = useMutation({
+    ...trpc.doctor.updateStatus.mutationOptions(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.doctor.listPresence.queryKey() }),
+  });
+
+  const myDoctorRecord = presenceData?.roster?.[0]; // Current doctor presence
+
   return (
     <PageShell title="Doctor Dashboard" subtitle="Today's patient queue">
+      {/* Live Doctor Station Presence Widget */}
+      <div className="mb-5 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center justify-center font-bold text-xs shrink-0">
+            MD
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                {myDoctorRecord?.name || "Attending Physician"}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  myDoctorRecord?.status === "available"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    : myDoctorRecord?.status === "in-consultation"
+                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                    : myDoctorRecord?.status === "on-break"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                {myDoctorRecord?.status?.toUpperCase() || "AVAILABLE"}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Assigned: <strong>{myDoctorRecord?.roomNumber || "Room 102 — General OPD"}</strong> · Shift:{" "}
+              {myDoctorRecord?.shift?.start || "08:00 AM"} – {myDoctorRecord?.shift?.end || "04:30 PM"} · Reception Synced
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {myDoctorRecord?.status === "on-break" ? (
+            <button
+              onClick={() =>
+                updateDoctorStatus.mutate({
+                  doctorId: myDoctorRecord.userId || myDoctorRecord.id,
+                  status: "available",
+                  method: "self_checkin",
+                })
+              }
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs"
+            >
+              Back in Room (Ready)
+            </button>
+          ) : (
+            <button
+              onClick={() =>
+                updateDoctorStatus.mutate({
+                  doctorId: myDoctorRecord?.userId || myDoctorRecord?.id || "doc-1",
+                  status: "on-break",
+                  breakNote: "Ward Rounds / Clinical Break",
+                  method: "self_checkin",
+                })
+              }
+              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold transition"
+            >
+              Step Out (Ward Rounds / Break)
+            </button>
+          )}
+
+          <Link
+            href={"/nova/reception/doctors" as any}
+            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold hover:border-teal-400 transition"
+          >
+            Full Clinic Roster Board →
+          </Link>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2 mb-5 text-xs text-slate-500">
         <span className="px-2 py-1 bg-slate-200 rounded">1 Register</span>
         <span className="text-slate-300">→</span>
