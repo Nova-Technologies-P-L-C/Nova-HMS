@@ -29,8 +29,8 @@ function LabOrderContent() {
   );
 
   const availableTests = labTariffs.length > 0
-    ? labTariffs.map((t) => ({ name: t.name, price: t.price }))
-    : LAB_TESTS.map((t) => ({ name: t, price: undefined }));
+    ? labTariffs.map((t) => t.name)
+    : LAB_TESTS;
 
   const [selected, setSelected] = useState<string[]>([]);
   const [priority, setPriority] = useState<"routine" | "urgent">("routine");
@@ -85,25 +85,20 @@ function LabOrderContent() {
         <Card className="p-5">
           <h3 className="font-semibold text-slate-800 mb-4">Select tests</h3>
           <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-1">
-            {availableTests.map((t) => (
+            {availableTests.map((testName) => (
               <label
-                key={t.name}
-                className="flex items-center justify-between p-2.5 rounded border border-slate-100 hover:border-teal-300 cursor-pointer transition-colors"
+                key={testName}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 hover:border-nova-primary/50 cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={selected.includes(t.name)}
-                    onChange={() => toggle(t.name)}
-                    className="accent-teal-600 w-4 h-4"
+                    checked={selected.includes(testName)}
+                    onChange={() => toggle(testName)}
+                    className="accent-teal-600 w-4 h-4 cursor-pointer"
                   />
-                  <span className="text-sm text-slate-700">{t.name}</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{testName}</span>
                 </div>
-                {t.price !== undefined && (
-                  <span className="text-xs px-2 py-0.5 rounded font-medium bg-slate-100 text-slate-600">
-                    ETB {t.price}
-                  </span>
-                )}
               </label>
             ))}
           </div>
