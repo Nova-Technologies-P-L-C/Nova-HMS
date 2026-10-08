@@ -404,24 +404,8 @@ export default function OrganizationalAdminDashboard() {
             </Card>
           </div>
 
-          {/* Executive Overview Shortcuts Ribbon (Reports & Staff Roster Only) */}
+          {/* Executive Overview Shortcuts Ribbon (Reports & Financials) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link
-              href={"/nova/branch-admin/staff" as any}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-amber-400 transition shadow-xs group"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 bg-teal-50 dark:bg-teal-950/50 rounded-lg text-teal-700 dark:text-teal-300">
-                  <Users size={18} />
-                </div>
-                <ArrowRight size={15} className="text-slate-400 group-hover:text-teal-600 transition" />
-              </div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Staff Roster &amp; Workforce Directory</h4>
-              <p className="text-xs text-slate-500 mt-1">
-                Executive view of all clinical staff, medical roles, and active healthcare personnel across departments.
-              </p>
-            </Link>
-
             <Link
               href={"/nova/org-admin/finance" as any}
               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-amber-400 transition shadow-xs group"
@@ -435,6 +419,22 @@ export default function OrganizationalAdminDashboard() {
               <h4 className="text-sm font-bold text-slate-900 dark:text-white">Financial &amp; Revenue Reports</h4>
               <p className="text-xs text-slate-500 mt-1">
                 Detailed breakdowns of cash, CBHI insurance reimbursements, and social subsidy fee waiver totals.
+              </p>
+            </Link>
+
+            <Link
+              href={"/nova/org-admin/inventory-risk" as any}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-amber-400 transition shadow-xs group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2 bg-amber-50 dark:bg-amber-950/50 rounded-lg text-amber-700 dark:text-amber-300">
+                  <Layers size={18} />
+                </div>
+                <ArrowRight size={15} className="text-slate-400 group-hover:text-amber-600 transition" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Pharmacy Capital Valuation</h4>
+              <p className="text-xs text-slate-500 mt-1">
+                Monitor capital tied up in medicine stock, near-expiry asset risk, and batch valuation metrics.
               </p>
             </Link>
 

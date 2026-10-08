@@ -25,6 +25,7 @@ import {
   Sparkles,
   Phone,
   RotateCcw,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -229,8 +230,14 @@ function LabResultContent() {
     })
   );
 
+  const isOrderCleared = order
+    ? order.paymentStatus === "paid" ||
+      order.paymentStatus === "cbhi_covered" ||
+      order.paymentStatus === "emergency_exempt"
+    : true;
+
   const handleStart = async () => {
-    if (!order) return;
+    if (!order || !isOrderCleared) return;
     await startOrder.mutateAsync({ orderId: order.id, status: "in-progress" });
   };
 
@@ -259,7 +266,7 @@ function LabResultContent() {
   };
 
   const handleSendToDoctor = async () => {
-    if (!order || paramRows.length === 0) return;
+    if (!order || !isOrderCleared || paramRows.length === 0) return;
     const fullInterpretation = technicianNotes.trim()
       ? `${interpretation} — ${technicianNotes.trim()}`
       : interpretation;
@@ -534,6 +541,11 @@ function LabResultContent() {
                               STAT
                             </span>
                           )}
+                          {o.paymentStatus === "unpaid" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-amber-100 text-amber-800 flex items-center gap-0.5 border border-amber-200">
+                              <Lock size={9} /> Unpaid
+                            </span>
+                          )}
                           <StatusBadge status={o.status} />
                         </div>
                       </div>
@@ -672,14 +684,20 @@ function LabResultContent() {
 
                     <div className="flex items-center gap-2">
                       {order.status === "pending" && (
-                        <button
-                          type="button"
-                          onClick={handleStart}
-                          disabled={startOrder.isPending}
-                          className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors"
-                        >
-                          {startOrder.isPending ? "Starting…" : "▶ Mark In-Progress"}
-                        </button>
+                        isOrderCleared ? (
+                          <button
+                            type="button"
+                            onClick={handleStart}
+                            disabled={startOrder.isPending}
+                            className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                          >
+                            {startOrder.isPending ? "Starting…" : "▶ Mark In-Progress"}
+                          </button>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded text-xs font-semibold cursor-not-allowed border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                            <Lock size={11} /> Locked
+                          </span>
+                        )
                       )}
                       <Link
                         href={`/nova/doctor/emr?visitId=${order.visitId}`}
@@ -691,6 +709,27 @@ function LabResultContent() {
                     </div>
                   </div>
                 </Card>
+
+                {/* Pre-Payment Lock Alert Box */}
+                {!isOrderCleared && (
+                  <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <Lock size={18} className="text-amber-600 shrink-0" />
+                      <div>
+                        <p className="font-bold text-amber-900 dark:text-amber-200">Pre-Payment Required — Test Locked</p>
+                        <p className="text-amber-700 dark:text-amber-300 text-[11px] mt-0.5">
+                          This diagnostic test is unpaid (Tariff: ETB {order.price}). Patient must settle invoice at Central Billing Cashier before specimen processing and result transmission.
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/nova/billing?visitId=${order.visitId}`}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shrink-0 whitespace-nowrap ml-3"
+                    >
+                      Open Central Billing POS →
+                    </Link>
+                  </div>
+                )}
 
                 {/* ── 2. Structured Laboratory Results Entry Form ── */}
                 <Card className="p-5 bg-white border border-slate-200 shadow-xs space-y-4">
@@ -895,12 +934,25 @@ function LabResultContent() {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        disabled={paramRows.length === 0 || enterResult.isPending}
+                        disabled={!isOrderCleared || paramRows.length === 0 || enterResult.isPending}
                         onClick={handleSendToDoctor}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white text-xs rounded-lg hover:bg-teal-700 disabled:opacity-50 font-bold shadow-xs transition-colors"
+                        className={`flex items-center gap-2 px-5 py-2.5 text-xs rounded-lg font-bold shadow-xs transition-colors ${
+                          isOrderCleared
+                            ? "bg-teal-600 text-white hover:bg-teal-700 cursor-pointer"
+                            : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-700"
+                        }`}
                       >
-                        <Send size={14} />
-                        {enterResult.isPending ? "Signing off & Sending…" : "Sign Off & Send Result to Doctor →"}
+                        {enterResult.isPending ? (
+                          "Signing off & Sending…"
+                        ) : isOrderCleared ? (
+                          <>
+                            <Send size={14} /> Sign Off & Send Result to Doctor →
+                          </>
+                        ) : (
+                          <>
+                            <Lock size={14} /> Locked (Payment Required at Billing)
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>

@@ -13,6 +13,7 @@ import {
   Stethoscope, FlaskConical, Pill, CreditCard, Bed, Activity, Sparkles,
   ToggleLeft, ToggleRight, Sliders
 } from "lucide-react";
+import { useNovaRole } from "@/components/nova/nova-role-context";
 
 const CLINICAL_ROLES = [
   "Branch Admin",
@@ -174,11 +175,34 @@ function MiniToggleSwitch({
 
 export default function StaffAndRoleManagementPage() {
   const qc = useQueryClient();
+  const { role } = useNovaRole();
+
   const [activeTab, setActiveTab] = useState<"role-control" | "staff" | "matrix">("role-control");
   const [selectedRole, setSelectedRole] = useState<string>("Doctor");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  if (role === "Organizational Admin") {
+    return (
+      <PageShell title="Access Restricted" subtitle="Organizational Admin">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 text-center max-w-lg mx-auto mt-12 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <Shield size={24} />
+          </div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Facility-Level Administration Required</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            Role Management &amp; Permissions Control is governed at the clinic facility level by <strong>Branch Admin</strong> and <strong>Hospital Admin</strong>. Organizational Admins oversee corporate executive reports, valuation, and finance.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Link href={"/nova/org-admin" as any} className={btnPrimary}>
+              Return to Executive Cockpit →
+            </Link>
+          </div>
+        </div>
+      </PageShell>
+    );
+  }
 
   // Pagination for Staff Directory
   const [staffPage, setStaffPage] = useState(1);

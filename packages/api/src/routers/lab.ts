@@ -164,6 +164,12 @@ export const labRouter = router({
       if (order.status === "completed") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot change status of completed order" });
       }
+      if (input.status === "in-progress" && order.paymentStatus === "unpaid") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `Pre-payment required: Lab test fee (ETB ${order.price}) must be settled at Central Billing Cashier before processing specimen.`,
+        });
+      }
       return prisma.labOrder.update({ where: { id: input.orderId }, data: { status: input.status } });
     }),
 
@@ -185,7 +191,12 @@ export const labRouter = router({
         where: { id: input.orderId, tenantId: ctx.tenantId },
       });
 
-      // Lab results can be entered during care; diagnostic fee will be settled at Billing upon visit completion
+      if (order.paymentStatus === "unpaid") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `Pre-payment required: Lab test fee (ETB ${order.price}) must be settled at Central Billing Cashier before entering test results.`,
+        });
+      }
       const result = await prisma.labResult.create({
         data: {
           labOrderId: input.orderId,

@@ -19,7 +19,6 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "Executive Cockpit", href: "/nova/org-admin", icon: <Crown size={16} /> },
     { label: "Financial & Revenue Reports", href: "/nova/org-admin/finance", icon: <Banknote size={16} /> },
     { label: "Pharmacy Capital Valuation", href: "/nova/org-admin/inventory-risk", icon: <Layers size={16} /> },
-    { label: "Staff & Workforce Roster", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
     { label: "Executive Reports", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
   ],
   "Branch Admin": [

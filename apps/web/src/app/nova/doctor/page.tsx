@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, KpiCard, Card, StatusBadge } from "@/components/nova/nova-ui";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Lock, ShieldCheck } from "lucide-react";
 
 export default function DoctorDashboard() {
   const { data: queue = [], refetch } = useQuery({
@@ -172,19 +172,25 @@ export default function DoctorDashboard() {
                   View EMR
                 </Link>
                 {q.paymentStatus === "unpaid" ? (
-                  <Link
-                    href={`/nova/doctor/consultation?visitId=${q.visitId}`}
-                    onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
-                    className="text-xs px-2.5 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 font-medium"
-                    title="Warning: Card fee unpaid at reception"
-                  >
-                    Consult (Unpaid) →
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="text-xs px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded font-medium cursor-not-allowed border border-slate-200 dark:border-slate-700 flex items-center gap-1"
+                      title="Pre-payment required: Patient must settle card fee at Central Billing Cashier or Reception before consultation"
+                    >
+                      <Lock size={11} /> Locked (Card Fee Unpaid)
+                    </span>
+                    <Link
+                      href={`/nova/billing?visitId=${q.visitId}`}
+                      className="text-xs px-2 py-1 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded hover:bg-teal-100 dark:hover:bg-teal-900/50 font-medium transition-colors"
+                    >
+                      Cashier →
+                    </Link>
+                  </div>
                 ) : (
                   <Link
                     href={`/nova/doctor/consultation?visitId=${q.visitId}`}
                     onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
-                    className="text-xs px-2.5 py-1 bg-teal-600 text-white rounded hover:bg-teal-700 font-medium"
+                    className="text-xs px-2.5 py-1 bg-teal-600 text-white rounded hover:bg-teal-700 font-medium transition-colors"
                   >
                     Consult →
                   </Link>
