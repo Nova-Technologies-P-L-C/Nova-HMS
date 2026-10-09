@@ -1979,4 +1979,302 @@ export const tenantRouter = router({
       message: "Branding and appearance reset to defaults successfully",
     };
   }),
+
+  // Organizational Admin: Get all branches and their designated Branch Admins
+  getBranchAdmins: tenantProcedure.query(async ({ ctx }) => {
+    const allTenants = await prisma.tenant.findMany({
+      include: {
+        userRoles: {
+          include: {
+            user: { select: { id: true, name: true, email: true, image: true } },
+          },
+        },
+        visits: {
+          select: { id: true, status: true, openedAt: true },
+          where: { openedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+        },
+        beds: { select: { id: true, status: true } },
+        receipts: {
+          select: { amount: true, createdAt: true },
+          where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const recentLogs = await prisma.auditLog.findMany({
+      where: {
+        action: { contains: "Branch Admin" },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+
+    const branches = allTenants.map((t) => {
+      const branchAdmins = t.userRoles.filter(
+        (ur) => ur.role === "Branch Admin" || ur.role === "Hospital Admin"
+      );
+
+      const candidates = t.userRoles
+        .filter((ur) => ur.role !== "Organizational Admin" && ur.role !== "Branch Admin")
+        .map((ur) => ({
+          id: ur.id,
+          userId: ur.userId,
+          name: ur.user.name,
+          email: ur.user.email,
+          currentRole: ur.role,
+          department: ur.department,
+          phone: ur.phone,
+          status: ur.status,
+        }));
+
+      const todayRevenue = t.receipts.reduce((sum, r) => sum + r.amount, 0);
+      const occupiedBeds = t.beds.filter((b) => b.status === "occupied").length;
+
+      return {
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        region: t.region || "National",
+        facilityType: t.facilityType,
+        plan: t.plan,
+        status: t.status,
+        cardFeeAmount: t.cardFeeAmount,
+        specialistFeeAmount: t.specialistFeeAmount,
+        activeStaffCount: t.userRoles.filter((ur) => ur.status === "active").length,
+        todayVisitsCount: t.visits.length,
+        todayRevenue,
+        totalBeds: t.beds.length,
+        occupiedBeds,
+        currentAdmins: branchAdmins.map((ba) => ({
+          id: ba.id,
+          userId: ba.userId,
+          name: ba.user.name,
+          email: ba.user.email,
+          phone: ba.phone,
+          role: ba.role,
+          title: ba.title || "Branch Administrator",
+          department: ba.department,
+          status: ba.status,
+          assignedAt: ba.assignedAt,
+        })),
+        candidates,
+      };
+    });
+
+    return {
+      branches,
+      leadershipLogs: recentLogs.map((l) => ({
+        id: l.id,
+        tenantId: l.tenantId,
+        action: l.action,
+        userId: l.userId,
+        createdAt: l.createdAt,
+      })),
+    };
+  }),
+
+  // Organizational Admin: Execute BA Change (Appoint / Replace Branch Admin)
+  changeBranchAdmin: tenantProcedure
+    .input(
+      z.object({
+        tenantId: z.string().optional(),
+        candidateUserId: z.string().optional(),
+        newAdmin: z
+          .object({
+            name: z.string().min(2),
+            email: z.string().email(),
+            phone: z.string().default(""),
+            title: z.string().default("Branch Administrator"),
+            department: z.string().default("Administration"),
+          })
+          .optional(),
+        outgoingDisposition: z.enum(["reassign", "suspend", "keep_dual"]).default("reassign"),
+        outgoingNewRole: z.string().default("Doctor"),
+        reason: z.string().min(3, "Reason for transition is required"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only Organizational Admin or Branch Admin can execute BA changes",
+        });
+      }
+
+      const targetTenantId = input.tenantId ?? ctx.tenantId;
+      const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: targetTenantId } });
+
+      // Find existing branch admins in this target tenant
+      const currentBAs = await prisma.userTenantRole.findMany({
+        where: {
+          tenantId: targetTenantId,
+          role: { in: ["Branch Admin", "Hospital Admin"] },
+        },
+        include: { user: true },
+      });
+
+      let newAdminUser: { id: string; name: string; email: string };
+
+      if (input.candidateUserId) {
+        // Internal staff promotion
+        const candidate = await prisma.userTenantRole.findFirst({
+          where: { tenantId: targetTenantId, userId: input.candidateUserId },
+          include: { user: true },
+        });
+        if (!candidate) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Candidate staff member not found in this branch",
+          });
+        }
+        newAdminUser = { id: candidate.userId, name: candidate.user.name, email: candidate.user.email };
+
+        await prisma.userTenantRole.update({
+          where: { id: candidate.id },
+          data: {
+            role: "Branch Admin",
+            status: "active",
+            title: "Branch Administrator",
+            department: "Administration",
+          },
+        });
+      } else if (input.newAdmin) {
+        // External hire appointment
+        let user = await prisma.user.findUnique({ where: { email: input.newAdmin.email } });
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              id: `u-${Date.now().toString(36)}`,
+              name: input.newAdmin.name,
+              email: input.newAdmin.email,
+              emailVerified: true,
+            },
+          });
+        }
+        newAdminUser = { id: user.id, name: user.name, email: user.email };
+
+        await prisma.userTenantRole.upsert({
+          where: { userId_tenantId: { userId: user.id, tenantId: targetTenantId } },
+          create: {
+            userId: user.id,
+            tenantId: targetTenantId,
+            role: "Branch Admin",
+            department: input.newAdmin.department || "Administration",
+            title: input.newAdmin.title || "Branch Administrator",
+            phone: input.newAdmin.phone || "",
+            status: "active",
+          },
+          update: {
+            role: "Branch Admin",
+            status: "active",
+            title: input.newAdmin.title || "Branch Administrator",
+            department: input.newAdmin.department || "Administration",
+            phone: input.newAdmin.phone || "",
+          },
+        });
+      } else {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please choose an existing candidate or provide new admin details",
+        });
+      }
+
+      // Handle outgoing Branch Admins
+      const outgoingNames: string[] = [];
+      for (const ba of currentBAs) {
+        if (ba.userId === newAdminUser.id) continue;
+        outgoingNames.push(ba.user.name);
+
+        if (input.outgoingDisposition === "reassign") {
+          await prisma.userTenantRole.update({
+            where: { id: ba.id },
+            data: {
+              role: input.outgoingNewRole,
+              title: `${input.outgoingNewRole} (Former Branch Admin)`,
+              department: "Clinical Staff",
+            },
+          });
+        } else if (input.outgoingDisposition === "suspend") {
+          await prisma.userTenantRole.update({
+            where: { id: ba.id },
+            data: {
+              status: "suspended",
+            },
+          });
+        }
+      }
+
+      const oldBAName = outgoingNames.length > 0 ? outgoingNames.join(", ") : "None";
+      const actionText = `Organizational Admin executed BA Change for '${tenant.name}': Appointed ${newAdminUser.name} (${newAdminUser.email}) as Branch Admin replacing [${oldBAName}]. Disposition: ${input.outgoingDisposition}. Reason: ${input.reason}`;
+
+      await prisma.auditLog.create({
+        data: {
+          tenantId: targetTenantId,
+          userId: ctx.userId ?? "Organizational Admin",
+          action: actionText,
+          entity: "BranchAdminTransition",
+          entityId: newAdminUser.id,
+          metadata: JSON.stringify({
+            previousAdmins: outgoingNames,
+            newAdmin: newAdminUser,
+            disposition: input.outgoingDisposition,
+            outgoingNewRole: input.outgoingNewRole,
+            reason: input.reason,
+          }),
+        },
+      });
+
+      return {
+        success: true,
+        message: `Branch Admin successfully changed to ${newAdminUser.name} for ${tenant.name}`,
+        newAdmin: newAdminUser,
+        replacedAdmins: outgoingNames,
+      };
+    }),
+
+  // Organizational Admin: Suspend or activate a Branch Admin's account
+  updateBranchAdminStatus: tenantProcedure
+    .input(
+      z.object({
+        userTenantRoleId: z.string(),
+        status: z.enum(["active", "suspended"]),
+        reason: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only Organizational Admin can change Branch Admin status",
+        });
+      }
+
+      const roleRecord = await prisma.userTenantRole.findUniqueOrThrow({
+        where: { id: input.userTenantRoleId },
+        include: { user: true, tenant: true },
+      });
+
+      const updated = await prisma.userTenantRole.update({
+        where: { id: input.userTenantRoleId },
+        data: { status: input.status },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          tenantId: roleRecord.tenantId,
+          userId: ctx.userId ?? "Organizational Admin",
+          action: `Organizational Admin changed Branch Admin status for ${roleRecord.user.name} (${roleRecord.tenant.name}) to '${input.status}'${input.reason ? `. Reason: ${input.reason}` : ""}`,
+          entity: "UserTenantRole",
+          entityId: roleRecord.id,
+        },
+      });
+
+      return {
+        success: true,
+        status: updated.status,
+        user: roleRecord.user.name,
+        message: `Branch Admin ${roleRecord.user.name} status updated to ${input.status}`,
+      };
+    }),
 });

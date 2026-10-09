@@ -17,6 +17,8 @@ import { type Role } from "@/lib/nova-mock-data";
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
   "Organizational Admin": [
     { label: "Executive Cockpit", href: "/nova/org-admin", icon: <Crown size={16} /> },
+    { label: "Branch Admins & Facilities", href: "/nova/org-admin?tab=branches", icon: <Building2 size={16} /> },
+    { label: "Staff & Workforce Directory", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
     { label: "Financial & Revenue Reports", href: "/nova/org-admin/finance", icon: <Banknote size={16} /> },
     { label: "Pharmacy Capital Valuation", href: "/nova/org-admin/inventory-risk", icon: <Layers size={16} /> },
     { label: "Executive Reports", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },

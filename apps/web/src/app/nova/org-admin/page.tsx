@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, Card } from "@/components/nova/nova-ui";
 import {
@@ -24,15 +25,153 @@ import {
   BarChart3,
   ShieldAlert,
   Stethoscope,
+  ShieldCheck,
+  UserCheck,
+  UserPlus,
+  AlertCircle,
+  X,
+  Shield,
+  ArrowRightLeft,
+  History,
 } from "lucide-react";
 
 export default function OrganizationalAdminDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <PageShell title="Executive Owner Cockpit" subtitle="Loading intelligence data...">
+          <div className="p-12 text-center text-xs text-slate-400">Loading Organizational Cockpit...</div>
+        </PageShell>
+      }
+    >
+      <OrgAdminCockpitContent />
+    </Suspense>
+  );
+}
+
+function OrgAdminCockpitContent() {
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const qc = useQueryClient();
+
   const [range, setRange] = useState<"today" | "7d" | "30d" | "month" | "quarter" | "all">("30d");
-  const [activeTab, setActiveTab] = useState<"overview" | "finance" | "pharmacy" | "staff">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "branches" | "finance" | "pharmacy" | "staff">(
+    urlTab === "branches" || urlTab === "finance" || urlTab === "pharmacy" || urlTab === "staff" ? urlTab : "overview"
+  );
 
   const { data, isLoading, refetch, isFetching } = useQuery(
     trpc.tenant.ownerOverview.queryOptions({ range })
   );
+
+  const { data: branchAdminsData, isLoading: isBranchesLoading } = useQuery(
+    trpc.tenant.getBranchAdmins.queryOptions()
+  );
+
+  // BA Change & Governance state
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isChangeModalOpen, setIsChangeModalOpen] = useState(false);
+  const [targetBranchId, setTargetBranchId] = useState("");
+  const [targetBranchName, setTargetBranchName] = useState("");
+  const [baChangeMode, setBaChangeMode] = useState<"promote" | "hire">("promote");
+  const [candidateUserId, setCandidateUserId] = useState("");
+  const [newAdminForm, setNewAdminForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    title: "Branch Administrator",
+    department: "Administration",
+  });
+  const [outgoingDisposition, setOutgoingDisposition] = useState<"reassign" | "suspend" | "keep_dual">("reassign");
+  const [outgoingNewRole, setOutgoingNewRole] = useState("Doctor");
+  const [reason, setReason] = useState("Strategic executive realignment and clinical operational governance");
+
+  const changeBAMutation = useMutation(
+    trpc.tenant.changeBranchAdmin.mutationOptions({
+      onSuccess: (res) => {
+        qc.invalidateQueries({ queryKey: trpc.tenant.getBranchAdmins.queryKey() });
+        qc.invalidateQueries({ queryKey: trpc.tenant.ownerOverview.queryKey() });
+        setIsChangeModalOpen(false);
+        setFeedbackMsg({ type: "success", text: res.message });
+        setTimeout(() => setFeedbackMsg(null), 8000);
+      },
+      onError: (err) => {
+        setFeedbackMsg({ type: "error", text: err.message });
+      },
+    })
+  );
+
+  const statusMutation = useMutation(
+    trpc.tenant.updateBranchAdminStatus.mutationOptions({
+      onSuccess: (res) => {
+        qc.invalidateQueries({ queryKey: trpc.tenant.getBranchAdmins.queryKey() });
+        setFeedbackMsg({ type: "success", text: res.message });
+        setTimeout(() => setFeedbackMsg(null), 8000);
+      },
+      onError: (err) => {
+        setFeedbackMsg({ type: "error", text: err.message });
+      },
+    })
+  );
+
+  const handleOpenChangeModal = (branch: any) => {
+    setTargetBranchId(branch.id);
+    setTargetBranchName(branch.name);
+    setCandidateUserId(branch.candidates[0]?.userId ?? "");
+    setNewAdminForm({
+      name: "",
+      email: "",
+      phone: "",
+      title: "Branch Administrator",
+      department: "Administration",
+    });
+    setOutgoingDisposition("reassign");
+    setOutgoingNewRole("Doctor");
+    setReason("Strategic executive realignment and clinical operational governance");
+    setIsChangeModalOpen(true);
+  };
+
+  const handleToggleBAStatus = (admin: any) => {
+    const nextStatus = admin.status === "active" ? "suspended" : "active";
+    const confirmPrompt = window.confirm(
+      `Are you sure you want to set Branch Admin '${admin.name}' status to ${nextStatus.toUpperCase()}?`
+    );
+    if (!confirmPrompt) return;
+
+    statusMutation.mutate({
+      userTenantRoleId: admin.id,
+      status: nextStatus,
+      reason: `Organizational Admin status change to ${nextStatus}`,
+    });
+  };
+
+  const handleSubmitBAChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (baChangeMode === "promote") {
+      if (!candidateUserId) {
+        setFeedbackMsg({ type: "error", text: "Please select an eligible staff candidate" });
+        return;
+      }
+      changeBAMutation.mutate({
+        tenantId: targetBranchId,
+        candidateUserId,
+        outgoingDisposition,
+        outgoingNewRole,
+        reason,
+      });
+    } else {
+      if (!newAdminForm.name || !newAdminForm.email) {
+        setFeedbackMsg({ type: "error", text: "Please provide the new administrator's name and email" });
+        return;
+      }
+      changeBAMutation.mutate({
+        tenantId: targetBranchId,
+        newAdmin: newAdminForm,
+        outgoingDisposition,
+        outgoingNewRole,
+        reason,
+      });
+    }
+  };
 
   const kpis = data?.kpis;
   const tenant = data?.tenant;
@@ -278,6 +417,12 @@ export default function OrganizationalAdminDashboard() {
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 mb-6 overflow-x-auto pb-1">
         {[
           { key: "overview", label: "Executive Overview & Results", icon: TrendingUp },
+          {
+            key: "branches",
+            label: "Branch Governance & BAs",
+            icon: Building2,
+            count: branchAdminsData?.branches?.length,
+          },
           { key: "finance", label: "Financial & Revenue Summary", icon: Banknote },
           { key: "pharmacy", label: "Pharmacy Capital Valuation", icon: Layers },
           { key: "staff", label: "Staff & Workforce Roster", icon: Users },
@@ -295,7 +440,18 @@ export default function OrganizationalAdminDashboard() {
               }`}
             >
               <Icon size={14} className={isActive ? "text-amber-600" : "text-slate-400"} />
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.count !== undefined && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none ${
+                    isActive
+                      ? "bg-amber-400 text-amber-950 font-black"
+                      : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           );
         })}
@@ -454,6 +610,337 @@ export default function OrganizationalAdminDashboard() {
               </p>
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* TAB: BRANCH GOVERNANCE & BAs (BA CHANGE & SUPERVISORY CONTROL) */}
+      {activeTab === "branches" && (
+        <div className="space-y-6">
+          {/* Executive Sub-Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-xl p-5 text-white shadow-md border border-indigo-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-400 text-amber-950 flex items-center gap-1">
+                  <Crown size={11} />
+                  Corporate Owner Authority
+                </span>
+                <span className="text-xs text-indigo-200">Hierarchical Branch Administration</span>
+              </div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>Facility Leadership &amp; Branch Admin Governance</span>
+              </h3>
+              <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                As Organizational Admin, you have supreme authority over all facility branches. You can designate or rotate Branch Administrators (BA Change), configure administrative access status, and supervise operational performance.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href={"/nova/branch-admin/staff" as any}
+                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5 shadow-xs"
+              >
+                <Users size={14} />
+                <span>Supervise Staff Directory</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Feedback Message */}
+          {feedbackMsg && (
+            <div
+              className={`p-3.5 rounded-xl border text-xs flex items-center gap-2.5 shadow-xs animate-in fade-in ${
+                feedbackMsg.type === "success"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+                  : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200"
+              }`}
+            >
+              {feedbackMsg.type === "success" ? (
+                <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle size={16} className="text-rose-600 shrink-0" />
+              )}
+              <span className="font-semibold">{feedbackMsg.text}</span>
+            </div>
+          )}
+
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Managed Branches</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                <Building2 className="text-amber-500" size={20} />
+                {branchAdminsData?.branches?.length ?? 1}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Operational clinics &amp; referral hospitals.</p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Designated BAs</div>
+              <div className="text-2xl font-black text-blue-600 mt-1 flex items-center gap-2">
+                <ShieldCheck size={20} />
+                {branchAdminsData?.branches?.reduce((acc, b) => acc + b.currentAdmins.length, 0) ?? 1}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Active administrators holding facility credentials.</p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Promotion Candidates</div>
+              <div className="text-2xl font-black text-teal-600 mt-1 flex items-center gap-2">
+                <UserCheck size={20} />
+                {branchAdminsData?.branches?.reduce((acc, b) => acc + b.candidates.length, 0) ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Qualified clinical staff eligible for BA promotion.</p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
+              <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Transition Audit Log</div>
+              <div className="text-2xl font-black text-indigo-600 mt-1 flex items-center gap-2">
+                <History size={20} />
+                {branchAdminsData?.leadershipLogs?.length ?? 0}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Executive leadership actions recorded.</p>
+            </div>
+          </div>
+
+          {/* Branches & Assigned Branch Admins */}
+          <div className="space-y-6">
+            {branchAdminsData?.branches?.map((b) => {
+              const primaryAdmin = b.currentAdmins[0];
+              return (
+                <div
+                  key={b.id}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden"
+                >
+                  {/* Branch Top Header */}
+                  <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-800/30">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Building2 size={18} className="text-amber-500" />
+                          <span>{b.name}</span>
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          {b.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
+                        <span>Slug: <strong className="font-mono text-slate-700 dark:text-slate-300">{b.slug}</strong></span>
+                        <span>•</span>
+                        <span>Region: <strong>{b.region}</strong></span>
+                        <span>•</span>
+                        <span>Facility Type: <strong className="capitalize">{b.facilityType}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenChangeModal(b)}
+                        className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition shadow-xs flex items-center gap-1.5"
+                      >
+                        <ArrowRightLeft size={14} />
+                        <span>Change Branch Admin (BA Change)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Branch Body: Leadership Card + Operational Health */}
+                  <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Designated Branch Admin Section (7 cols) */}
+                    <div className="lg:col-span-7 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-5 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                            <Shield size={14} className="text-indigo-600" />
+                            Appointed Branch Administrator
+                          </span>
+                          {primaryAdmin && (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                                primaryAdmin.status === "active"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                  : "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  primaryAdmin.status === "active" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                                }`}
+                              />
+                              {primaryAdmin.status}
+                            </span>
+                          )}
+                        </div>
+
+                        {primaryAdmin ? (
+                          <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center font-black text-base shadow-sm shrink-0">
+                              {primaryAdmin.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="space-y-1 min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h5 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                                  {primaryAdmin.name}
+                                </h5>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                  {primaryAdmin.role}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-300">
+                                {primaryAdmin.title} • {primaryAdmin.department}
+                              </p>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 font-mono">
+                                <span>📧 {primaryAdmin.email}</span>
+                                {primaryAdmin.phone && <span>📞 {primaryAdmin.phone}</span>}
+                                <span>🗓️ Appointed: {new Date(primaryAdmin.assignedAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg text-xs text-amber-800 dark:text-amber-200">
+                            ⚠️ No Branch Admin currently assigned to this facility. Use the button above to appoint an administrator.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Admin Governance Actions */}
+                      {primaryAdmin && (
+                        <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-[11px] text-slate-500">
+                            Governed by Org Admin policy.
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleToggleBAStatus(primaryAdmin)}
+                              disabled={statusMutation.isPending}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                                primaryAdmin.status === "active"
+                                  ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300"
+                                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300"
+                              }`}
+                            >
+                              {primaryAdmin.status === "active" ? "Suspend Admin Access" : "Restore Admin Access"}
+                            </button>
+                            <button
+                              onClick={() => handleOpenChangeModal(b)}
+                              className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 rounded-lg text-xs font-semibold transition"
+                            >
+                              Reassign / Replace BA →
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Operational Health & Supervise Links (5 cols) */}
+                    <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
+                      {/* Metric Chips */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                          <div className="text-[10px] uppercase font-bold text-slate-500">Today's Visits</div>
+                          <div className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                            {b.todayVisitsCount}
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                          <div className="text-[10px] uppercase font-bold text-slate-500">Today's Revenue</div>
+                          <div className="text-base font-black text-emerald-600 mt-0.5">
+                            {b.todayRevenue.toLocaleString()} ETB
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                          <div className="text-[10px] uppercase font-bold text-slate-500">Inpatient Beds</div>
+                          <div className="text-base font-black text-blue-600 mt-0.5">
+                            {b.occupiedBeds} / {b.totalBeds}
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                          <div className="text-[10px] uppercase font-bold text-slate-500">Active Staff</div>
+                          <div className="text-base font-black text-teal-600 mt-0.5">
+                            {b.activeStaffCount}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Fast Supervisory Actions */}
+                      <div className="space-y-1.5 pt-2">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          Org Admin Supervisory Shortcuts
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Link
+                            href={"/nova/branch-admin" as any}
+                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold transition flex items-center justify-between"
+                          >
+                            <span>Branch Console</span>
+                            <ArrowRight size={13} />
+                          </Link>
+                          <Link
+                            href={"/nova/branch-admin/staff" as any}
+                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold transition flex items-center justify-between"
+                          >
+                            <span>Staff Directory</span>
+                            <ArrowRight size={13} />
+                          </Link>
+                          <Link
+                            href={"/nova/branch-admin/roles" as any}
+                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold transition flex items-center justify-between"
+                          >
+                            <span>RBAC Roles Hub</span>
+                            <ArrowRight size={13} />
+                          </Link>
+                          <Link
+                            href={"/nova/branch-admin/reports" as any}
+                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold transition flex items-center justify-between"
+                          >
+                            <span>Branch Reports</span>
+                            <ArrowRight size={13} />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Section: Leadership Transition & Audit Log */}
+          <Card
+            title="Branch Leadership Transition Audit Trail"
+            subtitle="Immutable corporate log of all Branch Admin appointments, rotations, and status changes"
+          >
+            {(!branchAdminsData?.leadershipLogs || branchAdminsData.leadershipLogs.length === 0) ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                No Branch Admin leadership transitions recorded yet. Changes made via the "Change Branch Admin" tool will be permanently audited here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                      <th className="py-2.5 px-3 text-left">Date &amp; Time</th>
+                      <th className="py-2.5 px-3 text-left">Executive Action Summary</th>
+                      <th className="py-2.5 px-3 text-left">Authorized By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
+                    {branchAdminsData.leadershipLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                        <td className="py-2.5 px-3 whitespace-nowrap font-mono text-slate-500">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </td>
+                        <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200">
+                          {log.action}
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap text-amber-700 dark:text-amber-300 font-semibold">
+                          👑 {log.userId}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </div>
       )}
 
@@ -658,6 +1145,276 @@ export default function OrganizationalAdminDashboard() {
               </div>
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* MODAL: CHANGE BRANCH ADMIN (BA CHANGE) */}
+      {isChangeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-xs">
+                  <ArrowRightLeft size={16} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                    Execute BA Change
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Appoint or replace Branch Administrator for <strong>{targetBranchName}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsChangeModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSubmitBAChange} className="p-6 space-y-5">
+              {/* Mode Selector */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide block mb-2">
+                  1. Choose Appointment Method
+                </label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setBaChangeMode("promote")}
+                    className={`py-2 px-3 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
+                      baChangeMode === "promote"
+                        ? "bg-amber-500 text-slate-950 shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <UserCheck size={14} />
+                    <span>Promote Existing Staff</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBaChangeMode("hire")}
+                    className={`py-2 px-3 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
+                      baChangeMode === "hire"
+                        ? "bg-amber-500 text-slate-950 shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <UserPlus size={14} />
+                    <span>Appoint New Administrator</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mode 1: Promote Existing Staff */}
+              {baChangeMode === "promote" ? (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide block mb-1">
+                    Select Staff Candidate for Promotion
+                  </label>
+                  <select
+                    value={candidateUserId}
+                    onChange={(e) => setCandidateUserId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500 font-medium"
+                    required
+                  >
+                    {branchAdminsData?.branches
+                      ?.find((b) => b.id === targetBranchId)
+                      ?.candidates.map((c) => (
+                        <option key={c.userId} value={c.userId}>
+                          {c.name} — Current: {c.currentRole} ({c.department}) [{c.email}]
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Selected staff member will immediately be promoted to Branch Admin with facility management privileges.
+                  </p>
+                </div>
+              ) : (
+                /* Mode 2: Appoint New Administrator */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Dr. Abebe Girma"
+                        value={newAdminForm.name}
+                        onChange={(e) => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="e.g. abebe@hospital.gov.et"
+                        value={newAdminForm.email}
+                        onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="+251 9..."
+                        value={newAdminForm.phone}
+                        onChange={(e) => setNewAdminForm({ ...newAdminForm, phone: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
+                        Title / Designation
+                      </label>
+                      <input
+                        type="text"
+                        value={newAdminForm.title}
+                        onChange={(e) => setNewAdminForm({ ...newAdminForm, title: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Outgoing Admin Disposition */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide block mb-1.5">
+                  2. Outgoing Branch Admin Disposition
+                </label>
+                <div className="space-y-2 text-xs">
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="outgoingDisposition"
+                      value="reassign"
+                      checked={outgoingDisposition === "reassign"}
+                      onChange={() => setOutgoingDisposition("reassign")}
+                      className="mt-0.5 text-amber-500 focus:ring-amber-400"
+                    />
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        Reassign to Clinical / Medical Role
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Relinquish Branch Admin privileges and reassign previous admin back to:
+                      </p>
+                      {outgoingDisposition === "reassign" && (
+                        <input
+                          type="text"
+                          value={outgoingNewRole}
+                          onChange={(e) => setOutgoingNewRole(e.target.value)}
+                          placeholder="e.g. Doctor or Senior Clinician"
+                          className="mt-1.5 px-2.5 py-1 text-xs rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                        />
+                      )}
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="outgoingDisposition"
+                      value="suspend"
+                      checked={outgoingDisposition === "suspend"}
+                      onChange={() => setOutgoingDisposition("suspend")}
+                      className="mt-0.5 text-amber-500 focus:ring-amber-400"
+                    />
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        Suspend Administrative Access
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Freeze outgoing admin's login while transitioning duties.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="outgoingDisposition"
+                      value="keep_dual"
+                      checked={outgoingDisposition === "keep_dual"}
+                      onChange={() => setOutgoingDisposition("keep_dual")}
+                      className="mt-0.5 text-amber-500 focus:ring-amber-400"
+                    />
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        Retain Co-Administrator Access
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Keep outgoing admin as co-admin during handover period.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Step 3: Executive Justification */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide block mb-1">
+                  3. Executive Justification &amp; Transition Reason *
+                </label>
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="e.g. Annual leadership rotation, clinical governance restructuring"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-amber-500"
+                  required
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  This note is permanently recorded in the facility audit trail.
+                </p>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsChangeModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={changeBAMutation.isPending}
+                  className="px-4 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {changeBAMutation.isPending ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Executing Transition...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={13} />
+                      <span>Execute BA Change</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </PageShell>

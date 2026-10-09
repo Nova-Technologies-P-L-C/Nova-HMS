@@ -183,27 +183,6 @@ export default function StaffAndRoleManagementPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  if (role === "Organizational Admin") {
-    return (
-      <PageShell title="Access Restricted" subtitle="Organizational Admin">
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 text-center max-w-lg mx-auto mt-12 shadow-sm">
-          <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center mx-auto mb-4">
-            <Shield size={24} />
-          </div>
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Facility-Level Administration Required</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-            Role Management &amp; Permissions Control is governed at the clinic facility level by <strong>Branch Admin</strong> and <strong>Hospital Admin</strong>. Organizational Admins oversee corporate executive reports, valuation, and finance.
-          </p>
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <Link href={"/nova/org-admin" as any} className={btnPrimary}>
-              Return to Executive Cockpit →
-            </Link>
-          </div>
-        </div>
-      </PageShell>
-    );
-  }
-
   // Pagination for Staff Directory
   const [staffPage, setStaffPage] = useState(1);
   const [staffPageSize, setStaffPageSize] = useState(10);
@@ -458,6 +437,34 @@ export default function StaffAndRoleManagementPage() {
         </div>
       }
     >
+      {/* Executive Supervisory Mode Banner for Organizational Admin */}
+      {role === "Organizational Admin" && (
+        <div className="mb-5 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+              👑
+            </span>
+            <div>
+              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>Executive Supervisory Mode Active</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 font-black uppercase tracking-wider">
+                  Org Admin Oversight
+                </span>
+              </div>
+              <p className="text-slate-600 dark:text-slate-300 text-[11px] mt-0.5">
+                You are viewing branch staff directories and role assignments with corporate ownership privileges.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={"/nova/org-admin?tab=branches" as any}
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition text-xs flex items-center gap-1 shrink-0 shadow-xs"
+          >
+            <span>Branch Admins &amp; BA Change Hub</span> →
+          </Link>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {statusMessage && (
         <div
