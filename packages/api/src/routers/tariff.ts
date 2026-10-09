@@ -3,6 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
 
+const isBranchOrHospitalAdmin = (role?: string) =>
+  role === "Branch Admin" || role === "Hospital Admin" || role === "Organizational Admin";
+
 export const tariffRouter = router({
   // List all hospital service tariffs with optional filtering
   list: tenantProcedure
@@ -65,10 +68,10 @@ export const tariffRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (ctx.role !== "Hospital Admin") {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Hospital Administrators can edit service prices",
+          message: "Only Branch Administrators can edit service prices",
         });
       }
 
@@ -126,10 +129,10 @@ export const tariffRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (ctx.role !== "Hospital Admin") {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Hospital Administrators can edit service prices",
+          message: "Only Branch Administrators can edit service prices",
         });
       }
 
@@ -181,10 +184,10 @@ export const tariffRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (ctx.role !== "Hospital Admin") {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Hospital Administrators can change service status",
+          message: "Only Branch Administrators can change service status",
         });
       }
 
@@ -225,10 +228,10 @@ export const tariffRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (ctx.role !== "Hospital Admin") {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Hospital Administrators can configure services",
+          message: "Only Branch Administrators can configure services",
         });
       }
 
@@ -296,10 +299,10 @@ export const tariffRouter = router({
   delete: tenantProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.role !== "Hospital Admin") {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Only Hospital Administrators can delete services",
+          message: "Only Branch Administrators can delete services",
         });
       }
 

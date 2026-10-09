@@ -53,9 +53,12 @@ export default function MARPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         {/* Patient list */}
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            Ward patients
-          </p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Ward patients
+            </p>
+            <span className="text-[11px] font-mono text-teal-600 font-bold">{admissions.length} active</span>
+          </div>
           {isLoading && <p className="text-sm text-slate-400">Loading…</p>}
           {!isLoading && admissions.length === 0 && (
             <p className="text-sm text-slate-400">No admitted patients.</p>
@@ -70,8 +73,13 @@ export default function MARPage() {
                   : "border-slate-200 bg-white hover:border-teal-300"
               }`}
             >
-              <p className="font-medium text-slate-800">{a.patient.nameEn}</p>
-              <p className="text-xs text-slate-500">{a.bed.ward} · Bed {a.bed.room}</p>
+              <p className="font-semibold text-slate-800">{a.patient.nameEn}</p>
+              <div className="flex items-center justify-between text-xs text-slate-500 mt-0.5">
+                <span>{a.bed.ward} · Bed #{a.bed.room}</span>
+              </div>
+              <p className="text-[10px] text-teal-700 font-medium mt-1">
+                Nurse: {a.assignedNurseName || "Unassigned"}
+              </p>
             </button>
           ))}
         </div>

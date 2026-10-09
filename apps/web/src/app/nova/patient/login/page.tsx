@@ -166,10 +166,30 @@ export default function PatientLoginPage() {
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Sparkles size={12} className="text-teal-400" />
-                {t("1-Click Demo Patient Accounts", "የሙከራ ሕሙማን (በ1 ጠቅታ ይሞክሩ)")}
+                {t("1-Click Quick Fill Accounts", "ሕሙማን (በ1 ጠቅታ ይሞክሩ)")}
               </span>
               <span className="text-[10px] text-teal-400 font-medium">Quick Fill</span>
             </div>
+
+            {/* Recently registered: Lamerot */}
+            <button
+              type="button"
+              onClick={() => fillQuickDemo("lamerot", "0909090909")}
+              className="w-full mb-2.5 text-left p-2.5 rounded-xl bg-teal-950/70 border border-teal-500/60 hover:bg-teal-900/60 transition-all text-xs group flex items-center justify-between shadow-xs"
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+                  <p className="font-bold text-teal-200 group-hover:text-white">
+                    lamerot <span className="font-mono text-[10px] text-teal-400">(DMR-00016)</span>
+                  </p>
+                </div>
+                <span className="text-[11px] text-slate-400 ml-4 font-mono">0909090909</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 font-semibold border border-teal-500/40">
+                Recently Registered ✨
+              </span>
+            </button>
 
             <div className="grid grid-cols-2 gap-2">
               {PATIENTS.slice(0, 4).map((p) => (

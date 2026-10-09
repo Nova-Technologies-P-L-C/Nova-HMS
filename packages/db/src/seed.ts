@@ -24,6 +24,16 @@ async function main() {
 
   const userRows = [
     {
+      id: "u-owner",
+      name: "Clinic Owner / Org Admin",
+      email: "owner@dmrh.gov.et",
+      role: "Organizational Admin",
+      department: "Executive Board",
+      title: "Executive Owner & President",
+      phone: "0911000000",
+      licenseNumber: "ETH-OWN-001",
+    },
+    {
       id: "u-admin",
       name: "Hospital Admin",
       email: "admin@dmrh.gov.et",
@@ -54,12 +64,22 @@ async function main() {
       licenseNumber: "ETH-MD-1049",
     },
     {
+      id: "u-triage",
+      name: "Nurse Almaz Desta",
+      email: "triage@dmrh.gov.et",
+      role: "Triage Nurse",
+      department: "Emergency & OPD Triage",
+      title: "Senior Triage Officer",
+      phone: "0914001122",
+      licenseNumber: "ETH-TRG-5012",
+    },
+    {
       id: "u-mekdes",
       name: "Nurse Mekdes Alemu",
       email: "mekdes@dmrh.gov.et",
-      role: "Nurse",
-      department: "Ward A & Triage",
-      title: "Head Clinical Nurse",
+      role: "Ward Nurse",
+      department: "Inpatient Ward A",
+      title: "Head Inpatient Ward Nurse",
       phone: "0914567890",
       licenseNumber: "ETH-RN-4810",
     },
@@ -116,13 +136,15 @@ async function main() {
   ];
 
   for (const u of userRows) {
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { email: u.email },
       update: { name: u.name },
       create: { id: u.id, name: u.name, email: u.email, emailVerified: false },
     });
+    const effectiveUserId = user.id;
+
     await prisma.userTenantRole.upsert({
-      where: { userId_tenantId: { userId: u.id, tenantId: tenant.id } },
+      where: { userId_tenantId: { userId: effectiveUserId, tenantId: tenant.id } },
       update: {
         role: u.role,
         department: u.department,
@@ -132,7 +154,7 @@ async function main() {
         status: "active",
       },
       create: {
-        userId: u.id,
+        userId: effectiveUserId,
         tenantId: tenant.id,
         role: u.role,
         department: u.department,
@@ -142,10 +164,36 @@ async function main() {
         status: "active",
       },
     });
+
+    await prisma.account.upsert({
+      where: { issuer_accountId: { issuer: "local:credential", accountId: effectiveUserId } },
+      update: {},
+      create: {
+        id: `acc-${effectiveUserId}`,
+        issuer: "local:credential",
+        accountId: effectiveUserId,
+        providerId: "credential",
+        userId: effectiveUserId,
+        password: "1b3d67c6e6b1b210495c0aea7e0ff720:777283136812e3e5237334c981412b64de56eb9451f9b3e85d145e52db372e713b349afb3b4500118a2f15b952612258bce23a8b6616b45a73f55a25e92e8fdb",
+      },
+    });
   }
 
   // Role Permissions Matrix Defaults
-  const defaultRolePermissions: Record<string, { permissions: string[]; description: string }> = {
+  const defaultRolePermissions: Record<string, { permissions: string[]; description: string; icon?: string; color?: string }> = {
+    "Branch Admin": {
+      permissions: [
+        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
+        "lab.order.create", "lab.results.enter", "lab.results.approve",
+        "rx.prescribe", "rx.dispense", "inventory.manage",
+        "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
+        "ward.admit", "ward.discharge", "ward.mar.administer",
+        "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
+      ],
+      description: "Full administrative, financial, clinical, and security privileges across branch operations.",
+      icon: "🛡️",
+      color: "rose",
+    },
     "Hospital Admin": {
       permissions: [
         "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
@@ -153,9 +201,11 @@ async function main() {
         "rx.prescribe", "rx.dispense", "inventory.manage",
         "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
         "ward.admit", "ward.discharge", "ward.mar.administer",
-        "admin.staff.manage", "admin.audit.view", "admin.reports.view"
+        "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
       ],
       description: "Full administrative, financial, clinical, and security privileges across all hospital operations.",
+      icon: "🛡️",
+      color: "rose",
     },
     "Doctor": {
       permissions: [
@@ -168,19 +218,37 @@ async function main() {
       ],
       description: "Comprehensive clinical care, diagnoses, patient assessments, lab requests, e-prescriptions, and hospital referrals.",
     },
-    "Nurse": {
+    "Triage Nurse": {
       permissions: [
-        "clinical.notes.view", "clinical.vitals.record",
+        "clinical.vitals.record", "clinical.queue.manage", "clinical.notes.view", "clinical.referral.create"
+      ],
+      description: "OPD & Emergency front intake, rapid vital signs recording, acuity tagging (NEWS2/BMI), and queue routing.",
+      icon: "🩺",
+      color: "teal",
+    },
+    "Ward Nurse": {
+      permissions: [
+        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record",
         "ward.admit", "ward.discharge", "ward.mar.administer"
       ],
-      description: "Vital signs triage, nursing care notes, bed admissions, and medication administration (MAR).",
+      description: "Inpatient bedside care, scheduled Medication Administration Record (MAR), and nurse shift handover notes.",
+      icon: "💉",
+      color: "emerald",
+    },
+    "Nurse": {
+      permissions: [
+        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record",
+        "ward.admit", "ward.discharge", "ward.mar.administer"
+      ],
+      description: "General clinical nursing alias with ward care, vitals triage, and medication administration (MAR).",
+      icon: "💉",
+      color: "emerald",
     },
     "Receptionist": {
       permissions: [
-        "clinical.vitals.record", "clinical.referral.create",
-        "billing.view", "billing.collect"
+        "clinical.referral.create"
       ],
-      description: "Patient registration, card room check-in, OPD queue assignment, and card fee collection.",
+      description: "Front-desk intake, patient registration, kiosk check-in, and OPD queue ticketing.",
     },
     "Lab Technician": {
       permissions: [
@@ -197,6 +265,13 @@ async function main() {
       description: "Prescription verification, drug dispensing, pharmaceutical inventory management, batches, and RRF requisition.",
     },
     "Billing Officer": {
+      permissions: [
+        "billing.view", "billing.collect", "billing.waiver.request",
+        "admin.reports.view"
+      ],
+      description: "Centralized visit billing, cashier receipts, CBHI claims processing, and fee waiver submissions.",
+    },
+    "Accountant": {
       permissions: [
         "billing.view", "billing.collect", "billing.waiver.request",
         "admin.reports.view"
@@ -226,12 +301,18 @@ async function main() {
       update: {
         permissions: JSON.stringify(config.permissions),
         description: config.description,
+        isSystem: true,
+        icon: config.icon ?? "🛡️",
+        color: config.color ?? "blue",
       },
       create: {
         tenantId: tenant.id,
         role: roleName,
         permissions: JSON.stringify(config.permissions),
         description: config.description,
+        isSystem: true,
+        icon: config.icon ?? "🛡️",
+        color: config.color ?? "blue",
       },
     });
   }

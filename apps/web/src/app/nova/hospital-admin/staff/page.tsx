@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import {
-  PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, KpiCard, StatusBadge
+  PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, KpiCard, StatusBadge, Pagination
 } from "@/components/nova/nova-ui";
 import {
   Users, Shield, UserPlus, Check, X, Search, Edit2, Trash2,
@@ -12,15 +13,20 @@ import {
   Stethoscope, FlaskConical, Pill, CreditCard, Bed, Activity, Sparkles,
   ToggleLeft, ToggleRight, Sliders
 } from "lucide-react";
+import { useNovaRole } from "@/components/nova/nova-role-context";
 
 const CLINICAL_ROLES = [
+  "Branch Admin",
   "Hospital Admin",
   "Doctor",
+  "Triage Nurse",
+  "Ward Nurse",
   "Nurse",
   "Receptionist",
   "Lab Technician",
   "Pharmacist",
   "Billing Officer",
+  "Accountant",
   "Referral Coordinator",
   "Ward Manager",
 ] as const;
@@ -28,25 +34,33 @@ const CLINICAL_ROLES = [
 type RoleType = typeof CLINICAL_ROLES[number];
 
 const ROLE_ICONS: Record<string, string> = {
+  "Branch Admin": "🛡️",
   "Hospital Admin": "🛡️",
   "Doctor": "👨‍⚕️",
+  "Triage Nurse": "🩺",
+  "Ward Nurse": "💉",
   "Nurse": "👩‍⚕️",
   "Receptionist": "📋",
   "Lab Technician": "🔬",
   "Pharmacist": "💊",
   "Billing Officer": "💳",
+  "Accountant": "💳",
   "Referral Coordinator": "🚑",
   "Ward Manager": "🛏️",
 };
 
 const ROLE_COLORS: Record<string, string> = {
+  "Branch Admin": "bg-indigo-50 text-indigo-700 border-indigo-200",
   "Hospital Admin": "bg-red-50 text-red-700 border-red-200",
   "Doctor": "bg-teal-50 text-teal-700 border-teal-200",
-  "Nurse": "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "Triage Nurse": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "Ward Nurse": "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "Nurse": "bg-sky-50 text-sky-700 border-sky-200",
   "Receptionist": "bg-amber-50 text-amber-700 border-amber-200",
   "Lab Technician": "bg-purple-50 text-purple-700 border-purple-200",
   "Pharmacist": "bg-emerald-50 text-emerald-700 border-emerald-200",
   "Billing Officer": "bg-blue-50 text-blue-700 border-blue-200",
+  "Accountant": "bg-blue-50 text-blue-700 border-blue-200",
   "Referral Coordinator": "bg-indigo-50 text-indigo-700 border-indigo-200",
   "Ward Manager": "bg-orange-50 text-orange-700 border-orange-200",
 };
@@ -161,11 +175,38 @@ function MiniToggleSwitch({
 
 export default function StaffAndRoleManagementPage() {
   const qc = useQueryClient();
+  const { role } = useNovaRole();
+
   const [activeTab, setActiveTab] = useState<"role-control" | "staff" | "matrix">("role-control");
-  const [selectedRole, setSelectedRole] = useState<RoleType>("Doctor");
+  const [selectedRole, setSelectedRole] = useState<string>("Doctor");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  if (role === "Organizational Admin") {
+    return (
+      <PageShell title="Access Restricted" subtitle="Organizational Admin">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 text-center max-w-lg mx-auto mt-12 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <Shield size={24} />
+          </div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Facility-Level Administration Required</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            Role Management &amp; Permissions Control is governed at the clinic facility level by <strong>Branch Admin</strong> and <strong>Hospital Admin</strong>. Organizational Admins oversee corporate executive reports, valuation, and finance.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Link href={"/nova/org-admin" as any} className={btnPrimary}>
+              Return to Executive Cockpit →
+            </Link>
+          </div>
+        </div>
+      </PageShell>
+    );
+  }
+
+  // Pagination for Staff Directory
+  const [staffPage, setStaffPage] = useState(1);
+  const [staffPageSize, setStaffPageSize] = useState(10);
 
   // Modals
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -204,6 +245,11 @@ export default function StaffAndRoleManagementPage() {
   const { data: rolePermissionsList = [], isLoading: permsLoading } = useQuery(
     trpc.tenant.rolePermissions.queryOptions()
   );
+
+  const availableRoles = useMemo(() => {
+    const fromDb = rolePermissionsList.map((r: any) => r.role);
+    return Array.from(new Set([...CLINICAL_ROLES, ...fromDb]));
+  }, [rolePermissionsList]);
 
   // Mutations
   const addStaffMutation = useMutation(
@@ -335,14 +381,22 @@ export default function StaffAndRoleManagementPage() {
     });
   }, [staffList, roleFilter, search]);
 
+  // Paginated slice for current personnel page
+  const paginatedStaff = useMemo(() => {
+    const start = (staffPage - 1) * staffPageSize;
+    return filteredStaff.slice(start, start + staffPageSize);
+  }, [filteredStaff, staffPage, staffPageSize]);
+
   // Metrics
   const metrics = useMemo(() => {
     const total = staffList.length;
     const active = staffList.filter((s: any) => s.status === "active").length;
     const doctors = staffList.filter((s: any) => s.role === "Doctor").length;
-    const nurses = staffList.filter((s: any) => s.role === "Nurse").length;
+    const nurses = staffList.filter((s: any) =>
+      ["Nurse", "Triage Nurse", "Ward Nurse"].includes(s.role)
+    ).length;
     const clinicalCount = staffList.filter((s: any) =>
-      ["Doctor", "Nurse", "Lab Technician", "Pharmacist"].includes(s.role)
+      ["Doctor", "Nurse", "Triage Nurse", "Ward Nurse", "Lab Technician", "Pharmacist"].includes(s.role)
     ).length;
     return { total, active, doctors, nurses, clinicalCount };
   }, [staffList]);
@@ -458,6 +512,13 @@ export default function StaffAndRoleManagementPage() {
         >
           <ShieldCheck size={16} /> Matrix Cross-Overview
         </button>
+
+        <Link
+          href={"/nova/branch-admin/roles" as any}
+          className="ml-auto pb-3 px-3 text-xs font-semibold flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 hover:underline transition"
+        >
+          <Sparkles size={14} /> Full Dynamic RBAC Hub & Role Merger →
+        </Link>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
@@ -475,7 +536,7 @@ export default function StaffAndRoleManagementPage() {
             </div>
 
             <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2">
-              {CLINICAL_ROLES.map((role) => {
+              {availableRoles.map((role) => {
                 const isSelected = selectedRole === role;
                 const activeCount = rolePermsMap[role]?.size || 0;
                 const totalCount = ALL_ACTIVITIES.length;
@@ -491,7 +552,7 @@ export default function StaffAndRoleManagementPage() {
                         : "bg-white text-slate-700 border-slate-200 hover:border-teal-300 hover:bg-slate-50"
                     }`}
                   >
-                    <div className="text-lg mb-1">{ROLE_ICONS[role]}</div>
+                    <div className="text-lg mb-1">{ROLE_ICONS[role] ?? "🛡️"}</div>
                     <div className="font-bold text-xs truncate">{role}</div>
                     <div
                       className={`text-[10px] mt-1 font-medium ${
@@ -514,16 +575,16 @@ export default function StaffAndRoleManagementPage() {
           </div>
 
           {/* Active Role Control Panel */}
-          <Card className="p-5 border-teal-200 bg-gradient-to-r from-teal-50/30 via-white to-white">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <Card className="p-5 border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50/30 dark:from-teal-950/20 via-white dark:via-slate-900 to-white dark:to-slate-900">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{ROLE_ICONS[selectedRole]}</span>
+                <span className="text-3xl">{ROLE_ICONS[selectedRole] ?? "🛡️"}</span>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-800 text-base">{selectedRole} Role Controls</h3>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">{selectedRole} Role Controls</h3>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                        ROLE_COLORS[selectedRole] ?? "bg-slate-100 text-slate-700"
+                        ROLE_COLORS[selectedRole] ?? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
                       }`}
                     >
                       {rolePermsMap[selectedRole]?.size || 0} / {ALL_ACTIVITIES.length} Activities Enabled
@@ -669,7 +730,10 @@ export default function StaffAndRoleManagementPage() {
                 <input
                   type="text"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setStaffPage(1);
+                  }}
                   placeholder="Search by name, email, department, badge ID…"
                   className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs focus:outline-none focus:border-teal-500"
                 />
@@ -679,13 +743,22 @@ export default function StaffAndRoleManagementPage() {
                 <span className="text-xs text-slate-500 shrink-0">Filter Role:</span>
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value);
+                    setStaffPage(1);
+                  }}
                   className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 focus:outline-none focus:border-teal-500"
                 >
                   <option value="all">All Roles ({staffList.length})</option>
-                  {CLINICAL_ROLES.map((r) => (
+                  {availableRoles.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {r === "Nurse"
+                        ? "Nurse (Merged: Triage + Ward)"
+                        : r === "Triage Nurse"
+                        ? "Triage Nurse (Specialized: OPD)"
+                        : r === "Ward Nurse"
+                        ? "Ward Nurse (Specialized: Inpatient)"
+                        : r}
                     </option>
                   ))}
                 </select>
@@ -726,7 +799,7 @@ export default function StaffAndRoleManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredStaff.map((staff: any) => (
+                    {paginatedStaff.map((staff: any) => (
                       <tr key={staff.id} className="hover:bg-teal-50/20 transition-colors">
                         {/* Name & Email */}
                         <td className="px-4 py-3">
@@ -738,13 +811,20 @@ export default function StaffAndRoleManagementPage() {
 
                         {/* Role Badge & Permissions count */}
                         <td className="px-3 py-3">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                              ROLE_COLORS[staff.role] ?? "bg-slate-100 text-slate-700 border-slate-200"
-                            }`}
-                          >
-                            {ROLE_ICONS[staff.role]} {staff.role}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                ROLE_COLORS[staff.role] ?? "bg-slate-100 text-slate-700 border-slate-200"
+                              }`}
+                            >
+                              {ROLE_ICONS[staff.role]} {staff.role}
+                            </span>
+                            {staff.role === "Nurse" && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                🔄 Merged (2-in-1)
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                             <Key size={10} className="text-teal-600" />
                             {staff.effectivePermissions?.length || 0} activities permitted
@@ -818,6 +898,18 @@ export default function StaffAndRoleManagementPage() {
                 </table>
               </div>
             )}
+
+            {filteredStaff.length > 0 && (
+              <Pagination
+                currentPage={staffPage}
+                totalItems={filteredStaff.length}
+                pageSize={staffPageSize}
+                onPageChange={setStaffPage}
+                onPageSizeChange={setStaffPageSize}
+                pageSizeOptions={[10, 25, 50]}
+                itemLabel="personnel"
+              />
+            )}
           </Card>
         </div>
       )}
@@ -855,7 +947,7 @@ export default function StaffAndRoleManagementPage() {
                   <th className="px-4 py-3 text-slate-700 font-semibold w-64">
                     Hospital Activity
                   </th>
-                  {CLINICAL_ROLES.map((role) => (
+                  {availableRoles.map((role) => (
                     <th key={role} className="px-2 py-3 text-center whitespace-nowrap">
                       <div className="font-bold text-slate-800">{role}</div>
                       <div className="text-[10px] text-slate-400">
@@ -870,7 +962,7 @@ export default function StaffAndRoleManagementPage() {
                   <React.Fragment key={category}>
                     <tr className="bg-slate-100/70 border-y border-slate-200">
                       <td
-                        colSpan={CLINICAL_ROLES.length + 1}
+                        colSpan={availableRoles.length + 1}
                         className="px-4 py-2 font-bold text-slate-700 text-[11px] uppercase tracking-wider"
                       >
                         {category}
@@ -888,7 +980,7 @@ export default function StaffAndRoleManagementPage() {
                           </div>
                         </td>
 
-                        {CLINICAL_ROLES.map((role) => {
+                        {availableRoles.map((role) => {
                           const isAllowed = !!rolePermsMap[role]?.has(activity.key);
 
                           return (
@@ -956,9 +1048,15 @@ export default function StaffAndRoleManagementPage() {
                     onChange={(e) => setAddForm((f) => ({ ...f, role: e.target.value }))}
                     className={inputCls}
                   >
-                    {CLINICAL_ROLES.map((r) => (
+                    {availableRoles.map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {r === "Nurse"
+                          ? "Nurse (Merged: Triage + Ward)"
+                          : r === "Triage Nurse"
+                          ? "Triage Nurse (Specialized: OPD)"
+                          : r === "Ward Nurse"
+                          ? "Ward Nurse (Specialized: Inpatient)"
+                          : r}
                       </option>
                     ))}
                   </select>
@@ -1057,9 +1155,15 @@ export default function StaffAndRoleManagementPage() {
                     onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
                     className={inputCls}
                   >
-                    {CLINICAL_ROLES.map((r) => (
+                    {availableRoles.map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {r === "Nurse"
+                          ? "Nurse (Merged: Triage + Ward)"
+                          : r === "Triage Nurse"
+                          ? "Triage Nurse (Specialized: OPD)"
+                          : r === "Ward Nurse"
+                          ? "Ward Nurse (Specialized: Inpatient)"
+                          : r}
                       </option>
                     ))}
                   </select>

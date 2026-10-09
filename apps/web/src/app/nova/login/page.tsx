@@ -3,26 +3,33 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 const ROLE_DASHBOARDS: Record<string, string> = {
-  "Hospital Admin": "/nova/hospital-admin",
+  "Organizational Admin": "/nova/org-admin",
+  "Branch Admin": "/nova/branch-admin",
+  "Hospital Admin": "/nova/branch-admin",
+  "Triage Nurse": "/nova/triage",
+  "Ward Nurse": "/nova/nurse",
   Doctor: "/nova/doctor",
   Nurse: "/nova/nurse",
   Receptionist: "/nova/reception/queue",
   "Lab Technician": "/nova/lab",
   Pharmacist: "/nova/pharmacy",
   "Billing Officer": "/nova/billing",
+  Accountant: "/nova/billing",
   "Referral Coordinator": "/nova/referral",
   "Ward Manager": "/nova/ward",
   "Nova Admin": "/nova/nova-admin",
 };
 
 const DEMO_ACCOUNTS: [string, string][] = [
-  ["admin@dmrh.gov.et", "Hospital Admin"],
+  ["owner@dmrh.gov.et", "Clinic Owner / Org Admin"],
+  ["admin@dmrh.gov.et", "Branch Admin"],
+  ["triage@dmrh.gov.et", "Triage Nurse"],
+  ["mekdes@dmrh.gov.et", "Ward Nurse"],
   ["tigist@dmrh.gov.et", "Doctor"],
   ["girma@dmrh.gov.et", "Receptionist"],
-  ["mekdes@dmrh.gov.et", "Nurse"],
   ["bereket@dmrh.gov.et", "Lab Tech"],
   ["selam@dmrh.gov.et", "Pharmacist"],
-  ["hiwot@dmrh.gov.et", "Billing"],
+  ["hiwot@dmrh.gov.et", "Accountant / Cashier POS"],
   ["solomon@dmrh.gov.et", "Referral"],
 ];
 

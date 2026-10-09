@@ -1,13 +1,18 @@
 // Nova HMS — all mock/dummy data used across the frontend prototype
 
 export const ROLES = [
+  "Organizational Admin",
+  "Branch Admin",
   "Hospital Admin",
   "Receptionist",
+  "Triage Nurse",
   "Doctor",
+  "Ward Nurse",
   "Nurse",
   "Lab Technician",
   "Pharmacist",
   "Billing Officer",
+  "Accountant",
   "Referral Coordinator",
   "Ward Manager",
   "Nova Admin",

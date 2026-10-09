@@ -39,7 +39,16 @@ export const tenantProcedure = t.procedure.use(({ ctx, next }) => {
 // Role guard factory
 export function requireRole(...roles: string[]) {
   return tenantProcedure.use(({ ctx, next }) => {
-    if (!roles.includes(ctx.role!)) {
+    const allowed = new Set(roles);
+    if (allowed.has("Branch Admin") || allowed.has("Hospital Admin")) {
+      allowed.add("Branch Admin");
+      allowed.add("Hospital Admin");
+      allowed.add("Organizational Admin");
+    }
+    if (ctx.role === "Organizational Admin") {
+      return next({ ctx });
+    }
+    if (!allowed.has(ctx.role!)) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: `Role '${ctx.role}' is not allowed. Required: ${roles.join(", ")}`,

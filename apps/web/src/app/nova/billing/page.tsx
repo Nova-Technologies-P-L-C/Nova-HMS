@@ -78,6 +78,7 @@ function BillingDashboardContent() {
       visitId: selectedVisitId,
       payCardFee: payCard,
       payConsultation,
+      payAdmissionCharges: true,
       labOrderIds: selectedLabs,
       prescriptionLineIds: selectedDrugs,
       paymentMethod: payMethod,
@@ -104,12 +105,18 @@ function BillingDashboardContent() {
       const d = payables.items.find((i) => i.id === drugId);
       if (d && d.paymentStatus === "unpaid") dynamicTotal += d.amount;
     }
+    // Include Inpatient Bed & Nursing Care charges
+    if (!payables.patient.cbhiStatus) {
+      for (const item of payables.items.filter((i) => (i.type === "bed" || i.type === "nursing_care") && i.paymentStatus === "unpaid")) {
+        dynamicTotal += item.amount;
+      }
+    }
   }
 
   const isCbhi = payables?.patient.cbhiStatus;
 
   return (
-    <PageShell title="Cashier & Billing Role" subtitle="End-of-Visit Centralized Settlement, Receipts & Discharge Clearance">
+    <PageShell title="Accountant & Billing POS Counter" subtitle="End-of-Visit Centralized Settlement, Receipts & Discharge Clearance">
       {/* Official Receipt Modal */}
       {issuedReceipt && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4">
@@ -250,18 +257,18 @@ function BillingDashboardContent() {
       </div>
 
       {/* Cashier Point of Sale (POS) Counter */}
-      <Card className="p-6 mb-8 border-teal-200 bg-gradient-to-r from-teal-50/30 via-white to-white">
+      <Card className="p-6 mb-8 border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50/30 dark:from-teal-950/20 via-white dark:via-slate-900 to-white dark:to-slate-900">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-teal-600 text-white rounded-lg">
               <DollarSign size={20} />
             </div>
             <div>
-              <h2 className="font-bold text-slate-800 text-base">Consolidated Cashier Checkout (POS)</h2>
-              <p className="text-xs text-slate-500">Settle all accumulated diagnostic investigations, prescriptions, and fees in one place</p>
+              <h2 className="font-bold text-slate-800 dark:text-slate-100 text-base">Consolidated Cashier Checkout (POS)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Settle all accumulated diagnostic investigations, prescriptions, and fees in one place</p>
             </div>
           </div>
-          <span className="text-xs px-2.5 py-1 bg-teal-100 text-teal-800 font-semibold rounded-full">
+          <span className="text-xs px-2.5 py-1 bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 font-semibold rounded-full">
             Cashier Desk Active
           </span>
         </div>
@@ -438,6 +445,33 @@ function BillingDashboardContent() {
                       </span>
                     </div>
                   </label>
+                );
+              })}
+
+              {/* 5. Inpatient Ward Bed & Nursing Care Charges */}
+              {payables.items.filter((i) => i.type === "bed" || i.type === "nursing_care").map((i) => {
+                const isBed = i.type === "bed";
+                return (
+                  <div key={i.id} className="flex items-center justify-between p-3 rounded-lg border border-teal-100 bg-teal-50/40">
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">{isBed ? "🛏️" : "👩‍⚕️"}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{i.name}</p>
+                        <p className="text-xs text-slate-400">
+                          {isBed ? "Inpatient room & bed accommodation tariff" : "Daily inpatient nursing & clinical care service"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-800">ETB {i.amount}</span>
+                      <span className={`text-[11px] px-2 py-0.5 rounded font-semibold ${
+                        i.paymentStatus === "paid" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
+                        isCbhi || i.paymentStatus === "cbhi_covered" ? "bg-teal-100 text-teal-800" : "bg-amber-100 text-amber-800 border border-amber-200"
+                      }`}>
+                        {i.paymentStatus === "paid" ? "✓ PAID" : isCbhi ? "CBHI COVERED" : "UNPAID WARD CHARGE"}
+                      </span>
+                    </div>
+                  </div>
                 );
               })}
 

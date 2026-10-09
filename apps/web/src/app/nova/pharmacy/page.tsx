@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, KpiCard, Card, StatusBadge } from "@/components/nova/nova-ui";
-import { CheckCircle, Pill } from "lucide-react";
+import { CheckCircle, Pill, Lock, CreditCard, ArrowRight, ShieldCheck } from "lucide-react";
 
 export default function PharmacyQueuePage() {
   const qc = useQueryClient();
@@ -57,18 +57,18 @@ export default function PharmacyQueuePage() {
       {/* Pharmacy Payment Modal */}
       {payingRx && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3 border-slate-100">
-              <h3 className="font-bold text-slate-800 text-base">Collect Pharmacy Payment</h3>
-              <button onClick={() => setPayingRx(null)} className="text-slate-400 hover:text-slate-600 text-sm">✕</button>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">Collect Pharmacy Payment</h3>
+              <button onClick={() => setPayingRx(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm">✕</button>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800">{payingRx.patientName}</p>
-              <p className="text-xs text-slate-500">{payingRx.drugs}</p>
-              <p className="text-sm font-bold text-teal-800 mt-1">Total Due: ETB {payingRx.total}</p>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{payingRx.patientName}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{payingRx.drugs}</p>
+              <p className="text-sm font-bold text-teal-800 dark:text-teal-400 mt-1">Total Due: ETB {payingRx.total}</p>
             </div>
             <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-700 block">Payment Method:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Payment Method:</label>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 {(["cash", "telebirr", "cbe_birr"] as const).map((m) => (
                   <button
@@ -76,7 +76,7 @@ export default function PharmacyQueuePage() {
                     type="button"
                     onClick={() => setModalMethod(m)}
                     className={`py-2 px-3 rounded-lg border font-medium text-center transition-all ${
-                      modalMethod === m ? "bg-teal-600 text-white border-teal-600" : "bg-white text-slate-700 border-slate-200 hover:border-teal-400"
+                      modalMethod === m ? "bg-teal-600 text-white border-teal-600" : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-teal-400"
                     }`}
                   >
                     {m === "cash" ? "💵 Cash" : m === "telebirr" ? "📱 Telebirr" : "🏦 CBE Birr"}
@@ -85,18 +85,18 @@ export default function PharmacyQueuePage() {
               </div>
               {(modalMethod === "telebirr" || modalMethod === "cbe_birr") && (
                 <div>
-                  <label className="text-xs text-slate-600 block mb-1">Transaction Ref / ID:</label>
+                  <label className="text-xs text-slate-600 dark:text-slate-300 block mb-1">Transaction Ref / ID:</label>
                   <input
                     value={modalRef}
                     onChange={(e) => setModalRef(e.target.value)}
                     placeholder="e.g. TLB-998241"
-                    className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:border-teal-500"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded text-sm focus:outline-none focus:border-teal-500"
                   />
                 </div>
               )}
             </div>
-            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
-              <button type="button" onClick={() => setPayingRx(null)} className="px-4 py-2 border border-slate-200 text-slate-600 rounded text-sm hover:bg-slate-50">Cancel</button>
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button type="button" onClick={() => setPayingRx(null)} className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded text-sm hover:bg-slate-50 dark:hover:bg-slate-800">Cancel</button>
               <button
                 type="button"
                 disabled={payRxMutation.isPending}
@@ -119,11 +119,11 @@ export default function PharmacyQueuePage() {
       {/* Tab switcher */}
       <div className="flex gap-1 mb-4">
         <button onClick={() => setTab("pending")}
-          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "pending" ? "bg-teal-600 text-white border-teal-600" : "bg-white border-slate-200 text-slate-600 hover:border-teal-400"}`}>
+          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "pending" ? "bg-teal-600 text-white border-teal-600" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400"}`}>
           Pending ({rxList.length})
         </button>
         <button onClick={() => setTab("dispensed")}
-          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "dispensed" ? "bg-teal-600 text-white border-teal-600" : "bg-white border-slate-200 text-slate-600 hover:border-teal-400"}`}>
+          className={`px-4 py-1.5 text-sm rounded border transition-colors ${tab === "dispensed" ? "bg-teal-600 text-white border-teal-600" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400"}`}>
           Dispensed ({dispensedList.length})
         </button>
       </div>
@@ -132,7 +132,7 @@ export default function PharmacyQueuePage() {
 
       {!isLoading && shownList.length === 0 && (
         <Card className="p-12 text-center">
-          <Pill size={32} className="text-slate-300 mx-auto mb-3" />
+          <Pill size={32} className="text-slate-300 dark:text-slate-600 mx-auto mb-3" />
           <p className="text-slate-400 text-sm">{tab === "pending" ? "No pending prescriptions." : "No dispensed prescriptions yet."}</p>
         </Card>
       )}
@@ -149,30 +149,51 @@ export default function PharmacyQueuePage() {
             <Card key={rx.id} className={`overflow-hidden transition-all ${isSelected ? "border-teal-400" : ""}`}>
               {/* Header row */}
               <div
-                className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50 ${rx.status === "pending" ? "" : "bg-slate-50"}`}
+                className={`flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${rx.status === "pending" ? "" : "bg-slate-50/60 dark:bg-slate-800/30"}`}
                 onClick={() => setSelected(isSelected ? null : rx.id)}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 font-bold text-xs flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center shrink-0">
                     {rx.visit.patient.nameEn.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 text-sm truncate">{rx.visit.patient.nameEn}</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm truncate">{rx.visit.patient.nameEn}</p>
                     <p className="text-xs text-slate-400">{rx.visit.patient.healthId} · {rx.lines.length} medication{rx.lines.length > 1 ? "s" : ""} · Total: ETB {totalCost}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   {isAllPaid ? (
-                    <span className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-medium">
-                      ✓ Cleared by Billing (Ready to Dispense)
+                    <span className="text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full font-medium">
+                      ✓ Cleared (Ready to Dispense)
                     </span>
                   ) : (
-                    <span className="text-xs text-amber-800 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full font-semibold">
-                      ⏳ Awaiting Billing Settlement (ETB {totalCost})
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                        <Lock size={10} /> Unpaid (ETB {totalCost})
+                      </span>
+                      {rx.status === "pending" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPayingRx({
+                              id: rx.id,
+                              patientName: rx.visit.patient.nameEn,
+                              total: totalCost,
+                              drugs: rx.lines.map((l) => l.itemName).join(", "),
+                            });
+                          }}
+                          className="text-xs px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded font-bold shadow-xs transition flex items-center gap-1"
+                        >
+                          <CreditCard size={11} /> Settle Here
+                        </button>
+                      )}
+                    </div>
                   )}
                   {rx.visit.patient.cbhiStatus && (
-                    <span className="text-xs text-teal-600 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">CBHI</span>
+                    <span className="text-xs text-teal-600 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                      <ShieldCheck size={11} /> CBHI
+                    </span>
                   )}
                   <StatusBadge status={rx.status} />
                   <span className="text-xs text-slate-400">{new Date(rx.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -226,19 +247,49 @@ export default function PharmacyQueuePage() {
                     );
                   })}
 
-                  {/* Payment Alert & Action */}
+                  {/* Payment Alert & Action - DUAL SETTLEMENT */}
                   {!isAllPaid && rx.status === "pending" && (
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold text-amber-900">⏳ Awaiting Settlement at Billing Counter</p>
-                        <p className="text-xs text-amber-700">Patient has been transferred to Billing. Once the cashier settles the visit invoice, dispensing will automatically unlock.</p>
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Lock size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                              🔒 Pre-Payment Required Before Medication Dispense
+                            </p>
+                            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                              Prescription total: <strong>ETB {totalCost}</strong>. Dual settlement is supported: collect at pharmacy window or central cashier.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/80 px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
+                          Dual POS Enabled
+                        </span>
                       </div>
-                      <Link
-                        href="/nova/billing"
-                        className="px-3 py-1.5 bg-teal-600 text-white rounded text-xs font-semibold hover:bg-teal-700 whitespace-nowrap ml-3"
-                      >
-                        Open Billing POS →
-                      </Link>
+
+                      <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-amber-200/60 dark:border-amber-800/60">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPayingRx({
+                              id: rx.id,
+                              patientName: rx.visit.patient.nameEn,
+                              total: totalCost,
+                              drugs: rx.lines.map((l) => l.itemName).join(", "),
+                            })
+                          }
+                          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5"
+                        >
+                          <CreditCard size={13} /> Settle & Pay at Pharmacy Window (ETB {totalCost})
+                        </button>
+                        <span className="text-xs text-slate-400 font-medium">— OR —</span>
+                        <Link
+                          href={`/nova/billing?visitId=${rx.visitId}`}
+                          className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-teal-400 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                        >
+                          Direct Patient to Central Billing Desk <ArrowRight size={12} />
+                        </Link>
+                      </div>
                     </div>
                   )}
 

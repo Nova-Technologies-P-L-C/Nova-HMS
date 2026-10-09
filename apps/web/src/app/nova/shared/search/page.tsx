@@ -26,7 +26,7 @@ export default function GlobalSearchPage() {
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 text-base rounded-xl border border-slate-200 focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 bg-white shadow-sm"
+            className="w-full pl-10 pr-4 py-3 text-base rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-950 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-sm"
             placeholder="Patient name, health ID, or phone…"
           />
         </div>
@@ -47,11 +47,11 @@ export default function GlobalSearchPage() {
               <Card key={p.id} className="p-4 hover:border-teal-300 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-teal-100 text-teal-700 font-bold text-sm flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 font-bold text-sm flex items-center justify-center shrink-0">
                       {p.name.split(" ").map((n) => n[0]).join("")}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-800">{p.name}</p>
+                      <p className="font-medium text-slate-800 dark:text-slate-100">{p.name}</p>
                       <p className="text-sm text-teal-600">{p.nameAm}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{p.healthId} · DOB {p.dob} · {p.sex === "M" ? "Male" : "Female"} · {p.phone}</p>
                     </div>
