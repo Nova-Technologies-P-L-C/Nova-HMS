@@ -110,10 +110,10 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
 
   const handleLogout = async () => {
     await authClient.signOut();
-    localStorage.removeItem("nova_tenant_id");
-    localStorage.removeItem("nova_tenant_slug");
-    localStorage.removeItem("nova_user_role");
-    localStorage.removeItem("nova_user_name");
+    sessionStorage.removeItem("nova_tenant_id");
+    sessionStorage.removeItem("nova_tenant_slug");
+    sessionStorage.removeItem("nova_user_role");
+    sessionStorage.removeItem("nova_user_name");
     router.push("/nova/login");
   };
 

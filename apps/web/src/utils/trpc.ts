@@ -55,7 +55,7 @@ export const queryClient = new QueryClient({
 
 function getTenantId(): string {
   if (typeof window === "undefined") return "";
-  return localStorage.getItem("nova_tenant_id") ?? "";
+  return sessionStorage.getItem("nova_tenant_id") ?? "";
 }
 
 const trpcClient = createTRPCClient<AppRouter>({

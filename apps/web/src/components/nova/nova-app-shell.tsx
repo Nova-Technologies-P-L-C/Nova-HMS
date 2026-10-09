@@ -34,7 +34,7 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
       return;
     }
 
-    const tenantId = localStorage.getItem("nova_tenant_id");
+    const tenantId = sessionStorage.getItem("nova_tenant_id");
     if (!tenantId) {
       router.replace("/nova/login");
       return;

@@ -7,7 +7,6 @@ export function createPrismaClient() {
   const adapter = new PrismaLibSql({
     url: env.DATABASE_URL,
   });
-
   return new PrismaClient({ adapter });
 }
 
