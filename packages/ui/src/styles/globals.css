@@ -129,7 +129,7 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-/* Nova HMS Dynamic Color System Utilities */
+/* Ethiora HMS Dynamic Color System Utilities */
 :root {
   --nova-primary: #0d9488;
   --nova-primary-hover: #0f766e;

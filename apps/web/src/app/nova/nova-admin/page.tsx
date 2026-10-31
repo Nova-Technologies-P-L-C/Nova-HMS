@@ -12,7 +12,7 @@ export default function NovaAdminDashboard() {
   return (
     <PageShell
       title="Platform Dashboard"
-      subtitle="Nova HMS — SaaS operator view across all hospital tenants"
+      subtitle="Ethiora HMS — SaaS operator view across all hospital tenants"
       action={
         <Link href="/nova/nova-admin/tenants" className="px-4 py-2 bg-teal-600 text-white text-sm rounded hover:bg-teal-700 transition-colors font-medium">
           Manage tenants

@@ -21,7 +21,7 @@ const urbanist = Urbanist({
 });
 
 export const metadata: Metadata = {
-  title: "Nova HMS — Enterprise Hospital ERP",
+  title: "Ethiora HMS — Enterprise Hospital ERP",
   description: "Next-generation Hospital Management System & ERP Platform",
 };
 

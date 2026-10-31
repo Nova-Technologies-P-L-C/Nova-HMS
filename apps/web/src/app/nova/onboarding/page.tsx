@@ -96,7 +96,7 @@ export default function OnboardingPage() {
             <div className="text-center py-6">
               <CheckCircle size={48} className="text-teal-500 mx-auto mb-4" />
               <h2 className="font-bold text-slate-800 text-lg mb-2">Workspace ready!</h2>
-              <p className="text-sm text-slate-500 mb-6">Debre Markos Referral Hospital has been set up on Nova HMS. Invite emails have been sent to your staff.</p>
+              <p className="text-sm text-slate-500 mb-6">Debre Markos Referral Hospital has been set up on Ethiora HMS. Invite emails have been sent to your staff.</p>
               <button onClick={() => router.push("/nova/hospital-admin")} className="px-6 py-2.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors font-medium">
                 Open dashboard →
               </button>

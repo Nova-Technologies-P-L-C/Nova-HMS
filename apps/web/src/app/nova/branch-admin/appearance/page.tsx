@@ -646,10 +646,10 @@ export default function AppearanceCustomizerPage() {
                 {/* Mock Topbar */}
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-2 text-xs truncate">
-                    <span className="text-slate-400 font-medium">Nova</span>
+                    <span className="text-slate-400 font-medium">Ethiora</span>
                     <span className="text-slate-300">/</span>
                     <span className="font-bold text-slate-800 dark:text-slate-100 truncate">
-                      {draft.hospitalName || "Nova HMS"}
+                      {draft.hospitalName || "Ethiora HMS"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -694,7 +694,7 @@ export default function AppearanceCustomizerPage() {
                             draft.sidebarTheme === "white" ? "text-slate-900" : "text-white"
                           }`}
                         >
-                          {draft.hospitalName.split(" ")[0] || "Nova"}
+                          {draft.hospitalName.split(" ")[0] || "Ethiora"}
                         </span>
                       </div>
 

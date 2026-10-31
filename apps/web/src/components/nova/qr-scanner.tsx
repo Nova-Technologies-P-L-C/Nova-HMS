@@ -181,7 +181,7 @@ export default function QRScanner({ onScan, className = "", autoStart = true }: 
   const handleSimulateScan = (patientId: string) => {
     const p = PATIENTS.find((pt) => pt.id === patientId) || PATIENTS[0];
     const payload = JSON.stringify({
-      system: "NOVA_HMS",
+      system: "ETHIORA_HMS",
       v: "1.0",
       id: p.healthId,
       name: p.name,

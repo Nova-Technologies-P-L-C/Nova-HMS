@@ -1784,7 +1784,7 @@ export const tenantRouter = router({
 
       const csvHeader = "dataElement,period,orgUnit,categoryOptionCombo,attributeOptionCombo,value,storedBy,timestamp\n";
       const csvRows = dhis2DataValues.map((dv) => {
-        return `${dv.dataElement},${dhis2PeriodCode},${orgUnit},${dv.categoryOptionCombo},,${dv.value},NovaHMS,${now.toISOString()}`;
+        return `${dv.dataElement},${dhis2PeriodCode},${orgUnit},${dv.categoryOptionCombo},,${dv.value},EthioraHMS,${now.toISOString()}`;
       });
       const dhis2CsvContent = csvHeader + csvRows.join("\n");
 
@@ -1869,8 +1869,8 @@ export const tenantRouter = router({
       mode: "system" as const,
       density: "standard" as const,
       radius: 8,
-      hospitalName: tenant.name || "Nova HMS",
-      logoBadge: (tenant.name || "N").slice(0, 2).toUpperCase(),
+      hospitalName: tenant.name || "Ethiora HMS",
+      logoBadge: (tenant.name || "E").slice(0, 2).toUpperCase(),
     };
 
     if (!brandingLog) {
@@ -1902,8 +1902,8 @@ export const tenantRouter = router({
         mode: z.enum(["light", "dark", "system"]).default("system"),
         density: z.enum(["compact", "standard", "comfortable"]).default("standard"),
         radius: z.number().min(0).max(32).default(8),
-        hospitalName: z.string().min(1).default("Nova HMS"),
-        logoBadge: z.string().min(1).max(10).default("N"),
+        hospitalName: z.string().min(1).default("Ethiora HMS"),
+        logoBadge: z.string().min(1).max(10).default("E"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1958,8 +1958,8 @@ export const tenantRouter = router({
       mode: "system" as const,
       density: "standard" as const,
       radius: 8,
-      hospitalName: tenant.name || "Nova HMS",
-      logoBadge: (tenant.name || "N").slice(0, 2).toUpperCase(),
+      hospitalName: tenant.name || "Ethiora HMS",
+      logoBadge: (tenant.name || "E").slice(0, 2).toUpperCase(),
     };
 
     await prisma.auditLog.create({

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PATIENTS } from "@/lib/nova-mock-data";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
 import { CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 
 const FACILITIES = [
   "Tikur Anbessa Specialized Hospital, Addis Ababa",
@@ -65,7 +66,7 @@ export default function CreateReferralPage() {
 
         <div className="flex gap-2">
           <button onClick={() => setSubmitted(true)} className={btnPrimary}>Submit referral</button>
-          <button className={btnSecondary}>Save draft</button>
+          <button onClick={() => toast.success("Referral draft saved")} className={btnSecondary}>Save draft</button>
         </div>
       </div>
     </PageShell>

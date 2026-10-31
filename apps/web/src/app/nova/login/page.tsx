@@ -93,9 +93,9 @@ export default function NovaLoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center font-bold text-white text-lg mx-auto mb-3">
-            N
+            E
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Sign in to Nova HMS</h1>
+          <h1 className="text-xl font-bold text-slate-900">Sign in to Ethiora HMS</h1>
           <p className="text-sm text-slate-500 mt-1">Enter your hospital workspace credentials</p>
         </div>
 
@@ -105,7 +105,7 @@ export default function NovaLoginPage() {
               Hospital workspace
             </label>
             <input className={cls} placeholder="dmrh" value={workspace} onChange={(e) => setWorkspace(e.target.value)} />
-            <p className="text-xs text-slate-400 mt-1">e.g. dmrh → debremarkos.novahms.et</p>
+            <p className="text-xs text-slate-400 mt-1">e.g. dmrh → debremarkos.ethiorahms.et</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Email</label>

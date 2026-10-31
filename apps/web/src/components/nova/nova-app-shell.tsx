@@ -4,6 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import NovaSidebar from "./nova-sidebar";
 import NovaTopbar from "./nova-topbar";
 
+import { useNovaSidebar } from "./nova-sidebar-context";
+
 // These paths render without sidebar/topbar
 const PUBLIC_PATHS = [
   "/nova",
@@ -23,6 +25,7 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
+  const { isMobileOpen, setIsMobileOpen } = useNovaSidebar();
 
   useEffect(() => {
     const isPublic = isPublicPath(pathname);
@@ -63,7 +66,15 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
 
   // Authenticated app pages — full shell
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 lg:hidden animate-in fade-in transition-opacity"
+          aria-hidden="true"
+        />
+      )}
       <NovaSidebar />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <NovaTopbar />

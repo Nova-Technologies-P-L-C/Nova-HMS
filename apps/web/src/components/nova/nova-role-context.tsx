@@ -19,14 +19,14 @@ const RoleContext = createContext<RoleContextValue>({
   setLang: () => {},
   userName: "",
   userInitials: "",
-  hospitalName: "Nova HMS",
+  hospitalName: "Ethiora HMS",
 });
 
 export function NovaRoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<Role>("Receptionist");
   const [lang, setLang] = useState<"en" | "am">("en");
   const [userName, setUserName] = useState("");
-  const [hospitalName, setHospitalName] = useState("Nova HMS");
+  const [hospitalName, setHospitalName] = useState("Ethiora HMS");
 
   // Load from sessionStorage on mount (set during login — per-tab, isolated)
   useEffect(() => {

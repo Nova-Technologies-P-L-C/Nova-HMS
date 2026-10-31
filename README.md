@@ -1,4 +1,4 @@
-# Nova HMS
+# Ethiora HMS
 
 A hospital management system built for Ethiopian hospitals — public and private.
 

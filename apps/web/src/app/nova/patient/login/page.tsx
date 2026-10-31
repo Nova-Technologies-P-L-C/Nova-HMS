@@ -59,10 +59,10 @@ export default function PatientLoginPage() {
       <div className="w-full max-w-md mx-auto flex items-center justify-between py-2">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center font-black text-white text-base shadow-sm">
-            N
+            E
           </div>
           <div>
-            <span className="font-extrabold text-sm text-white block leading-none">Nova HMS</span>
+            <span className="font-extrabold text-sm text-white block leading-none">Ethiora HMS</span>
             <span className="text-[10px] text-teal-300 font-medium">Debre Markos Referral Hospital</span>
           </div>
         </div>
@@ -223,7 +223,7 @@ export default function PatientLoginPage() {
 
       {/* Footer */}
       <div className="w-full max-w-md mx-auto text-center text-[11px] text-slate-500 py-2">
-        <span>Nova HMS · Patient Portal & Health ID System · Debre Markos</span>
+        <span>Ethiora HMS · Patient Portal & Health ID System · Debre Markos</span>
       </div>
     </div>
   );

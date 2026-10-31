@@ -8,10 +8,11 @@ import {
   Activity, Users, Building2, FileText, BarChart3, Settings, ClipboardList,
   Stethoscope, FlaskConical, Pill, CreditCard, ArrowLeftRight, Bed,
   Search, QrCode, Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers, Banknote,
-  Crown, Palette
+  Crown, Palette, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, X
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
 import { useNovaTheme } from "./nova-theme-context";
+import { useNovaSidebar } from "./nova-sidebar-context";
 import { type Role } from "@/lib/nova-mock-data";
 
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
@@ -157,6 +158,7 @@ const PERMISSION_NAV_MAP: {
 export default function NovaSidebar() {
   const pathname = usePathname();
   const { role } = useNovaRole();
+  const { isCollapsed, toggleCollapsed, isMobileOpen, setIsMobileOpen } = useNovaSidebar();
 
   const { data: rolePermissionsList = [] } = useQuery({
     ...trpc.tenant.rolePermissions.queryOptions(),
@@ -172,22 +174,11 @@ export default function NovaSidebar() {
     const isDoctor = role === "Doctor";
     const isNurseRole = role === "Ward Nurse" || role === "Triage Nurse" || role === "Nurse";
 
-    // For non-admin roles (clinical, pharmacy, lab, nursing, reception, or custom merged roles),
-    // dynamically include any extra activities unlocked by granted permissions.
-    // Administrators keep their dedicated, uncluttered executive navigation.
     if (!isAdmin && activeRoleRecord?.permissions) {
       const perms = new Set(activeRoleRecord.permissions);
       for (const item of PERMISSION_NAV_MAP) {
-        // Enforce strict clinical boundaries:
-        // Consultation and physician-specific clinical routes are strictly restricted to Doctors
-        if (item.doctorOnly && !isDoctor) {
-          continue;
-        }
-
-        // Nurses must never receive doctor encounter or consultation routes
-        if (isNurseRole && item.href.startsWith("/nova/doctor/")) {
-          continue;
-        }
+        if (item.doctorOnly && !isDoctor) continue;
+        if (isNurseRole && item.href.startsWith("/nova/doctor/")) continue;
 
         if (perms.has(item.permission) && !existingHrefs.has(item.href)) {
           baseNav.push({
@@ -200,7 +191,6 @@ export default function NovaSidebar() {
       }
     }
 
-    // Explicit safeguard: Ensure Consultation is NEVER in navigation for nurses or non-doctors
     if (!isDoctor && !isAdmin) {
       baseNav = baseNav.filter((n: any) => n.href !== "/nova/doctor/consultation");
     }
@@ -212,69 +202,133 @@ export default function NovaSidebar() {
     return baseNav;
   }, [role, activeRoleRecord]);
 
-  const { theme } = useNovaTheme();
-  const isWhiteSidebar = theme.sidebarTheme === "white";
+  const { theme, isDark } = useNovaTheme();
+  const isWhiteSidebar = theme.sidebarTheme === "white" && !isDark;
 
   return (
     <aside
-      className={`flex flex-col h-full w-56 shrink-0 transition-colors ${
+      className={`flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out ${
+        isCollapsed ? "w-16" : "w-60"
+      } ${
+        isMobileOpen
+          ? "fixed inset-y-0 left-0 z-50 shadow-2xl flex"
+          : "hidden lg:flex"
+      } ${
         isWhiteSidebar
           ? "bg-white text-slate-800 border-r border-slate-200"
-          : "text-slate-100 border-r border-slate-700/60"
+          : "bg-slate-900 text-slate-100 border-r border-slate-800"
       }`}
-      style={{ backgroundColor: theme.sidebarBg }}
+      style={{
+        backgroundColor: isDark && theme.sidebarTheme === "white" ? undefined : theme.sidebarBg,
+      }}
     >
-      {/* Logo */}
+      {/* ── HEADER: LOGO & COLLAPSE / EXPAND TOGGLE ── */}
       <div
-        className={`flex items-center gap-2.5 px-4 py-4 border-b ${
+        className={`flex items-center justify-between px-3 py-3.5 border-b min-h-[57px] ${
           isWhiteSidebar ? "border-slate-200" : "border-slate-700/60"
         }`}
       >
-        <div
-          className="w-7 h-7 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs"
-          style={{
-            backgroundColor: theme.primaryColor,
-            borderRadius: `${Math.min(theme.radius, 10)}px`,
-          }}
-        >
-          {theme.logoBadge || "N"}
+        <div className={`flex items-center gap-2.5 overflow-hidden ${isCollapsed ? "justify-center w-full" : ""}`}>
+          <div
+            className="w-8 h-8 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs cursor-pointer"
+            onClick={toggleCollapsed}
+            title={isCollapsed ? "Click to expand sidebar" : theme.hospitalName || "Ethiora HMS"}
+            style={{
+              backgroundColor: theme.primaryColor,
+              borderRadius: `${Math.min(theme.radius, 10)}px`,
+            }}
+          >
+            {theme.logoBadge || "E"}
+          </div>
+
+          {!isCollapsed && (
+            <span
+              className={`font-semibold tracking-wide truncate text-sm transition-opacity duration-200 ${
+                isWhiteSidebar ? "text-slate-900" : "text-white"
+              }`}
+              title={theme.hospitalName || "Ethiora HMS"}
+            >
+              {theme.hospitalName || "Ethiora HMS"}
+            </span>
+          )}
         </div>
-        <span
-          className={`font-semibold tracking-wide truncate text-sm ${
-            isWhiteSidebar ? "text-slate-900" : "text-white"
-          }`}
-          title={theme.hospitalName || "Nova HMS"}
-        >
-          {theme.hospitalName || "Nova HMS"}
-        </span>
+
+        {/* Toggle Button in Header */}
+        {!isCollapsed && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleCollapsed}
+              className={`hidden lg:flex p-1.5 rounded-lg transition-colors cursor-pointer ${
+                isWhiteSidebar
+                  ? "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                  : "text-slate-400 hover:text-white hover:bg-white/10"
+              }`}
+              title="Collapse sidebar to side icon rail"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose size={16} />
+            </button>
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
+              aria-label="Close mobile menu"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Role badge — locked to logged-in user's role */}
-      <div className="px-3 pt-3 pb-2">
-        <p className={`text-[10px] uppercase tracking-wider mb-1 font-semibold ${isWhiteSidebar ? "text-slate-400" : "text-slate-500"}`}>
-          Role
-        </p>
-        <div
-          className="px-2 py-1.5 border text-xs font-semibold"
-          style={{
-            backgroundColor: isWhiteSidebar ? `${theme.primaryColor}15` : `${theme.primaryColor}25`,
-            borderColor: `${theme.primaryColor}50`,
-            color: isWhiteSidebar ? theme.primaryColor : "#e2e8f0",
-            borderRadius: `${Math.min(theme.radius, 8)}px`,
-          }}
-        >
-          {role}
-        </div>
+      {/* ── ROLE BADGE ── */}
+      <div className={`pt-2.5 pb-2 ${isCollapsed ? "px-2 flex justify-center" : "px-3"}`}>
+        {!isCollapsed ? (
+          <div>
+            <p className={`text-[10px] uppercase tracking-wider mb-1 font-semibold ${isWhiteSidebar ? "text-slate-400" : "text-slate-500"}`}>
+              Station Role
+            </p>
+            <div
+              className="px-2.5 py-1.5 border text-xs font-semibold truncate shadow-2xs"
+              style={{
+                backgroundColor: isWhiteSidebar ? `${theme.primaryColor}15` : `${theme.primaryColor}25`,
+                borderColor: `${theme.primaryColor}50`,
+                color: isWhiteSidebar ? theme.primaryColor : "#e2e8f0",
+                borderRadius: `${Math.min(theme.radius, 8)}px`,
+              }}
+              title={role}
+            >
+              {role}
+            </div>
+          </div>
+        ) : (
+          <div className="group relative">
+            <div
+              className="w-9 h-7 flex items-center justify-center border text-[10px] font-bold cursor-default shadow-2xs"
+              style={{
+                backgroundColor: isWhiteSidebar ? `${theme.primaryColor}15` : `${theme.primaryColor}25`,
+                borderColor: `${theme.primaryColor}50`,
+                color: isWhiteSidebar ? theme.primaryColor : "#e2e8f0",
+                borderRadius: `${Math.min(theme.radius, 6)}px`,
+              }}
+            >
+              {role.slice(0, 2).toUpperCase()}
+            </div>
+            {/* Tooltip */}
+            <div className="absolute left-full ml-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 whitespace-nowrap pointer-events-none border border-slate-700">
+              Role: {role}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Role Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 pt-1">
+      {/* ── ROLE NAVIGATION LIST ── */}
+      <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5" : "px-2.5"} pt-1 space-y-0.5`}>
         {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}
               href={item.href as any}
+              onClick={() => setIsMobileOpen(false)}
               style={
                 active
                   ? {
@@ -286,7 +340,9 @@ export default function NovaSidebar() {
                       borderRadius: `${Math.min(theme.radius, 8)}px`,
                     }
               }
-              className={`flex items-center gap-2.5 px-3 py-2 text-sm mb-0.5 font-medium transition-colors ${
+              className={`group relative flex items-center ${
+                isCollapsed ? "justify-center p-2.5 mx-auto" : "gap-2.5 px-3 py-2"
+              } text-sm font-medium transition-all duration-150 ${
                 active
                   ? "shadow-xs"
                   : isWhiteSidebar
@@ -294,26 +350,40 @@ export default function NovaSidebar() {
                   : "text-slate-300 hover:bg-white/10 hover:text-white"
               }`}
             >
-              <span className={active ? "text-white" : isWhiteSidebar ? "text-slate-500" : "text-slate-400"}>
+              <span className={`shrink-0 ${active ? "text-white" : isWhiteSidebar ? "text-slate-500" : "text-slate-400"}`}>
                 {item.icon}
               </span>
-              <span className="truncate">{item.label}</span>
+
+              {!isCollapsed && <span className="truncate">{item.label}</span>}
+
+              {/* Floating Tooltip in Collapsed Mode */}
+              {isCollapsed && (
+                <div className="absolute left-full ml-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 whitespace-nowrap pointer-events-none border border-slate-700">
+                  {item.label}
+                </div>
+              )}
             </Link>
           );
         })}
 
-        {/* Shared - hidden for Organizational Admin */}
+        {/* Shared items (hidden for Org Admin) */}
         {role !== "Organizational Admin" && !pathname.startsWith("/nova/org-admin") && (
           <>
-            <p className={`text-[10px] uppercase tracking-wider px-2 py-1 mt-3 font-semibold ${isWhiteSidebar ? "text-slate-400" : "text-slate-500"}`}>
-              Shared
-            </p>
+            {!isCollapsed ? (
+              <p className={`text-[10px] uppercase tracking-wider px-2 py-1 mt-3 font-semibold ${isWhiteSidebar ? "text-slate-400" : "text-slate-500"}`}>
+                Shared
+              </p>
+            ) : (
+              <div className="w-6 h-[1px] bg-slate-700/60 my-2 mx-auto" />
+            )}
+
             {SHARED_NAV.map((item) => {
               const active = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href as any}
+                  onClick={() => setIsMobileOpen(false)}
                   style={
                     active
                       ? {
@@ -325,7 +395,9 @@ export default function NovaSidebar() {
                           borderRadius: `${Math.min(theme.radius, 8)}px`,
                         }
                   }
-                  className={`flex items-center gap-2.5 px-3 py-2 text-sm mb-0.5 font-medium transition-colors ${
+                  className={`group relative flex items-center ${
+                    isCollapsed ? "justify-center p-2.5 mx-auto" : "gap-2.5 px-3 py-2"
+                  } text-sm font-medium transition-all duration-150 ${
                     active
                       ? "shadow-xs"
                       : isWhiteSidebar
@@ -333,10 +405,17 @@ export default function NovaSidebar() {
                       : "text-slate-300 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <span className={active ? "text-white" : isWhiteSidebar ? "text-slate-500" : "text-slate-400"}>
+                  <span className={`shrink-0 ${active ? "text-white" : isWhiteSidebar ? "text-slate-500" : "text-slate-400"}`}>
                     {item.icon}
                   </span>
-                  <span className="truncate">{item.label}</span>
+
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
+
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 whitespace-nowrap pointer-events-none border border-slate-700">
+                      {item.label}
+                    </div>
+                  )}
                 </Link>
               );
             })}
@@ -344,16 +423,40 @@ export default function NovaSidebar() {
         )}
       </nav>
 
-      {/* Public pages link */}
-      <div className={`px-3 py-3 border-t ${isWhiteSidebar ? "border-slate-200" : "border-slate-700/60"}`}>
+      {/* ── FOOTER: PUBLIC PAGES & EXPAND TOGGLE IN COLLAPSED MODE ── */}
+      <div className={`p-2 border-t ${isWhiteSidebar ? "border-slate-200" : "border-slate-700/60"}`}>
+        {isCollapsed && (
+          <button
+            onClick={toggleCollapsed}
+            className={`w-full flex items-center justify-center p-2 mb-1 rounded-lg transition-colors cursor-pointer ${
+              isWhiteSidebar
+                ? "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        )}
+
         <Link
           href="/nova"
-          className={`flex items-center gap-2 text-xs transition-colors ${
-            isWhiteSidebar ? "text-slate-500 hover:text-slate-800" : "text-slate-400 hover:text-white"
+          onClick={() => setIsMobileOpen(false)}
+          className={`group relative flex items-center ${
+            isCollapsed ? "justify-center p-2" : "gap-2 px-2.5 py-1.5"
+          } text-xs transition-colors rounded-lg ${
+            isWhiteSidebar ? "text-slate-500 hover:text-slate-800 hover:bg-slate-100" : "text-slate-400 hover:text-white hover:bg-white/10"
           }`}
         >
-          <Globe size={13} />
-          Public / Marketing pages
+          <Globe size={15} className="shrink-0" />
+          {!isCollapsed && <span>Public pages</span>}
+
+          {isCollapsed && (
+            <div className="absolute left-full ml-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 whitespace-nowrap pointer-events-none border border-slate-700">
+              Public / Marketing pages
+            </div>
+          )}
         </Link>
       </div>
     </aside>

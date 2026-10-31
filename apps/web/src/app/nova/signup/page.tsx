@@ -8,9 +8,9 @@ export default function SignupPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center font-bold text-white text-lg mx-auto mb-3">N</div>
+          <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center font-bold text-white text-lg mx-auto mb-3">E</div>
           <h1 className="text-xl font-bold text-slate-900">Request a Demo</h1>
-          <p className="text-sm text-slate-500 mt-1">We'll set up a workspace and walk you through Nova HMS</p>
+          <p className="text-sm text-slate-500 mt-1">We'll set up a workspace and walk you through Ethiora HMS</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">

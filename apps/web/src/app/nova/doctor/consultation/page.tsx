@@ -1,5 +1,5 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "
 import { CheckCircle, History, Pill, FileText, FlaskConical, ArrowRight, Stethoscope, Bed, ShieldAlert } from "lucide-react";
 import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
 import { useNovaRole } from "@/components/nova/nova-role-context";
+import { toast } from "sonner";
 
 function ConsultationContent() {
   const router = useRouter();
@@ -31,6 +32,22 @@ function ConsultationContent() {
   const [planLab, setPlanLab] = useState(false);
   const [planRefer, setPlanRefer] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  // Pre-fill existing draft notes and diagnosis if returning to a visit
+  useEffect(() => {
+    if (!visit) return;
+    const latestNote = visit.notes?.[0];
+    const latestDiag = visit.diagnoses?.[0];
+    if (latestNote) {
+      if (latestNote.chiefComplaint) setComplaint(latestNote.chiefComplaint);
+      if (latestNote.examination) setNotes(latestNote.examination);
+    }
+    if (latestDiag) {
+      if (latestDiag.icdCode) setIcd(latestDiag.icdCode);
+      if (latestDiag.description) setDiagnosis(latestDiag.description);
+    }
+  }, [visit]);
 
   const addNote = useMutation(trpc.visit.addNote.mutationOptions());
   const addDiagnosis = useMutation(trpc.visit.addDiagnosis.mutationOptions());
@@ -44,17 +61,43 @@ function ConsultationContent() {
 
   const handleSaveAndTransfer = async () => {
     if (!visitId) return;
-    await addNote.mutateAsync({ visitId, noteType: "consultation", chiefComplaint: complaint, examination: notes, assessment: diagnosis, plan: "" });
-    await addDiagnosis.mutateAsync({ visitId, icdCode: icd, description: diagnosis, notes });
-    await transferToBilling.mutateAsync({ visitId });
-    setSaved(true);
+    try {
+      await addNote.mutateAsync({ visitId, noteType: "consultation", chiefComplaint: complaint, examination: notes, assessment: diagnosis, plan: "" });
+      await addDiagnosis.mutateAsync({ visitId, icdCode: icd, description: diagnosis, notes });
+      await transferToBilling.mutateAsync({ visitId });
+      setSaved(true);
+    } catch {
+      toast.error("Failed to complete consultation and transfer to billing");
+    }
   };
 
   const handleSaveDraft = async () => {
     if (!visitId) return;
-    await addNote.mutateAsync({ visitId, noteType: "consultation", chiefComplaint: complaint, examination: notes, assessment: diagnosis, plan: "" });
-    await addDiagnosis.mutateAsync({ visitId, icdCode: icd, description: diagnosis, notes });
-    setSaved(true);
+    try {
+      setSavingDraft(true);
+      await addNote.mutateAsync({
+        visitId,
+        noteType: "consultation",
+        chiefComplaint: complaint,
+        examination: notes,
+        assessment: diagnosis,
+        plan: "",
+      });
+      await addDiagnosis.mutateAsync({
+        visitId,
+        icdCode: icd,
+        description: diagnosis,
+        notes,
+      });
+      queryClient.invalidateQueries({ queryKey: trpc.visit.get.queryKey({ visitId }) });
+      toast.success("Consultation draft saved", {
+        description: "Notes and diagnosis saved to record. Patient remains in your consultation queue.",
+      });
+    } catch {
+      toast.error("Failed to save draft");
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
   const handleSelectDiagnosis = (d: { icdCode: string; description: string; notes?: string }) => {
@@ -254,8 +297,8 @@ function ConsultationContent() {
             <button onClick={handleSaveAndTransfer} disabled={!visitId || isLoading} className={`${btnPrimary} ${(!visitId || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
               {isLoading ? "Saving & Transferring…" : "✓ Complete & Transfer to Billing →"}
             </button>
-            <button onClick={handleSaveDraft} disabled={!visitId || isLoading} className={btnSecondary}>
-              Save draft
+            <button onClick={handleSaveDraft} disabled={!visitId || isLoading || savingDraft} className={btnSecondary}>
+              {savingDraft ? "Saving draft…" : "Save draft"}
             </button>
           </div>
         </div>

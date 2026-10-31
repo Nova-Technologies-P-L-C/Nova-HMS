@@ -233,7 +233,7 @@ export default function HospitalTariffsPage() {
   return (
     <PageShell
       title="Hospital Service Tariffs & Prices"
-      subtitle="Configure, audit, and edit pricing for all clinical processes, diagnostics, consultations, beds, and drugs across Nova HMS."
+      subtitle="Configure, audit, and edit pricing for all clinical processes, diagnostics, consultations, beds, and drugs across Ethiora HMS."
     >
       {/* Top Banner & Alert Messages */}
       {errorMessage && (

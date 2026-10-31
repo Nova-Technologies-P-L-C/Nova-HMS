@@ -67,11 +67,11 @@ function PatientLayoutInner({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-20">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-teal-500 flex items-center justify-center font-black text-white text-xs shrink-0 shadow-xs">
-              N
+              E
             </div>
             <div className="min-w-0">
               <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block leading-tight">
-                Nova HMS
+                Ethiora HMS
               </span>
               <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium truncate block">
                 {patient?.name}

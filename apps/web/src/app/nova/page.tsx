@@ -1,6 +1,6 @@
 "use client";
 
-// Nova HMS — Modern Hospital Management System & ERP Solution
+// Ethiora HMS — Modern Hospital Management System & ERP Solution
 // UI/UX Concept inspired by 2026 Medical ERP Design System
 import { useState } from "react";
 import Link from "next/link";
@@ -161,7 +161,7 @@ const DEMO_STATIONS = [
 
 export default function NovaLandingPage() {
   const [activeTab, setActiveTab] = useState<DemoTab>("dashboard");
-  const { theme, setMode } = useNovaTheme();
+  const { theme, setMode, isDark } = useNovaTheme();
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F17] text-[#2C3137] dark:text-slate-100 font-[family-name:var(--font-urbanist),sans-serif] selection:bg-[#6AB8FF]/20 selection:text-[#6AB8FF]">
@@ -177,7 +177,7 @@ export default function NovaLandingPage() {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg tracking-tight text-[#2C3137] dark:text-white">NOVA HMS</span>
+                <span className="font-bold text-lg tracking-tight text-[#2C3137] dark:text-white">ETHIORA HMS</span>
                 <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-[#6AB8FF]/15 text-[#6AB8FF] border border-[#6AB8FF]/30">ERP</span>
               </div>
               <p className="text-[10px] text-[#7C7C7C] dark:text-slate-400 font-medium tracking-wide">Hospital & Lab Platform</p>
@@ -207,12 +207,12 @@ export default function NovaLandingPage() {
           <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Theme Mode Toggle (Sun/Moon) */}
             <button
-              onClick={() => setMode(theme?.mode === "dark" ? "light" : "dark")}
-              title={theme?.mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              onClick={() => setMode(isDark ? "light" : "dark")}
+              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
               aria-label="Toggle light and dark theme"
               className="w-8 h-8 rounded-full border border-[#DAE3EE] dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center text-[#2C3137] dark:text-slate-200 hover:border-[#6AB8FF] hover:text-[#6AB8FF] transition-all shadow-2xs group cursor-pointer"
             >
-              {theme?.mode === "dark" ? (
+              {isDark ? (
                 <Sun size={15} className="text-amber-400 group-hover:rotate-45 transition-transform" />
               ) : (
                 <Moon size={15} className="text-[#6AB8FF] group-hover:-rotate-12 transition-transform" />
@@ -278,7 +278,7 @@ export default function NovaLandingPage() {
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg text-[#7C7C7C] dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Eliminate paper queues and fragmented records. Nova HMS unites outpatient queuing, longitudinal EMR, 5-step diagnostic laboratory workflows, and CBHI settlement into a clean, modern interface.
+            Eliminate paper queues and fragmented records. Ethiora HMS unites outpatient queuing, longitudinal EMR, 5-step diagnostic laboratory workflows, and CBHI settlement into a clean, modern interface.
           </p>
 
           {/* Primary Action Buttons */}
@@ -374,7 +374,7 @@ export default function NovaLandingPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block" />
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
-              <span className="ml-2 font-mono text-[10px] text-slate-400">Nova HMS · Clinical Workstation v3.8</span>
+              <span className="ml-2 font-mono text-[10px] text-slate-400">Ethiora HMS · Clinical Workstation v3.8</span>
             </div>
             <div className="flex items-center gap-3 text-[11px]">
               <span className="flex items-center gap-1 text-emerald-400 font-semibold">
@@ -1016,7 +1016,7 @@ export default function NovaLandingPage() {
               Ready to modernise your hospital?
             </h2>
             <p className="text-sm text-white/90 leading-relaxed">
-              Nova HMS is built specifically for public and private facilities in Ethiopia. Predictable monthly pricing with zero USD fees, local hardware compatibility, and comprehensive staff onboarding.
+              Ethiora HMS is built specifically for public and private facilities in Ethiopia. Predictable monthly pricing with zero USD fees, local hardware compatibility, and comprehensive staff onboarding.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Link
@@ -1041,9 +1041,9 @@ export default function NovaLandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-[#6AB8FF] to-[#CFA3F6] flex items-center justify-center text-white text-[10px] font-bold">
-              N
+              E
             </div>
-            <span>© 2026 Nova Technologies · Hospital Management System</span>
+            <span>© 2026 Ethiora HMS · Hospital Management System</span>
           </div>
           <div className="flex items-center gap-5">
             <Link href="/nova/patient" className="hover:text-[#6AB8FF] transition-colors">Patient Portal</Link>

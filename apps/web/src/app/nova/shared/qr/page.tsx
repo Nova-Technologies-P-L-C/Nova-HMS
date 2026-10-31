@@ -186,7 +186,7 @@ export default function QRPage() {
               <ShieldCheck size={16} className="text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold block">Fully Scannable Worldwide</span>
-                Point any smartphone camera, barcode scanner, or the Nova HMS scanner at this QR code to verify this patient instantly.
+                Point any smartphone camera, barcode scanner, or the Ethiora HMS scanner at this QR code to verify this patient instantly.
               </div>
             </div>
           </div>

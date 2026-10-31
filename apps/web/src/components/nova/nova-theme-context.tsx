@@ -162,6 +162,8 @@ export const DEFAULT_THEME: NovaThemeConfig = {
 
 interface NovaThemeContextValue {
   theme: NovaThemeConfig;
+  isDark: boolean;
+  resolvedMode: "light" | "dark";
   updateThemeLocally: (partial: Partial<NovaThemeConfig>) => void;
   applyPreset: (presetId: string) => void;
   setMode: (mode: "light" | "dark" | "system") => void;
@@ -175,6 +177,8 @@ interface NovaThemeContextValue {
 
 const NovaThemeContext = createContext<NovaThemeContextValue>({
   theme: DEFAULT_THEME,
+  isDark: false,
+  resolvedMode: "light",
   updateThemeLocally: () => {},
   applyPreset: () => {},
   setMode: () => {},
@@ -187,6 +191,15 @@ const NovaThemeContext = createContext<NovaThemeContextValue>({
 });
 
 const STORAGE_KEY = "nova_theme_config";
+const USER_MODE_KEY = "nova_user_mode";
+
+export function computeIsDark(mode: "light" | "dark" | "system"): boolean {
+  if (typeof window === "undefined") return false;
+  if (mode === "dark") return true;
+  if (mode === "light") return false;
+  const mediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  return mediaQuery ? mediaQuery.matches : false;
+}
 
 function hexToRgba(hex: string, alpha: number) {
   let clean = hex.replace("#", "");
@@ -232,20 +245,25 @@ export function applyDomTheme(config: NovaThemeConfig) {
 export function NovaThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme: nextTheme, setTheme: setNextTheme } = useNextTheme();
   const [theme, setThemeState] = useState<NovaThemeConfig>(DEFAULT_THEME);
+  const [isDark, setIsDark] = useState<boolean>(() => computeIsDark(DEFAULT_THEME.mode));
   const [mounted, setMounted] = useState(false);
 
-  // 1. Initialize from localStorage on mount
+  // 1. Initialize from localStorage on mount (respecting explicit user mode)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+      const userSavedMode = localStorage.getItem(USER_MODE_KEY) as "light" | "dark" | "system" | null;
+      let effectiveTheme = DEFAULT_THEME;
       if (stored) {
         const parsed = JSON.parse(stored) as NovaThemeConfig;
-        const merged = { ...DEFAULT_THEME, ...parsed };
-        setThemeState(merged);
-        applyDomTheme(merged);
-      } else {
-        applyDomTheme(DEFAULT_THEME);
+        effectiveTheme = { ...DEFAULT_THEME, ...parsed };
       }
+      if (userSavedMode) {
+        effectiveTheme.mode = userSavedMode;
+      }
+      setThemeState(effectiveTheme);
+      setIsDark(computeIsDark(effectiveTheme.mode));
+      applyDomTheme(effectiveTheme);
     } catch {
       applyDomTheme(DEFAULT_THEME);
     }
@@ -255,6 +273,8 @@ export function NovaThemeProvider({ children }: { children: React.ReactNode }) {
   // 2. Safely sync DOM, localStorage and next-themes post-render
   useEffect(() => {
     if (!mounted) return;
+    const darkNow = computeIsDark(theme.mode);
+    setIsDark(darkNow);
     applyDomTheme(theme);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(theme));
@@ -273,6 +293,7 @@ export function NovaThemeProvider({ children }: { children: React.ReactNode }) {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
       if (theme.mode === "system") {
+        setIsDark(mediaQuery.matches);
         applyDomTheme(theme);
       }
     };
@@ -287,17 +308,21 @@ export function NovaThemeProvider({ children }: { children: React.ReactNode }) {
     retry: false,
   });
 
-  // 5. Sync with remote data when loaded (pure functional updater with zero side effects)
+  // 5. Sync with remote data when loaded, without stomping the user's explicit local mode
   useEffect(() => {
     if (remoteBranding && mounted) {
       const rb = remoteBranding as any;
-      setThemeState((prev) => ({
-        ...prev,
-        ...rb,
-        mode: (rb.mode as "light" | "dark" | "system") || prev.mode,
-        density: (rb.density as UiDensity) || prev.density,
-        sidebarTheme: (rb.sidebarTheme as SidebarThemeId) || prev.sidebarTheme,
-      }));
+      setThemeState((prev) => {
+        const userSavedMode = typeof window !== "undefined" ? localStorage.getItem(USER_MODE_KEY) : null;
+        const effectiveMode = (userSavedMode as "light" | "dark" | "system") || (rb.mode as "light" | "dark" | "system") || prev.mode;
+        return {
+          ...prev,
+          ...rb,
+          mode: effectiveMode,
+          density: (rb.density as UiDensity) || prev.density,
+          sidebarTheme: (rb.sidebarTheme as SidebarThemeId) || prev.sidebarTheme,
+        };
+      });
     }
   }, [remoteBranding, mounted]);
 
@@ -329,6 +354,7 @@ export function NovaThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setMode = useCallback((mode: "light" | "dark" | "system") => {
     try {
+      localStorage.setItem(USER_MODE_KEY, mode);
       setNextTheme(mode);
     } catch {}
     updateThemeLocally({ mode });
@@ -359,6 +385,7 @@ export function NovaThemeProvider({ children }: { children: React.ReactNode }) {
 
   const resetTheme = useCallback(() => {
     try {
+      localStorage.removeItem(USER_MODE_KEY);
       setNextTheme("system");
     } catch {}
     setThemeState(DEFAULT_THEME);
@@ -372,6 +399,8 @@ export function NovaThemeProvider({ children }: { children: React.ReactNode }) {
     <NovaThemeContext.Provider
       value={{
         theme,
+        isDark,
+        resolvedMode: isDark ? "dark" : "light",
         updateThemeLocally,
         applyPreset,
         setMode,

@@ -12,33 +12,52 @@ function VitalsContent() {
   const params = useSearchParams();
   const visitIdParam = params.get("visitId") ?? "";
 
+  const [selectedVisitId, setSelectedVisitId] = useState(visitIdParam);
+  const [vitals, setVitals] = useState({
+    bpSystolic: "130",
+    bpDiastolic: "85",
+    heartRate: "88",
+    temperature: "37.2",
+    spo2: "97",
+    weight: "72",
+    height: "175",
+  });
+  const [urgency, setUrgency] = useState<"normal" | "urgent">("normal");
+  const [saved, setSaved] = useState(false);
+  const [filterNurse, setFilterNurse] = useState<string>("all");
+
   const { data: queue = [], refetch: refetchQueue } = useQuery({
     ...trpc.visit.queue.queryOptions(),
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
-  const [selectedVisitId, setSelectedVisitId] = useState(visitIdParam);
 
-  // Only auto-select if visitId was passed explicitly in URL
-  const activeTicket = queue.find((q) => q.visitId === selectedVisitId);
   const visitId = selectedVisitId;
-
-  const waitingPatients = queue.filter((q) => q.status === "waiting" || q.status === "urgent");
 
   const { data: visit } = useQuery({
     ...trpc.visit.get.queryOptions({ visitId }),
     enabled: !!visitId,
   });
 
-  const [vitals, setVitals] = useState({ bpSystolic: "130", bpDiastolic: "85", heartRate: "88", temperature: "37.2", spo2: "97", weight: "72", height: "175" });
-  const [urgency, setUrgency] = useState<"normal" | "urgent">("normal");
-  const [saved, setSaved] = useState(false);
+  const { data: nurses = [] } = useQuery(trpc.ward.nurses.queryOptions());
 
   const recordVitals = useMutation(trpc.visit.recordVitals.mutationOptions());
   const updateStatus = useMutation({
     ...trpc.visit.updateTicketStatus.mutationOptions(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() }),
   });
+
+  const assignTicketNurse = useMutation({
+    ...trpc.ward.assignNurseToTicket.mutationOptions(),
+    onSuccess: () => {
+      refetchQueue();
+    },
+  });
+
+  // Derived state
+  const activeTicket = queue.find((q) => q.visitId === selectedVisitId);
+  const waitingPatients = queue.filter((q) => q.status === "waiting" || q.status === "urgent");
+  const isLoading = recordVitals.isPending || updateStatus.isPending;
 
   const handleSave = async () => {
     if (!visitId || !activeTicket) return;
@@ -58,8 +77,6 @@ function VitalsContent() {
     });
     setSaved(true);
   };
-
-  const isLoading = recordVitals.isPending || updateStatus.isPending;
 
   if (saved && activeTicket) {
     return (
@@ -83,16 +100,6 @@ function VitalsContent() {
       </PageShell>
     );
   }
-
-  const { data: nurses = [] } = useQuery(trpc.ward.nurses.queryOptions());
-  const [filterNurse, setFilterNurse] = useState<string>("all");
-
-  const assignTicketNurse = useMutation({
-    ...trpc.ward.assignNurseToTicket.mutationOptions(),
-    onSuccess: () => {
-      refetchQueue();
-    },
-  });
 
   const displayedPatients = waitingPatients.filter((q) => {
     if (filterNurse === "all") return true;

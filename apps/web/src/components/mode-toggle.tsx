@@ -20,6 +20,7 @@ export function ModeToggle({ className }: { className?: string }) {
 
   const handleSelect = (mode: "light" | "dark" | "system") => {
     try {
+      setNextTheme(mode);
       setMode(mode);
     } catch {}
   };

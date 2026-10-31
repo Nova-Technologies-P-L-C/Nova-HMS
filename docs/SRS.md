@@ -1,9 +1,9 @@
 # Software Requirements Specification (SRS)
-# Nova HMS — Hospital Management System
+# Ethiora HMS — Hospital Management System
 **Version:** 1.0  
 **Date:** September 2026  
 **Status:** Draft  
-**Prepared by:** Nova HMS Engineering Team  
+**Prepared by:** Ethiora HMS Engineering Team  
 
 ---
 
@@ -47,7 +47,7 @@ Ethiopian hospitals — public referral centres, general hospitals, university h
 
 ### 1.2 Proposed Solution
 
-Nova HMS is a multi-tenant, role-based, offline-capable Hospital Management System built specifically for the Ethiopian clinical and regulatory context. It replaces paper workflows with a unified digital platform that connects every department — from reception to pharmacy to finance — in a single system.
+Ethiora HMS is a multi-tenant, role-based, offline-capable Hospital Management System built specifically for the Ethiopian clinical and regulatory context. It replaces paper workflows with a unified digital platform that connects every department — from reception to pharmacy to finance — in a single system.
 
 Key design decisions:
 - **Multi-tenant SaaS:** Each hospital gets an isolated workspace (tenant) on a shared infrastructure, reducing per-facility cost while maintaining data separation
@@ -142,7 +142,7 @@ Key design decisions:
 
 ### 2.1 System Description
 
-Nova HMS is a web-based, multi-tenant Hospital Management System delivered as Software-as-a-Service (SaaS). Each subscribing hospital receives an isolated tenant workspace accessible at a subdomain (e.g., `debremarkos.novahms.et`). All tenants share the same application infrastructure but have complete data isolation enforced at the database query level via a `tenantId` on every data entity.
+Ethiora HMS is a web-based, multi-tenant Hospital Management System delivered as Software-as-a-Service (SaaS). Each subscribing hospital receives an isolated tenant workspace accessible at a subdomain (e.g., `debremarkos.ethiorahms.et`). All tenants share the same application infrastructure but have complete data isolation enforced at the database query level via a `tenantId` on every data entity.
 
 The system is built on a modern TypeScript full-stack architecture:
 - **Frontend:** Next.js 15 (App Router) with React, Tailwind CSS, deployed on Vercel
@@ -157,7 +157,7 @@ The system operates in two modes:
 
 ### 2.2 System Scope
 
-Nova HMS covers the full patient journey within a hospital facility:
+Ethiora HMS covers the full patient journey within a hospital facility:
 
 ```
 Patient arrives → Registration → OPD Queue → Triage (Nurse) → 
@@ -1692,13 +1692,13 @@ Landing (/nova) → Patient portal link
 
 | Version | Date | Author | Changes |
 |---|---|---|---|
-| 0.1 | Aug 2026 | Nova HMS Engineering | Initial draft — frontend prototype scope |
-| 1.0 | Sep 2026 | Nova HMS Engineering | Full SRS — all 7 sections, complete schema, security requirements |
+| 0.1 | Aug 2026 | Ethiora HMS Engineering | Initial draft — frontend prototype scope |
+| 1.0 | Sep 2026 | Ethiora HMS Engineering | Full SRS — all 7 sections, complete schema, security requirements |
 
 **Next review date:** December 2026  
-**Document owner:** Nova HMS Engineering Team  
-**Contact:** hello@novahms.et
+**Document owner:** Ethiora HMS Engineering Team  
+**Contact:** hello@ethiorahms.et
 
 ---
 
-*This document describes the intended system design for Nova HMS v1.0. Requirements marked as "v2" or "future" are noted in the relevant sections and are not binding for the initial release.*
+*This document describes the intended system design for Ethiora HMS v1.0. Requirements marked as "v2" or "future" are noted in the relevant sections and are not binding for the initial release.*

@@ -72,8 +72,8 @@ export default function PricingPage() {
     <div className="overflow-y-auto h-full bg-slate-50">
       <nav className="flex items-center justify-between px-8 py-4 border-b border-slate-100 bg-white">
         <Link href="/nova" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-teal-500 flex items-center justify-center font-bold text-white text-sm">N</div>
-          <span className="font-semibold text-slate-900">Nova HMS</span>
+          <div className="w-7 h-7 rounded bg-teal-500 flex items-center justify-center font-bold text-white text-sm">E</div>
+          <span className="font-semibold text-slate-900">Ethiora HMS</span>
         </Link>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/nova/login" className="text-slate-600 hover:text-teal-600">Log in</Link>

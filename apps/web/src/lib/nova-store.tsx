@@ -1,6 +1,6 @@
 "use client";
 /**
- * Nova HMS — Patient Flow Store
+ * Ethiora HMS — Patient Flow Store
  * Single source of truth for the entire patient journey prototype.
  * All pages read/write here instead of calling trpc or hardcoding mock data.
  */

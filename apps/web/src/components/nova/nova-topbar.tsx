@@ -16,9 +16,12 @@ import {
   Bed,
   Shield,
   Crown,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
 import { useNovaTheme } from "./nova-theme-context";
+import { useNovaSidebar } from "./nova-sidebar-context";
 import { type Role } from "@/lib/nova-mock-data";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useState } from "react";
@@ -99,6 +102,7 @@ const ROLE_CONFIG: Record<
 export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
   const { role, lang, setLang, userName, userInitials, hospitalName } = useNovaRole();
   const { theme } = useNovaTheme();
+  const { isCollapsed, toggleCollapsed, toggleMobile } = useNovaSidebar();
   const [showOffline, setShowOffline] = useState(offline);
   const router = useRouter();
 
@@ -132,11 +136,29 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
           </button>
         </div>
       )}
-      <header className="flex items-center justify-between px-5 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
-        <div className="text-sm text-slate-500 dark:text-slate-400">
-          <span className="text-slate-400 dark:text-slate-500">Nova HMS</span>
-          <span className="mx-1 text-slate-300 dark:text-slate-600">/</span>
-          <span className="text-slate-700 dark:text-slate-200 font-medium">{theme.hospitalName || hospitalName}</span>
+      <header className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
+        <div className="flex items-center gap-3">
+          {/* Side-by-side open / close toggle */}
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                toggleMobile();
+              } else {
+                toggleCollapsed();
+              }
+            }}
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer flex items-center justify-center"
+            title={isCollapsed ? "Expand sidebar (Open)" : "Collapse sidebar (Close)"}
+            aria-label="Toggle navigation sidebar"
+          >
+            {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+
+          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center">
+            <span className="text-slate-400 dark:text-slate-500">Ethiora HMS</span>
+            <span className="mx-1.5 text-slate-300 dark:text-slate-600">/</span>
+            <span className="text-slate-700 dark:text-slate-200 font-medium">{theme.hospitalName || hospitalName}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2.5">

@@ -25,7 +25,7 @@ export default function ResultsPage() {
   return (
     <div className="p-4">
       <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">{t("Lab results", "የላቦ ውጤቶች")}</h1>
-      <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">{t("Your test results from Nova HMS", "ከኖቫ ኤችኤምኤስ የሙከራ ውጤቶችዎ")}</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">{t("Your test results from Ethiora HMS", "ከኢትዮራ ኤችኤምኤስ የሙከራ ውጤቶችዎ")}</p>
 
       <div className="space-y-4">
         {LAB_RESULTS.map((result) => (

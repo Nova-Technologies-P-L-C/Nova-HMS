@@ -83,7 +83,7 @@ export default function EmptyStatesPage() {
           <Card className="p-12 text-center">
             <WifiOff size={48} className="text-amber-400 mx-auto mb-4" />
             <p className="font-semibold text-slate-700 text-lg mb-1">No connection</p>
-            <p className="text-sm text-slate-400 mb-2">You're currently offline. Nova HMS is saving your work locally.</p>
+            <p className="text-sm text-slate-400 mb-2">You're currently offline. Ethiora HMS is saving your work locally.</p>
             <p className="text-sm text-slate-400 mb-6">OPD queue, vitals entry, and nursing notes work without a connection. Billing and lab results require connectivity.</p>
             <div className="flex gap-2 justify-center">
               <button className="px-5 py-2 border border-slate-200 text-slate-600 text-sm rounded hover:bg-slate-50 transition-colors">Retry connection</button>

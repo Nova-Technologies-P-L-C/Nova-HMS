@@ -7,7 +7,7 @@ const adapter = new PrismaLibSql({ url: DB_PATH });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Seeding Nova HMS database...");
+  console.log("Seeding Ethiora HMS database...");
 
   const tenant = await prisma.tenant.upsert({
     where: { slug: "dmrh" },

@@ -17,7 +17,7 @@ export default function IDCardPage() {
 
   const handleShare = async () => {
     const shareData = {
-      title: `Nova HMS Health ID — ${PATIENT.name}`,
+      title: `Ethiora HMS Health ID — ${PATIENT.name}`,
       text: `Patient Health ID: ${PATIENT.healthId} (${PATIENT.name}) at Debre Markos Referral Hospital`,
       url: window.location.href,
     };
@@ -29,7 +29,7 @@ export default function IDCardPage() {
         // User cancelled share
       }
     } else {
-      navigator.clipboard.writeText(`${PATIENT.healthId} — ${PATIENT.name} (Nova HMS)`);
+      navigator.clipboard.writeText(`${PATIENT.healthId} — ${PATIENT.name} (Ethiora HMS)`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -60,10 +60,10 @@ export default function IDCardPage() {
         <div className="flex items-center justify-between mb-5 relative z-10">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center font-black text-white text-base shadow-sm">
-              N
+              E
             </div>
             <div>
-              <p className="font-bold text-sm text-white">Nova HMS</p>
+              <p className="font-bold text-sm text-white">Ethiora HMS</p>
               <p className="text-[11px] text-teal-200">Debre Markos Referral Hospital</p>
             </div>
           </div>

@@ -3,9 +3,13 @@ import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell, KpiCard, Card, StatusBadge } from "@/components/nova/nova-ui";
-import { ArrowRight, Lock, ShieldCheck } from "lucide-react";
+import { ArrowRight, Lock, ShieldCheck, UserCheck, Coffee, LogOut, CheckCircle2, DoorOpen, Clock } from "lucide-react";
+import { useNovaRole } from "@/components/nova/nova-role-context";
+import { toast } from "sonner";
 
 export default function DoctorDashboard() {
+  const { userName } = useNovaRole();
+
   const { data: queue = [], refetch } = useQuery({
     ...trpc.visit.queue.queryOptions(),
     refetchInterval: 15_000,
@@ -23,84 +27,194 @@ export default function DoctorDashboard() {
   const beingSeen = active.filter((q) => q.status === "being-seen").length;
 
   const { data: presenceData } = useQuery(trpc.doctor.listPresence.queryOptions());
+
+  // Match current logged in doctor or default to first record
+  const myDoctorRecord =
+    (presenceData?.roster || []).find((d: any) =>
+      userName ? d.name.toLowerCase().includes(userName.toLowerCase().replace("dr.", "").trim()) : false
+    ) || presenceData?.roster?.[0];
+
   const updateDoctorStatus = useMutation({
     ...trpc.doctor.updateStatus.mutationOptions(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.doctor.listPresence.queryKey() }),
   });
 
-  const myDoctorRecord = presenceData?.roster?.[0]; // Current doctor presence
+  const checkInMutation = useMutation({
+    ...trpc.doctor.checkIn.mutationOptions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: trpc.doctor.listPresence.queryKey() });
+      toast.success("Clocked in for today's clinical duty. Station marked Available.");
+    },
+  });
+
+  const checkOutMutation = useMutation({
+    ...trpc.doctor.checkOut.mutationOptions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: trpc.doctor.listPresence.queryKey() });
+      toast.info("Clocked out. Shift marked complete.");
+    },
+  });
+
+  const isOffDuty = !myDoctorRecord || myDoctorRecord.status === "off-duty" || myDoctorRecord.status === "expected";
+  const isOnBreak = myDoctorRecord?.status === "on-break";
+
+  const handleClockIn = () => {
+    if (!myDoctorRecord) return;
+    checkInMutation.mutate({
+      doctorId: myDoctorRecord.userId || myDoctorRecord.id,
+      roomNumber: myDoctorRecord.roomNumber,
+      method: "self_checkin",
+    });
+  };
+
+  const handleClockOut = () => {
+    if (!myDoctorRecord) return;
+    checkOutMutation.mutate({
+      doctorId: myDoctorRecord.userId || myDoctorRecord.id,
+      method: "self_checkin",
+    });
+  };
+
+  const handleSetAvailable = () => {
+    if (!myDoctorRecord) return;
+    updateDoctorStatus.mutate({
+      doctorId: myDoctorRecord.userId || myDoctorRecord.id,
+      status: "available",
+      method: "self_checkin",
+    });
+    toast.success("Marked Available at desk — ready for next patient");
+  };
+
+  const handleSetBreak = () => {
+    if (!myDoctorRecord) return;
+    updateDoctorStatus.mutate({
+      doctorId: myDoctorRecord.userId || myDoctorRecord.id,
+      status: "on-break",
+      breakNote: "Ward Rounds / Clinical Break",
+      method: "self_checkin",
+    });
+    toast.info("Marked Stepped Out (Ward Rounds / Break)");
+  };
 
   return (
-    <PageShell title="Doctor Dashboard" subtitle="Today's patient queue">
-      {/* Live Doctor Station Presence Widget */}
-      <div className="mb-5 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center justify-center font-bold text-xs shrink-0">
+    <PageShell title="Doctor Dashboard" subtitle="Today's patient queue and clinical station">
+      {/* Personal Doctor Station & Attendance Widget */}
+      <div className="mb-5 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
             MD
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 {myDoctorRecord?.name || "Attending Physician"}
               </span>
+
+              {/* Status Badge */}
               <span
-                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
                   myDoctorRecord?.status === "available"
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200"
                     : myDoctorRecord?.status === "in-consultation"
-                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200"
                     : myDoctorRecord?.status === "on-break"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200"
+                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200"
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                {myDoctorRecord?.status?.toUpperCase() || "AVAILABLE"}
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    myDoctorRecord?.status === "available"
+                      ? "bg-emerald-500 animate-pulse"
+                      : myDoctorRecord?.status === "in-consultation"
+                      ? "bg-blue-500"
+                      : myDoctorRecord?.status === "on-break"
+                      ? "bg-amber-500"
+                      : "bg-slate-400"
+                  }`}
+                />
+                {myDoctorRecord?.status === "available"
+                  ? "READY AT DESK"
+                  : myDoctorRecord?.status === "in-consultation"
+                  ? "IN CONSULTATION"
+                  : myDoctorRecord?.status === "on-break"
+                  ? "ON BREAK / ROUNDS"
+                  : "OFF DUTY"}
+              </span>
+
+              {myDoctorRecord?.checkInTime && !isOffDuty && (
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  ✓ Clocked in at {myDoctorRecord.checkInTime}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+              <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
+                <DoorOpen size={13} className="text-teal-600" />
+                {myDoctorRecord?.roomNumber || "Room 104 — Internal Medicine"}
+              </span>
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                <Clock size={12} className="text-slate-400" />
+                Shift: {myDoctorRecord?.shift?.start || "08:00 AM"} – {myDoctorRecord?.shift?.end || "04:30 PM"}
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Assigned: <strong>{myDoctorRecord?.roomNumber || "Room 102 — General OPD"}</strong> · Shift:{" "}
-              {myDoctorRecord?.shift?.start || "08:00 AM"} – {myDoctorRecord?.shift?.end || "04:30 PM"} · Reception Synced
-            </p>
           </div>
         </div>
 
+        {/* Doctor Personal Attendance & Status Controls */}
         <div className="flex items-center gap-2">
-          {myDoctorRecord?.status === "on-break" ? (
+          {isOffDuty ? (
             <button
-              onClick={() =>
-                updateDoctorStatus.mutate({
-                  doctorId: myDoctorRecord.userId || myDoctorRecord.id,
-                  status: "available",
-                  method: "self_checkin",
-                })
-              }
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs"
+              onClick={handleClockIn}
+              disabled={checkInMutation.isPending}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
             >
-              Back in Room (Ready)
+              <UserCheck size={14} />
+              <span>Clock In for Duty</span>
             </button>
+          ) : isOnBreak ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSetAvailable}
+                disabled={updateDoctorStatus.isPending}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+              >
+                <CheckCircle2 size={13} />
+                <span>Back at Desk (Ready)</span>
+              </button>
+              <button
+                onClick={handleClockOut}
+                disabled={checkOutMutation.isPending}
+                className="px-3 py-1.5 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg border border-slate-200 dark:border-slate-700 transition flex items-center gap-1"
+                title="Clock out and end shift"
+              >
+                <LogOut size={12} />
+                <span>End Shift</span>
+              </button>
+            </div>
           ) : (
-            <button
-              onClick={() =>
-                updateDoctorStatus.mutate({
-                  doctorId: myDoctorRecord?.userId || myDoctorRecord?.id || "doc-1",
-                  status: "on-break",
-                  breakNote: "Ward Rounds / Clinical Break",
-                  method: "self_checkin",
-                })
-              }
-              className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold transition"
-            >
-              Step Out (Ward Rounds / Break)
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSetBreak}
+                disabled={updateDoctorStatus.isPending}
+                className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs"
+              >
+                <Coffee size={13} />
+                <span>Step Out (Rounds / Break)</span>
+              </button>
+              <button
+                onClick={handleClockOut}
+                disabled={checkOutMutation.isPending}
+                className="px-3 py-1.5 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg border border-slate-200 dark:border-slate-700 transition flex items-center gap-1"
+                title="Clock out and end shift"
+              >
+                <LogOut size={12} />
+                <span>End Shift</span>
+              </button>
+            </div>
           )}
-
-          <Link
-            href={"/nova/reception/doctors" as any}
-            className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold hover:border-teal-400 transition"
-          >
-            Full Clinic Roster Board →
-          </Link>
         </div>
       </div>
 

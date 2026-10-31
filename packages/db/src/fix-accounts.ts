@@ -5,7 +5,7 @@ import { hashPassword } from "@better-auth/utils/password";
 
 const DB_PATH =
   process.env.DATABASE_URL ??
-  "file:C:/Users/HP/OneDrive/Desktop/Nova HMS/Nova-HMS-main/packages/db/nova-hms.db";
+  "file:C:/Users/HP/OneDrive/Desktop/Ethiora HMS/Nova-HMS-main/packages/db/nova-hms.db";
 
 const adapter = new PrismaLibSql({ url: DB_PATH });
 const prisma = new PrismaClient({ adapter });

@@ -17,7 +17,7 @@ export interface PatientQRData {
 
 export function createPatientQRPayload(patient: PatientQRData): string {
   return JSON.stringify({
-    system: "NOVA_HMS",
+    system: "ETHIORA_HMS",
     v: "1.0",
     id: patient.healthId,
     name: patient.name,
@@ -155,7 +155,7 @@ export default function PatientQRCode({
           <div class="card">
             <div class="header">
               <div>
-                <div class="title">Nova HMS · DMRH</div>
+                <div class="title">Ethiora HMS · DMRH</div>
                 <div class="subtitle">Debre Markos Referral Hospital</div>
               </div>
               ${patient.cbhi ? '<div class="cbhi-badge">CBHI VERIFIED</div>' : ""}
@@ -176,7 +176,7 @@ export default function PatientQRCode({
             </div>
             <div class="footer">
               <span>OFFICIAL PATIENT CARD · SCAN FOR INSTANT CHECK-IN</span>
-              <span>VERIFIED VIA NOVA HMS</span>
+              <span>VERIFIED VIA ETHIORA HMS</span>
             </div>
           </div>
           <script>
@@ -280,7 +280,7 @@ export function PatientIDCardVisual({
             N
           </div>
           <div>
-            <p className="font-bold text-sm tracking-wide text-white">Nova HMS · DMRH</p>
+            <p className="font-bold text-sm tracking-wide text-white">Ethiora HMS · DMRH</p>
             <p className="text-[11px] text-teal-200">Patient Health ID Card</p>
           </div>
         </div>

@@ -257,7 +257,7 @@ function RoleManagementContent() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
-              if (confirm("Reset all standard system roles to default Nova HMS permission policies? Custom roles will remain unaffected.")) {
+              if (confirm("Reset all standard system roles to default Ethiora HMS permission policies? Custom roles will remain unaffected.")) {
                 resetDefaultsMutation.mutate({});
               }
             }}
