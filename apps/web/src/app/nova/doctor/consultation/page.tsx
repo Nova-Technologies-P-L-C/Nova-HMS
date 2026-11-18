@@ -31,6 +31,7 @@ function ConsultationContent() {
   const [planRx, setPlanRx] = useState(true);
   const [planLab, setPlanLab] = useState(false);
   const [planRefer, setPlanRefer] = useState(false);
+  const [planAdmit, setPlanAdmit] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
@@ -386,6 +387,7 @@ function ConsultationContent() {
               {[
                 { label: "Write prescription", val: planRx, set: setPlanRx },
                 { label: "Order lab test", val: planLab, set: setPlanLab },
+                { label: "Admit to inpatient ward", val: planAdmit, set: setPlanAdmit },
                 { label: "Create referral", val: planRefer, set: setPlanRefer },
               ].map((item) => (
                 <label key={item.label} className="flex items-center gap-2 cursor-pointer">
@@ -447,6 +449,13 @@ function ConsultationContent() {
               className="flex items-center justify-between w-full px-3 py-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             >
               <span className="flex items-center gap-1.5"><FlaskConical size={14} /> Order Lab Tests</span>
+              <ArrowRight size={13} />
+            </Link>
+            <Link
+              href={`/nova/ward/admissions?tab=admit&patientId=${visit?.patientId ?? ""}&visitId=${visitId}`}
+              className="flex items-center justify-between w-full px-3 py-2 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 rounded text-xs font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+            >
+              <span className="flex items-center gap-1.5"><Bed size={14} /> Admit to Inpatient Ward</span>
               <ArrowRight size={13} />
             </Link>
             <Link

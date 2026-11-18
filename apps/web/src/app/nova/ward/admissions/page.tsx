@@ -1,21 +1,33 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, StatusBadge } from "@/components/nova/nova-ui";
 import { CheckCircle, Bed, UserCheck, CreditCard, ShieldCheck, Clock, ArrowRight } from "lucide-react";
 
-export default function AdmissionsPage() {
+function AdmissionsContent() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"admit" | "active" | "discharge">("active");
-  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as "admit" | "active" | "discharge") || "active";
+  const initialPatientId = searchParams.get("patientId") || "";
+
+  const [tab, setTab] = useState<"admit" | "active" | "discharge">(initialTab);
+  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId);
   const [selectedBedId, setSelectedBedId] = useState("");
   const [selectedNurseId, setSelectedNurseId] = useState("");
   const [selectedTariffCode, setSelectedTariffCode] = useState("BED_GEN_WARD");
   const [selectedAdmissionId, setSelectedAdmissionId] = useState("");
   const [dischargeCondition, setDischargeCondition] = useState("Improved");
   const [admitSuccess, setAdmitSuccess] = useState(false);
+
+  useEffect(() => {
+    if (initialPatientId) {
+      setSelectedPatientId(initialPatientId);
+      setTab("admit");
+    }
+  }, [initialPatientId]);
 
   const { data: beds = [] } = useQuery({ ...trpc.ward.beds.queryOptions(), refetchOnMount: true });
   const { data: admissions = [] } = useQuery({ ...trpc.ward.admissions.queryOptions(), refetchOnMount: true });
@@ -444,6 +456,14 @@ export default function AdmissionsPage() {
         </Card>
       )}
     </PageShell>
+  );
+}
+
+export default function AdmissionsPage() {
+  return (
+    <Suspense fallback={<PageShell title="Inpatient Ward & Admissions"><p className="p-4 text-slate-400">Loading…</p></PageShell>}>
+      <AdmissionsContent />
+    </Suspense>
   );
 }
 
