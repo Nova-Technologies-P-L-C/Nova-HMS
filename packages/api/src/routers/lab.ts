@@ -178,7 +178,39 @@ export const labRouter = router({
           message: `Pre-payment required: Lab test fee (ETB ${order.price}) must be settled at Central Billing Cashier before processing specimen.`,
         });
       }
-      return prisma.labOrder.update({ where: { id: input.orderId }, data: { status: input.status } });
+      const updated = await prisma.labOrder.update({ where: { id: input.orderId }, data: { status: input.status } });
+
+      if (input.status === "completed") {
+        try {
+          const ticket = await prisma.oPDTicket.findUnique({ where: { visitId: order.visitId } });
+          if (ticket) {
+            await prisma.oPDTicket.update({
+              where: { id: ticket.id },
+              data: {
+                status: "results-ready",
+                completedAt: null,
+              },
+            });
+          }
+          await prisma.visit.update({
+            where: { id: order.visitId },
+            data: { status: "results_ready" },
+          });
+        } catch {
+          // Non-fatal
+        }
+
+        await createHospitalNotification({
+          tenantId: ctx.tenantId,
+          targetUserId: order.orderedBy,
+          targetRole: "Doctor",
+          type: "lab",
+          title: "Lab Result Ready — Patient in Queue",
+          body: `Test order ${order.testName} (${order.visit?.patient?.nameEn || "Patient"}) has been marked completed. Patient returned to Doctor Queue.`,
+        });
+      }
+
+      return updated;
     }),
 
   // Enter results

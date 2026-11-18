@@ -38,44 +38,61 @@ export default function DoctorDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() }),
   });
 
-  // Categorize queues
-  const active = useMemo(() => queue.filter((q) => q.status !== "done"), [queue]);
+  // Helper checks for patient lab status
+  const isPatientResultsReady = (q: any) => {
+    if (q.status === "results-ready") return true;
+    const labs = q.visit?.labOrders || [];
+    return labs.some((l: any) => l.status === "completed");
+  };
+
+  const isPatientInLab = (q: any) => {
+    if (q.status === "in-lab") return true;
+    const labs = q.visit?.labOrders || [];
+    return labs.some((l: any) => l.status === "pending" || l.status === "in-progress");
+  };
+
+  // Active queue: includes all open tickets PLUS any ticket with completed or active lab orders (even if previously marked done)
+  const active = useMemo(
+    () =>
+      queue.filter(
+        (q) =>
+          q.status !== "done" ||
+          isPatientResultsReady(q) ||
+          isPatientInLab(q)
+      ),
+    [queue]
+  );
 
   const resultsReady = useMemo(
-    () =>
-      queue.filter((q) => {
-        if (q.status === "results-ready") return true;
-        const labs = q.visit?.labOrders || [];
-        return (
-          labs.length > 0 &&
-          labs.every((l: any) => l.status === "completed") &&
-          q.status !== "done"
-        );
-      }),
+    () => queue.filter((q) => isPatientResultsReady(q)),
     [queue]
   );
 
   const inLab = useMemo(
-    () =>
-      active.filter((q) => {
-        if (q.status === "in-lab") return true;
-        const labs = q.visit?.labOrders || [];
-        return labs.some((l: any) => l.status === "pending" || l.status === "in-progress");
-      }),
-    [active]
+    () => queue.filter((q) => isPatientInLab(q)),
+    [queue]
   );
 
   const waitingConsult = useMemo(
     () =>
       active.filter(
         (q) =>
-          !resultsReady.some((r) => r.id === q.id) &&
-          !inLab.some((l) => l.id === q.id)
+          !isPatientResultsReady(q) &&
+          !isPatientInLab(q)
       ),
-    [active, resultsReady, inLab]
+    [active]
   );
 
-  const doneToday = useMemo(() => queue.filter((q) => q.status === "done"), [queue]);
+  const doneToday = useMemo(
+    () =>
+      queue.filter(
+        (q) =>
+          q.status === "done" &&
+          !isPatientResultsReady(q) &&
+          !isPatientInLab(q)
+      ),
+    [queue]
+  );
 
   const urgent = active.filter((q) => q.status === "urgent").length;
   const beingSeen = active.filter((q) => q.status === "being-seen").length;
