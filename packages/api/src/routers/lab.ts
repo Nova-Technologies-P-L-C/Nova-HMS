@@ -69,6 +69,19 @@ export const labRouter = router({
         },
       });
 
+      // Update OPD ticket status to "in-lab" so doctor sees patient is at lab
+      try {
+        const ticket = await prisma.oPDTicket.findUnique({ where: { visitId: input.visitId } });
+        if (ticket && ticket.status !== "done") {
+          await prisma.oPDTicket.update({
+            where: { id: ticket.id },
+            data: { status: "in-lab" },
+          });
+        }
+      } catch {
+        // Non-fatal
+      }
+
       // Notify lab technicians
       await createHospitalNotification({
         tenantId: ctx.tenantId,
@@ -204,15 +217,37 @@ export const labRouter = router({
 
       await prisma.labOrder.update({ where: { id: input.orderId }, data: { status: "completed" } });
 
-      // Notify ordering doctor
+      // Automatically return patient to Doctor Consultation Queue as "results-ready"
+      try {
+        const ticket = await prisma.oPDTicket.findUnique({
+          where: { visitId: order.visitId },
+        });
+        if (ticket) {
+          await prisma.oPDTicket.update({
+            where: { id: ticket.id },
+            data: {
+              status: "results-ready",
+              completedAt: null, // Ensure ticket is NOT hidden from active doctor queue
+            },
+          });
+        }
+        await prisma.visit.update({
+          where: { id: order.visitId },
+          data: { status: "results_ready" },
+        });
+      } catch {
+        // Non-fatal
+      }
+
+      // Notify ordering doctor and clinical team
       const hasCritical = input.results.some((r) => r.flag === "critical");
       await createHospitalNotification({
         tenantId: ctx.tenantId,
         targetUserId: order.orderedBy,
         targetRole: "Doctor",
         type: hasCritical ? "emergency" : "lab",
-        title: hasCritical ? "⚠️ CRITICAL Lab Finding" : "Lab Result Verified",
-        body: `Test result for ${order.testName} (${order.visit?.patient?.nameEn || "Patient"}) is ready. Review in EMR.`,
+        title: hasCritical ? "⚠️ CRITICAL Lab Finding" : "Lab Result Verified — Patient Ready in Queue",
+        body: `Test result for ${order.testName} (${order.visit?.patient?.nameEn || "Patient"}) is verified. Patient returned to Doctor Queue for consultation.`,
       });
 
       return result;

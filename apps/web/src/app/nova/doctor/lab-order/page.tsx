@@ -57,14 +57,17 @@ function LabOrderContent() {
       <PageShell title="Lab Order">
         <Card className="p-10 text-center max-w-md mx-auto">
           <CheckCircle size={48} className="text-teal-500 mx-auto mb-4" />
-          <h2 className="font-bold text-slate-800 text-lg mb-2">Lab order sent</h2>
+          <h2 className="font-bold text-slate-800 text-lg mb-2">Lab Order Transmitted</h2>
           <p className="text-sm text-slate-500 mb-2">Tests ordered for <strong>{visit?.patient?.nameEn}</strong>:</p>
-          <ul className="text-sm text-slate-700 mb-6 space-y-1">
+          <ul className="text-sm text-slate-700 mb-4 space-y-1">
             {selected.map((t) => <li key={t} className="flex items-center gap-2 justify-center"><span className="text-teal-500">✓</span>{t}</li>)}
           </ul>
-          <div className="flex gap-2 justify-center">
-            <button onClick={() => router.push("/nova/lab")} className={btnPrimary}>Go to lab queue →</button>
-            <button onClick={() => { setSubmitted(false); setSelected([]); }} className={btnSecondary}>New order</button>
+          <p className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mb-6 leading-relaxed">
+            Patient marked as <strong>🔬 In Lab</strong>. As soon as the laboratory verifies findings, this patient will automatically reappear in your doctor queue with a <strong>Lab Results Ready</strong> alert.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <button onClick={() => router.push("/nova/doctor")} className={btnPrimary}>← Back to Doctor Queue</button>
+            <button onClick={() => router.push(`/nova/doctor/consultation?visitId=${visitId}`)} className={btnSecondary}>Return to Consultation</button>
           </div>
         </Card>
       </PageShell>

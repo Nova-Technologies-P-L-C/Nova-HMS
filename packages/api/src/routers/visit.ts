@@ -194,6 +194,24 @@ export const visitRouter = router({
                 phone: true,
               },
             },
+            labOrders: {
+              select: {
+                id: true,
+                testName: true,
+                status: true,
+                priority: true,
+                paymentStatus: true,
+                orderedAt: true,
+                result: {
+                  select: {
+                    id: true,
+                    enteredAt: true,
+                    interpretation: true,
+                    resultsJson: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -208,7 +226,7 @@ export const visitRouter = router({
   updateTicketStatus: tenantProcedure
     .input(z.object({
       ticketId: z.string(),
-      status: z.enum(["waiting", "being-seen", "done", "urgent", "no-show"]),
+      status: z.enum(["waiting", "being-seen", "in-lab", "results-ready", "done", "urgent", "no-show"]),
     }))
     .mutation(async ({ input }) => {
       return prisma.oPDTicket.update({
@@ -216,7 +234,7 @@ export const visitRouter = router({
         data: {
           status: input.status,
           calledAt: input.status === "being-seen" ? new Date() : undefined,
-          completedAt: input.status === "done" ? new Date() : undefined,
+          completedAt: input.status === "done" ? new Date() : null,
         },
       });
     }),

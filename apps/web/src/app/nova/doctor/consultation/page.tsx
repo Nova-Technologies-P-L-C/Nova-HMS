@@ -255,6 +255,109 @@ function ConsultationContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="md:col-span-2 space-y-5">
+          {/* Verified Lab Results if tests were ordered for this visit */}
+          {visit && visit.labOrders && visit.labOrders.length > 0 && (
+            <Card className="p-5 border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-xs">
+              <div className="flex items-center justify-between mb-3 border-b border-emerald-100 dark:border-emerald-900/40 pb-2">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="text-emerald-600 dark:text-emerald-400" size={18} />
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                    Verified Laboratory Test Findings ({visit.labOrders.length})
+                  </h3>
+                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
+                  {visit.labOrders.filter((l) => l.status === "completed").length}/{visit.labOrders.length} Completed
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {visit.labOrders.map((order) => {
+                  let parsedResults: any[] = [];
+                  if (order.result?.resultsJson) {
+                    try {
+                      parsedResults = JSON.parse(order.result.resultsJson);
+                    } catch {}
+                  }
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                        <span className="font-bold text-xs text-slate-800 dark:text-slate-100">
+                          {order.testName}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                            order.status === "completed"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200"
+                          }`}
+                        >
+                          {order.status === "completed" ? "✓ Verified & Approved" : "Processing in Lab"}
+                        </span>
+                      </div>
+
+                      {parsedResults.length > 0 ? (
+                        <div className="overflow-x-auto mt-2">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-left text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                                <th className="pb-1 font-semibold">Parameter</th>
+                                <th className="pb-1 font-semibold">Observed Value</th>
+                                <th className="pb-1 font-semibold">Ref Range</th>
+                                <th className="pb-1 font-semibold">Flag</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                              {parsedResults.map((r, i) => (
+                                <tr key={i} className="text-slate-700 dark:text-slate-200">
+                                  <td className="py-1 font-medium">{r.name}</td>
+                                  <td className="py-1 font-bold text-teal-700 dark:text-teal-300">
+                                    {r.value} {r.unit}
+                                  </td>
+                                  <td className="py-1 text-slate-400">{r.refRange || "—"}</td>
+                                  <td className="py-1">
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                        r.flag === "critical"
+                                          ? "bg-red-500 text-white animate-pulse"
+                                          : r.flag === "high" || r.flag === "low"
+                                          ? "bg-amber-500 text-white"
+                                          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                                      }`}
+                                    >
+                                      {r.flag}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : order.result?.interpretation ? (
+                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                          <strong>Findings:</strong> {order.result.interpretation}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-400 italic mt-1">
+                          Specimen has been received by laboratory technician. Result pending.
+                        </p>
+                      )}
+
+                      {order.result?.interpretation && parsedResults.length > 0 && (
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <strong>Technician Interpretation:</strong> {order.result.interpretation}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
           <Card className="p-5">
             <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Chief complaint</h3>
             <textarea className={`${inputCls} resize-none h-20`} value={complaint} onChange={(e) => setComplaint(e.target.value)} />

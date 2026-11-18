@@ -21,6 +21,7 @@ import {
   Send,
   ShieldAlert,
 } from "lucide-react";
+import { useNovaRole } from "./nova-role-context";
 
 /**
  * Synthesizes a soft, pleasant 2-tone audio chime using the Web Audio API
@@ -114,6 +115,7 @@ function formatTimeAgo(dateStr: string | Date): string {
 }
 
 export default function NotificationPopover() {
+  const { role } = useNovaRole();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -202,11 +204,12 @@ export default function NotificationPopover() {
                   <button
                     onClick={() => {
                       toast.dismiss(t);
-                      router.push(config.path as any);
+                      const targetPath = (n.type === "lab" && role === "Doctor") ? "/nova/doctor" : config.path;
+                      router.push(targetPath as any);
                     }}
                     className="text-[11px] font-semibold bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-0.5 rounded-md transition shadow-2xs flex items-center gap-1 cursor-pointer"
                   >
-                    <span>Open Station</span>
+                    <span>{n.type === "lab" && role === "Doctor" ? "Review in Queue" : "Open Station"}</span>
                     <ExternalLink size={10} />
                   </button>
                 )}
@@ -436,11 +439,12 @@ export default function NotificationPopover() {
                               onClick={() => {
                                 setIsOpen(false);
                                 if (!n.read) markReadMutation.mutate({ id: n.id });
-                                router.push(config.path as any);
+                                const targetPath = (n.type === "lab" && role === "Doctor") ? "/nova/doctor" : config.path;
+                                router.push(targetPath as any);
                               }}
                               className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1 cursor-pointer"
                             >
-                              <span>Navigate to {config.label}</span>
+                              <span>{n.type === "lab" && role === "Doctor" ? "Review in Doctor Queue" : `Navigate to ${config.label}`}</span>
                               <ExternalLink size={10} />
                             </button>
                           </div>
