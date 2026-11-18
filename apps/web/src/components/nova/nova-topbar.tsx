@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import {
-  Bell,
   WifiOff,
   Globe,
   LogOut,
@@ -25,10 +24,9 @@ import { useNovaSidebar } from "./nova-sidebar-context";
 import { type Role } from "@/lib/nova-mock-data";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { trpc } from "@/utils/trpc";
 import { authClient } from "@/lib/auth-client";
+import NotificationPopover from "./notification-popover";
 
 const ROLE_CONFIG: Record<
   Role,
@@ -105,12 +103,6 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
   const { isCollapsed, toggleCollapsed, toggleMobile } = useNovaSidebar();
   const [showOffline, setShowOffline] = useState(offline);
   const router = useRouter();
-
-  const { data: unreadData } = useQuery({
-    ...trpc.notification.unreadCount.queryOptions(),
-    retry: false,
-  });
-  const unread = unreadData?.count ?? 0;
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -197,18 +189,8 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
             <WifiOff size={13} />
           </button>
 
-          {/* Notifications */}
-          <Link
-            href="/nova/shared/notifications"
-            className="relative p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
-          >
-            <Bell size={18} />
-            {unread > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                {unread}
-              </span>
-            )}
-          </Link>
+          {/* Interactive Notifications Popover & Live Toast Broadcaster */}
+          <NotificationPopover />
 
           {/* Avatar + name — real logged-in user */}
           <Link href="/nova/shared/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">

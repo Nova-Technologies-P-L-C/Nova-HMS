@@ -252,6 +252,11 @@ export default function DoctorDashboard() {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{q.visit.patient.nameEn}</p>
+                    {((q as any).tier === "vip" || (q.ticketNumber || "").startsWith("V")) && (
+                      <span className="text-[11px] px-2.5 py-0.5 bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 rounded-full font-bold border border-amber-300 dark:border-amber-700 flex items-center gap-1 shadow-2xs">
+                        ⭐ VIP Fast-Track
+                      </span>
+                    )}
                     {q.paymentStatus === "paid" && (
                       <span className="text-[11px] px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-full font-medium border border-emerald-200 dark:border-emerald-800">
                         ✓ Card Fee Paid

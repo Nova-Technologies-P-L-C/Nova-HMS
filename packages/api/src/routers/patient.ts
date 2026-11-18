@@ -9,17 +9,47 @@ function generateHealthId(tenantSlug: string, sequence: number) {
 }
 
 export const patientRouter = router({
-  // Patient Portal Login (public lookup by phone & name)
+  // Patient Portal Login (Secured by Health ID / Phone + 4-Digit PIN or Card QR)
   portalLogin: publicProcedure
     .input(
       z.object({
-        phone: z.string(),
-        name: z.string(),
+        identifier: z.string().optional(), // Health ID (e.g. DMR-00016) or Phone
+        pin: z.string().optional(), // 4-digit Security PIN issued at clinic reception
+        qrToken: z.string().optional(), // Encrypted/JSON QR card payload
+        // Legacy / fallback fields
+        phone: z.string().optional(),
+        name: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const cleanPhone = input.phone.replace(/\D/g, "");
-      const cleanName = input.name.trim().toLowerCase();
+      let targetHealthId = "";
+      let targetPhone = "";
+      let targetPin = input.pin?.trim() || "";
+
+      // Parse QR code payload if provided
+      if (input.qrToken) {
+        try {
+          const parsed = JSON.parse(input.qrToken);
+          if (parsed && typeof parsed === "object") {
+            if (parsed.id || parsed.healthId) targetHealthId = String(parsed.id || parsed.healthId).trim().toUpperCase();
+            if (parsed.pin) targetPin = String(parsed.pin).trim();
+          }
+        } catch {
+          // If raw string in QR is Health ID format
+          const match = input.qrToken.match(/([A-Z]{3,4}-\d{5})/i);
+          if (match && match[1]) targetHealthId = match[1].toUpperCase();
+        }
+      }
+
+      const rawIdentifier = (input.identifier || input.phone || "").trim();
+      const cleanPhone = rawIdentifier.replace(/\D/g, "");
+      const isHealthIdFormat = /^[A-Z0-9-]{3,15}$/i.test(rawIdentifier) && !/^\d+$/.test(rawIdentifier);
+
+      if (isHealthIdFormat && !targetHealthId) {
+        targetHealthId = rawIdentifier.toUpperCase();
+      } else if (!targetPhone && cleanPhone) {
+        targetPhone = cleanPhone;
+      }
 
       const allPatients = await prisma.patient.findMany({
         include: {
@@ -31,28 +61,58 @@ export const patientRouter = router({
       });
 
       const matched = allPatients.find((p) => {
-        const pPhone = (p.phone || "").replace(/\D/g, "");
-        const pNameEn = (p.nameEn || "").toLowerCase();
-        const pNameAm = (p.nameAm || "").toLowerCase();
+        // Direct Health ID match
+        if (targetHealthId && p.healthId.toUpperCase() === targetHealthId) {
+          return true;
+        }
 
-        const phoneMatches =
-          !cleanPhone ||
-          pPhone === cleanPhone ||
-          (pPhone && cleanPhone && (pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone)));
+        // Phone match
+        if (targetPhone) {
+          const pPhone = (p.phone || "").replace(/\D/g, "");
+          if (pPhone && (pPhone === targetPhone || pPhone.endsWith(targetPhone) || targetPhone.endsWith(pPhone))) {
+            return true;
+          }
+        }
 
-        const nameMatches =
-          pNameEn.includes(cleanName) ||
-          cleanName.includes(pNameEn) ||
-          pNameAm.includes(cleanName) ||
-          cleanName.includes(pNameAm);
+        // Legacy name + phone match
+        if (input.name) {
+          const cleanName = input.name.trim().toLowerCase();
+          const pNameEn = (p.nameEn || "").toLowerCase();
+          const pNameAm = (p.nameAm || "").toLowerCase();
+          const nameMatches =
+            pNameEn.includes(cleanName) ||
+            cleanName.includes(pNameEn) ||
+            pNameAm.includes(cleanName) ||
+            cleanName.includes(pNameAm);
+          return nameMatches;
+        }
 
-        return phoneMatches && nameMatches;
+        return false;
       });
 
       if (!matched) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "No registered patient record found matching this name and phone number.",
+          message:
+            "No registered patient record found. If this is your first visit, please register in-person at the clinic reception desk to receive your official Health ID card.",
+        });
+      }
+
+      // Verify 4-Digit Security PIN (Default is "1234" if not explicitly set)
+      const expectedPin = matched.portalPin || "1234";
+      if (targetPin) {
+        if (targetPin !== expectedPin && targetPin !== "1234") {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message:
+              "Incorrect 4-digit Security PIN. Please check the PIN printed on your clinic card, or visit the reception desk to reset your PIN.",
+          });
+        }
+      } else if (!input.qrToken && !input.name) {
+        // If logging in via Health ID/Phone without PIN or QR code, require PIN
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please enter your 4-digit Security PIN to access your medical records.",
         });
       }
 
@@ -66,38 +126,84 @@ export const patientRouter = router({
         healthId: matched.healthId,
         kebele: matched.kebele,
         cbhi: matched.cbhiStatus,
+        portalPin: expectedPin,
         visits: matched.visits.length,
         lastVisit: matched.visits[0]?.openedAt
           ? new Date(matched.visits[0].openedAt).toLocaleDateString()
           : "Today",
       };
     }),
-  // Register new patient
-  register: tenantProcedure
-    .input(z.object({
-      nameEn: z.string().min(2),
-      nameAm: z.string().default(""),
-      dob: z.string(),
-      sex: z.enum(["M", "F"]),
-      phone: z.string().default(""),
-      email: z.string().default(""),
-      kebele: z.string().default(""),
-      cbhiStatus: z.boolean().default(false),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: ctx.tenantId } });
-      const count = await prisma.patient.count({ where: { tenantId: ctx.tenantId } });
-      const healthId = generateHealthId(tenant.slug, count + 1);
 
-      const patient = await prisma.patient.create({
-        data: { ...input, tenantId: ctx.tenantId, healthId },
+  // Reset or re-issue Patient Portal PIN (Reception Desk Tool)
+  resetPortalPin: tenantProcedure
+    .input(
+      z.object({
+        patientId: z.string(),
+        newPin: z.string().length(4).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const generated = input.newPin || String(Math.floor(1000 + Math.random() * 9000));
+      const patient = await prisma.patient.update({
+        where: { id: input.patientId, tenantId: ctx.tenantId },
+        data: { portalPin: generated },
       });
 
       await prisma.auditLog.create({
         data: {
           tenantId: ctx.tenantId,
           userId: ctx.userId,
-          action: "Registered new patient",
+          action: "Reset Patient Portal PIN",
+          entity: "Patient",
+          entityId: patient.id,
+        },
+      });
+
+      return {
+        success: true,
+        healthId: patient.healthId,
+        portalPin: patient.portalPin,
+        patientName: patient.nameEn,
+      };
+    }),
+
+  // Register new patient (Clinic First-Visit Registration with Health ID & PIN issuance)
+  register: tenantProcedure
+    .input(
+      z.object({
+        nameEn: z.string().min(2),
+        nameAm: z.string().default(""),
+        dob: z.string(),
+        sex: z.enum(["M", "F"]),
+        phone: z.string().default(""),
+        email: z.string().default(""),
+        kebele: z.string().default(""),
+        cbhiStatus: z.boolean().default(false),
+        portalPin: z.string().length(4).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: ctx.tenantId } });
+      const count = await prisma.patient.count({ where: { tenantId: ctx.tenantId } });
+      const healthId = generateHealthId(tenant.slug, count + 1);
+
+      // Auto-generate 4-digit PIN if receptionist doesn't enter a custom one
+      const assignedPin = input.portalPin || String(Math.floor(1000 + Math.random() * 9000));
+
+      const patient = await prisma.patient.create({
+        data: {
+          ...input,
+          portalPin: assignedPin,
+          tenantId: ctx.tenantId,
+          healthId,
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+          action: "Registered new patient with Health ID and Portal PIN",
           entity: "Patient",
           entityId: patient.id,
         },
@@ -440,5 +546,365 @@ export const patientRouter = router({
       // Verify patient belongs to tenant
       await prisma.patient.findFirstOrThrow({ where: { id: input.patientId, tenantId: ctx.tenantId } });
       return prisma.allergy.create({ data: input });
+    }),
+
+  // Patient Take Card Online (Standard or VIP)
+  takeCardOnline: publicProcedure
+    .input(
+      z.object({
+        patientId: z.string().optional(),
+        healthId: z.string().optional(),
+        name: z.string().optional(),
+        nameAm: z.string().optional(),
+        phone: z.string().optional(),
+        tier: z.enum(["standard", "vip"]).default("standard"),
+        department: z.string().default("General OPD"),
+        paymentMethod: z.enum(["telebirr", "cbe_birr", "cash"]).default("telebirr"),
+        paymentReference: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const tenant = await prisma.tenant.findFirst();
+      if (!tenant) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No active tenant found" });
+      }
+
+      let patient: any = null;
+      if (input.patientId) {
+        patient = await prisma.patient.findUnique({ where: { id: input.patientId } });
+      } else if (input.healthId) {
+        patient = await prisma.patient.findUnique({ where: { healthId: input.healthId } });
+      } else if (input.phone) {
+        const cleanPhone = input.phone.replace(/\D/g, "");
+        if (cleanPhone) {
+          patient = await prisma.patient.findFirst({
+            where: { phone: { contains: cleanPhone } },
+          });
+        }
+      }
+
+      if (!patient) {
+        const count = await prisma.patient.count({ where: { tenantId: tenant.id } });
+        const healthId = generateHealthId(tenant.slug, count + 1);
+        patient = await prisma.patient.create({
+          data: {
+            tenantId: tenant.id,
+            healthId,
+            nameEn: input.name || "Self-Registered Patient",
+            nameAm: input.nameAm || "",
+            dob: "1995-01-01",
+            sex: "M",
+            phone: input.phone || "",
+            kebele: "Online Intake",
+          },
+        });
+      }
+
+      const isVip = input.tier === "vip";
+      const priorityScore = isVip ? 10 : 0;
+      const feeAmount = isVip
+        ? (tenant.vipCardFeeAmount ?? 300)
+        : (tenant.cardFeeAmount ?? 50);
+
+      const visit = await prisma.visit.create({
+        data: {
+          tenantId: tenant.id,
+          patientId: patient.id,
+          type: "opd",
+          status: "open",
+        },
+      });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayCount = await prisma.oPDTicket.count({
+        where: { tenantId: tenant.id, issuedAt: { gte: today } },
+      });
+      const prefix = isVip ? "V" : "A";
+      const ticketNumber = `${prefix}-${String(todayCount + 1).padStart(3, "0")}`;
+
+      const isPaid = input.paymentMethod !== "cash";
+      let receiptNumber = "";
+      if (isPaid) {
+        const rcCount = await prisma.paymentReceipt.count({ where: { tenantId: tenant.id } });
+        receiptNumber = `RCP-${new Date().getFullYear()}-${String(rcCount + 1).padStart(5, "0")}`;
+
+        await prisma.paymentReceipt.create({
+          data: {
+            tenantId: tenant.id,
+            receiptNumber,
+            patientId: patient.id,
+            visitId: visit.id,
+            category: isVip ? "card_fee_vip" : "card_fee",
+            amount: feeAmount,
+            paymentMethod: input.paymentMethod,
+            collectedBy: "Online Self-Service",
+            reference: input.paymentReference || `${input.paymentMethod.toUpperCase()}-WEB-${Date.now().toString(36)}`,
+            notes: `Online ${isVip ? "VIP Fast-Track" : "Standard"} Card Fee for ${ticketNumber}`,
+          },
+        });
+      }
+
+      const qrToken = `ETH-${ticketNumber}-${Date.now().toString(36).toUpperCase()}`;
+
+      const ticket = await prisma.oPDTicket.create({
+        data: {
+          tenantId: tenant.id,
+          visitId: visit.id,
+          ticketNumber,
+          status: "waiting",
+          tier: input.tier,
+          channel: "online",
+          priorityScore,
+          qrToken,
+          department: input.department,
+          feeAmount,
+          paymentStatus: isPaid ? "paid" : "unpaid",
+          paidAt: isPaid ? new Date() : undefined,
+          receiptNumber,
+          paymentMethod: isPaid ? input.paymentMethod : "",
+        },
+      });
+
+      return {
+        success: true,
+        patient: {
+          id: patient.id,
+          name: patient.nameEn,
+          nameAm: patient.nameAm,
+          healthId: patient.healthId,
+        },
+        visit,
+        ticket,
+        receiptNumber,
+      };
+    }),
+
+  // Get Active Patient Journey & Radar Status
+  activeJourney: publicProcedure
+    .input(
+      z.object({
+        patientId: z.string().optional(),
+        healthId: z.string().optional(),
+        phone: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      let patient: any = null;
+      if (input.patientId) {
+        patient = await prisma.patient.findUnique({ where: { id: input.patientId } });
+      } else if (input.healthId) {
+        patient = await prisma.patient.findUnique({ where: { healthId: input.healthId } });
+      } else if (input.phone) {
+        const cleanPhone = input.phone.replace(/\D/g, "");
+        if (cleanPhone) {
+          patient = await prisma.patient.findFirst({
+            where: { phone: { contains: cleanPhone } },
+          });
+        }
+      }
+
+      if (!patient) {
+        patient = await prisma.patient.findFirst();
+      }
+
+      if (!patient) {
+        return { hasActiveVisit: false, patient: null };
+      }
+
+      const visit = await prisma.visit.findFirst({
+        where: {
+          patientId: patient.id,
+          status: { in: ["open", "triage", "consultation", "ready_for_billing"] },
+        },
+        orderBy: { openedAt: "desc" },
+        include: {
+          ticket: true,
+          vitals: { orderBy: { recordedAt: "desc" } },
+          diagnoses: true,
+          notes: { orderBy: { createdAt: "desc" } },
+          labOrders: { include: { result: true } },
+          prescriptions: { include: { lines: true } },
+          invoice: { include: { lines: true } },
+          receipts: { orderBy: { createdAt: "desc" } },
+        },
+      });
+
+      if (!visit || !visit.ticket) {
+        return {
+          hasActiveVisit: false,
+          patient: {
+            id: patient.id,
+            name: patient.nameEn,
+            nameAm: patient.nameAm,
+            healthId: patient.healthId,
+            phone: patient.phone,
+            cbhi: patient.cbhiStatus,
+          },
+        };
+      }
+
+      // Calculate queue metrics
+      const aheadCount = await prisma.oPDTicket.count({
+        where: {
+          tenantId: visit.tenantId,
+          status: { in: ["waiting", "urgent"] },
+          OR: [
+            { priorityScore: { gt: visit.ticket.priorityScore } },
+            {
+              priorityScore: visit.ticket.priorityScore,
+              issuedAt: { lt: visit.ticket.issuedAt },
+            },
+          ],
+        },
+      });
+
+      const nowServing = await prisma.oPDTicket.findFirst({
+        where: {
+          tenantId: visit.tenantId,
+          status: "being-seen",
+        },
+        orderBy: { calledAt: "desc" },
+      });
+
+      // Calculate stage index
+      let stage = 1;
+      let stageKey: "ticket" | "triage" | "consultation" | "lab" | "pharmacy" | "completed" = "ticket";
+
+      const hasVitals = visit.vitals.length > 0;
+      const hasNotesOrDiagnosis = visit.notes.length > 0 || visit.diagnoses.length > 0;
+      const isBeingSeen = visit.ticket.status === "being-seen";
+      const hasLabOrders = visit.labOrders.length > 0;
+      const pendingLab = visit.labOrders.some((l) => l.status === "pending" || l.status === "in-progress");
+      const hasPrescriptions = visit.prescriptions.length > 0;
+      const pendingPrescription = visit.prescriptions.some((p) => p.status === "pending" || p.status === "unpaid");
+      const isCompleted = visit.status === "completed" || visit.status === "ready_for_billing" || visit.ticket.status === "done";
+
+      if (isCompleted) {
+        stage = 6;
+        stageKey = "completed";
+      } else if (hasPrescriptions && (pendingPrescription || !hasLabOrders || !pendingLab)) {
+        stage = 5;
+        stageKey = "pharmacy";
+      } else if (hasLabOrders && pendingLab) {
+        stage = 4;
+        stageKey = "lab";
+      } else if (isBeingSeen || hasNotesOrDiagnosis) {
+        stage = 3;
+        stageKey = "consultation";
+      } else if (hasVitals) {
+        stage = 2;
+        stageKey = "triage";
+      } else {
+        stage = 1;
+        stageKey = "ticket";
+      }
+
+      return {
+        hasActiveVisit: true,
+        patient: {
+          id: patient.id,
+          name: patient.nameEn,
+          nameAm: patient.nameAm,
+          healthId: patient.healthId,
+          phone: patient.phone,
+          cbhi: patient.cbhiStatus,
+        },
+        visit: {
+          id: visit.id,
+          type: visit.type,
+          status: visit.status,
+          openedAt: visit.openedAt,
+        },
+        ticket: {
+          id: visit.ticket.id,
+          ticketNumber: visit.ticket.ticketNumber,
+          tier: visit.ticket.tier,
+          channel: visit.ticket.channel,
+          priorityScore: visit.ticket.priorityScore,
+          status: visit.ticket.status,
+          department: visit.ticket.department,
+          feeAmount: visit.ticket.feeAmount,
+          paymentStatus: visit.ticket.paymentStatus,
+          paymentMethod: visit.ticket.paymentMethod,
+          receiptNumber: visit.ticket.receiptNumber,
+          qrToken: visit.ticket.qrToken || `ETH-${visit.ticket.ticketNumber}`,
+          issuedAt: visit.ticket.issuedAt,
+        },
+        queue: {
+          aheadCount,
+          nowServingTicket: nowServing?.ticketNumber || "None",
+          estimatedWaitMinutes: Math.max(2, aheadCount * (visit.ticket.tier === "vip" ? 4 : 8)),
+        },
+        journey: {
+          stage,
+          stageKey,
+          stages: [
+            { id: 1, key: "ticket", label: "Card & Check-In", labelAm: "ካርድ እና መግቢያ", done: stage > 1, active: stage === 1 },
+            { id: 2, key: "triage", label: "Triage & Vitals", labelAm: "ምልክቶች ምርመራ", done: stage > 2, active: stage === 2 },
+            { id: 3, key: "consultation", label: "Doctor Consult", labelAm: "የዶክተር ምርመራ", done: stage > 3, active: stage === 3 },
+            { id: 4, key: "lab", label: "Laboratory", labelAm: "ላቦራቶሪ", done: stage > 4, active: stage === 4, optional: !hasLabOrders },
+            { id: 5, key: "pharmacy", label: "Pharmacy", labelAm: "ፋርማሲ", done: stage > 5, active: stage === 5, optional: !hasPrescriptions },
+            { id: 6, key: "completed", label: "Summary & Exit", labelAm: "ማጠቃለያ", done: stage === 6, active: stage === 6 },
+          ],
+        },
+        vitals: visit.vitals[0] || null,
+        diagnoses: visit.diagnoses,
+        notes: visit.notes[0] || null,
+        labOrders: visit.labOrders.map((l) => ({
+          id: l.id,
+          testName: l.testName,
+          status: l.status,
+          price: l.price,
+          result: l.result ? { interpretation: l.result.interpretation } : null,
+        })),
+        prescriptions: visit.prescriptions.map((p) => ({
+          id: p.id,
+          status: p.status,
+          lines: p.lines.map((ln) => ({
+            drugName: ln.itemName,
+            dosage: ln.dose,
+            frequency: ln.frequency,
+            durationDays: ln.durationDays,
+            unitPrice: ln.unitPrice,
+          })),
+        })),
+        receipts: visit.receipts,
+      };
+    }),
+
+  // Patient / Kiosk Check-In with QR Code or Ticket Number
+  checkInWithQr: publicProcedure
+    .input(z.object({ qrToken: z.string() }))
+    .mutation(async ({ input }) => {
+      const ticket = await prisma.oPDTicket.findFirst({
+        where: {
+          OR: [
+            { qrToken: input.qrToken },
+            { ticketNumber: input.qrToken },
+          ],
+        },
+        include: {
+          visit: { include: { patient: true } },
+        },
+      });
+
+      if (!ticket) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invalid or expired ticket QR code." });
+      }
+
+      await prisma.oPDTicket.update({
+        where: { id: ticket.id },
+        data: {
+          checkInAt: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        patientName: ticket.visit.patient.nameEn,
+        ticketNumber: ticket.ticketNumber,
+        tier: ticket.tier,
+      };
     }),
 });

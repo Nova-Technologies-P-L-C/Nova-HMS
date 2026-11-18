@@ -22,6 +22,7 @@ model Tenant {
   updatedAt    DateTime @updatedAt
 
   cardFeeAmount       Float    @default(50.0)
+  vipCardFeeAmount    Float    @default(300.0)
   specialistFeeAmount Float    @default(150.0)
 
   userRoles      UserTenantRole[]
@@ -84,6 +85,7 @@ model Patient {
   email      String   @default("")
   kebele     String   @default("")
   cbhiStatus Boolean  @default(false)
+  portalPin  String   @default("1234")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -147,6 +149,12 @@ model OPDTicket {
   visitId           String    @unique
   ticketNumber      String
   status            String    @default("waiting")
+  tier              String    @default("standard")
+  channel           String    @default("walk_in")
+  priorityScore     Int       @default(0)
+  qrToken           String    @default("")
+  checkInAt         DateTime?
+  department        String    @default("OPD")
   issuedAt          DateTime  @default(now())
   calledAt          DateTime?
   completedAt       DateTime?

@@ -4,11 +4,16 @@ import { usePatientLang } from "./layout";
 import { usePatientAuth } from "./patient-auth-context";
 import { PATIENTS, APPOINTMENTS, PRESCRIPTIONS, NOTIFICATIONS, DIAGNOSES, VITALS, CBHI_CLAIMS } from "@/lib/nova-mock-data";
 import { Calendar, Pill, Bell, ArrowRight, Activity, ShieldCheck, FlaskConical, ArrowLeftRight, QrCode } from "lucide-react";
+import PatientJourneyTracker from "@/components/nova/patient-journey-tracker";
 
 export default function PatientDashboard() {
   const { lang } = usePatientLang();
-  const { patient: authPatient } = usePatientAuth();
-  const PATIENT = authPatient || PATIENTS[0];
+  const { patient: authPatient, isLoading } = usePatientAuth();
+  
+  if (isLoading || !authPatient) {
+    return null;
+  }
+  const PATIENT = authPatient;
   const t = (en: string, am: string) => lang === "en" ? en : am;
 
   const upcomingAppt = APPOINTMENTS[0];
@@ -39,6 +44,9 @@ export default function PatientDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Live Journey Tracker & Online Card Checking */}
+      <PatientJourneyTracker patient={PATIENT} lang={lang} />
 
       {/* Notifications */}
       {unreadNotifs > 0 && (

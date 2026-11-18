@@ -2,6 +2,7 @@ import prisma from "@my-better-t-app/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
+import { createHospitalNotification } from "./notification";
 
 export const prescriptionRouter = router({
   // Doctor creates prescription
@@ -73,20 +74,13 @@ export const prescriptionRouter = router({
       });
 
       // Notify pharmacists
-      const pharmacists = await prisma.userTenantRole.findMany({
-        where: { tenantId: ctx.tenantId, role: "Pharmacist", status: "active" },
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Pharmacist",
+        type: "pharmacy",
+        title: "New e-Prescription Issued",
+        body: `${input.lines.length} medication(s) prescribed for ${visit.patient.nameEn}.`,
       });
-      await Promise.all(pharmacists.map((p) =>
-        prisma.notification.create({
-          data: {
-            tenantId: ctx.tenantId,
-            userId: p.userId,
-            type: "in-app",
-            title: "New prescription",
-            body: `${input.lines.length} medication(s) to dispense`,
-          },
-        })
-      ));
 
       return prescription;
     }),
@@ -219,10 +213,22 @@ export const prescriptionRouter = router({
       }
 
       // Mark prescription dispensed
-      return prisma.prescription.update({
+      const updatedRx = await prisma.prescription.update({
         where: { id: input.prescriptionId },
         data: { status: "dispensed" },
       });
+
+      // Notify prescribing doctor
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetUserId: prescription.prescribedBy,
+        targetRole: "Doctor",
+        type: "pharmacy",
+        title: "Prescription Dispensed",
+        body: `Prescription items have been successfully dispensed to patient.`,
+      });
+
+      return updatedRx;
     }),
 
   // Collect payment for prescription lines (Receptionist or Cashier)

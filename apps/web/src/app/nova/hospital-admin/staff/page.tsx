@@ -17,7 +17,6 @@ import { useNovaRole } from "@/components/nova/nova-role-context";
 
 const CLINICAL_ROLES = [
   "Branch Admin",
-  "Hospital Admin",
   "Doctor",
   "Triage Nurse",
   "Ward Nurse",
@@ -35,7 +34,6 @@ type RoleType = typeof CLINICAL_ROLES[number];
 
 const ROLE_ICONS: Record<string, string> = {
   "Branch Admin": "🛡️",
-  "Hospital Admin": "🛡️",
   "Doctor": "👨‍⚕️",
   "Triage Nurse": "🩺",
   "Ward Nurse": "💉",
@@ -51,7 +49,6 @@ const ROLE_ICONS: Record<string, string> = {
 
 const ROLE_COLORS: Record<string, string> = {
   "Branch Admin": "bg-indigo-50 text-indigo-700 border-indigo-200",
-  "Hospital Admin": "bg-red-50 text-red-700 border-red-200",
   "Doctor": "bg-teal-50 text-teal-700 border-teal-200",
   "Triage Nurse": "bg-emerald-50 text-emerald-700 border-emerald-200",
   "Ward Nurse": "bg-cyan-50 text-cyan-700 border-cyan-200",
@@ -226,8 +223,12 @@ export default function StaffAndRoleManagementPage() {
   );
 
   const availableRoles = useMemo(() => {
-    const fromDb = rolePermissionsList.map((r: any) => r.role);
-    return Array.from(new Set([...CLINICAL_ROLES, ...fromDb]));
+    const fromDb = rolePermissionsList
+      .map((r: any) => r.role)
+      .filter((r: string) => r !== "Hospital Admin" && r !== "Organizational Admin");
+    return Array.from(new Set([...CLINICAL_ROLES, ...fromDb])).filter(
+      (r) => r !== "Hospital Admin" && r !== "Organizational Admin"
+    );
   }, [rolePermissionsList]);
 
   // Mutations
@@ -343,9 +344,19 @@ export default function StaffAndRoleManagementPage() {
     resetRolePermsMutation.mutate({ role });
   };
 
+  // Staff visible to current user (Branch Admin must not see Organizational Admin)
+  const visibleStaff = useMemo(() => {
+    return staffList.filter((s: any) => {
+      if (role !== "Organizational Admin" && (s.role === "Organizational Admin" || s.role === "Hospital Admin")) {
+        return false;
+      }
+      return true;
+    });
+  }, [staffList, role]);
+
   // Filtered staff members
   const filteredStaff = useMemo(() => {
-    return staffList.filter((s: any) => {
+    return visibleStaff.filter((s: any) => {
       const matchesRole = roleFilter === "all" || s.role === roleFilter;
       const q = search.toLowerCase().trim();
       const matchesSearch =
@@ -358,7 +369,7 @@ export default function StaffAndRoleManagementPage() {
         s.phone.toLowerCase().includes(q);
       return matchesRole && matchesSearch;
     });
-  }, [staffList, roleFilter, search]);
+  }, [visibleStaff, roleFilter, search]);
 
   // Paginated slice for current personnel page
   const paginatedStaff = useMemo(() => {
@@ -368,22 +379,22 @@ export default function StaffAndRoleManagementPage() {
 
   // Metrics
   const metrics = useMemo(() => {
-    const total = staffList.length;
-    const active = staffList.filter((s: any) => s.status === "active").length;
-    const doctors = staffList.filter((s: any) => s.role === "Doctor").length;
-    const nurses = staffList.filter((s: any) =>
+    const total = visibleStaff.length;
+    const active = visibleStaff.filter((s: any) => s.status === "active").length;
+    const doctors = visibleStaff.filter((s: any) => s.role === "Doctor").length;
+    const nurses = visibleStaff.filter((s: any) =>
       ["Nurse", "Triage Nurse", "Ward Nurse"].includes(s.role)
     ).length;
-    const clinicalCount = staffList.filter((s: any) =>
+    const clinicalCount = visibleStaff.filter((s: any) =>
       ["Doctor", "Nurse", "Triage Nurse", "Ward Nurse", "Lab Technician", "Pharmacist"].includes(s.role)
     ).length;
     return { total, active, doctors, nurses, clinicalCount };
-  }, [staffList]);
+  }, [visibleStaff]);
 
   // Staff members assigned to the currently selected role
   const membersOfSelectedRole = useMemo(() => {
-    return staffList.filter((s: any) => s.role === selectedRole);
-  }, [staffList, selectedRole]);
+    return visibleStaff.filter((s: any) => s.role === selectedRole);
+  }, [visibleStaff, selectedRole]);
 
   // Distinct categories of activities
   const activityCategories = useMemo(() => {
@@ -780,7 +791,7 @@ export default function StaffAndRoleManagementPage() {
                 Personnel Directory ({filteredStaff.length} members)
               </span>
               <span className="text-[11px] text-slate-500">
-                💡 Hospital Admin has complete data for each person's role, license, and privileges.
+                💡 Branch Admin has complete data for each person's role, license, and privileges.
               </span>
             </div>
 
@@ -884,10 +895,10 @@ export default function StaffAndRoleManagementPage() {
                             >
                               Edit Role
                             </button>
-                            {staff.role !== "Hospital Admin" && (
+                            {!["Branch Admin", "Hospital Admin", "Organizational Admin"].includes(staff.role) && (
                               <button
                                 onClick={() => {
-                                  if (confirm(`Remove ${staff.name} from hospital staff?`)) {
+                                  if (confirm(`Remove ${staff.name} from branch staff?`)) {
                                     removeStaffMutation.mutate({ id: staff.id });
                                   }
                                 }}

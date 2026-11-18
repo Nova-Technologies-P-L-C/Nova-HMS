@@ -296,6 +296,8 @@ export default function TriageStationPage() {
                         className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono font-black text-xs ${
                           item.status === "urgent"
                             ? "bg-rose-100 text-rose-700 border border-rose-200"
+                            : ((item as any).tier === "vip" || (item.ticketNumber || "").startsWith("V"))
+                            ? "bg-amber-100 text-amber-800 border border-amber-300"
                             : "bg-teal-100 text-teal-800 border border-teal-200"
                         }`}
                       >
@@ -304,6 +306,11 @@ export default function TriageStationPage() {
                       <div>
                         <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <span>{itemPatient.nameEn}</span>
+                          {((item as any).tier === "vip" || (item.ticketNumber || "").startsWith("V")) && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5">
+                              ⭐ VIP
+                            </span>
+                          )}
                           {itemPatient.cbhiStatus && (
                             <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-cyan-100 text-cyan-800">
                               CBHI

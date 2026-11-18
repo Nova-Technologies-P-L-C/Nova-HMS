@@ -2,6 +2,7 @@ import prisma from "@my-better-t-app/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
+import { createHospitalNotification } from "./notification";
 
 export const billingRouter = router({
   // Create invoice for a visit
@@ -154,6 +155,7 @@ export const billingRouter = router({
     .mutation(async ({ ctx, input }) => {
       const invoice = await prisma.invoice.findFirstOrThrow({
         where: { id: input.invoiceId, tenantId: ctx.tenantId },
+        include: { visit: { include: { patient: true } } },
       });
 
       await prisma.invoice.update({
@@ -161,7 +163,7 @@ export const billingRouter = router({
         data: { status: "waiver-requested" },
       });
 
-      return prisma.feeWaiver.create({
+      const waiver = await prisma.feeWaiver.create({
         data: {
           tenantId: ctx.tenantId,
           invoiceId: input.invoiceId,
@@ -171,6 +173,17 @@ export const billingRouter = router({
           requestedBy: ctx.userId,
         },
       });
+
+      // Notify Branch Admin
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Branch Admin",
+        type: "billing",
+        title: "Hardship Fee Waiver Requested",
+        body: `Waiver of ${input.amount.toLocaleString()} ETB requested for ${invoice.visit?.patient?.nameEn || "patient"} (${input.reason.slice(0, 50)}...).`,
+      });
+
+      return waiver;
     }),
 
   // Approve / reject fee waiver
@@ -199,6 +212,22 @@ export const billingRouter = router({
           data: { status: "pending" },
         });
       }
+
+      // Notify Cashiers / Billing Officers
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Billing Officer",
+        type: "billing",
+        title: `Fee Waiver ${input.approved ? "Approved" : "Rejected"}`,
+        body: `Waiver request of ${waiver.amount.toLocaleString()} ETB was ${input.approved ? "APPROVED" : "REJECTED"} by Branch Admin.`,
+      });
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Accountant",
+        type: "billing",
+        title: `Fee Waiver ${input.approved ? "Approved" : "Rejected"}`,
+        body: `Waiver request of ${waiver.amount.toLocaleString()} ETB was ${input.approved ? "APPROVED" : "REJECTED"} by Branch Admin.`,
+      });
 
       return waiver;
     }),
@@ -602,6 +631,27 @@ export const billingRouter = router({
           closedAt: new Date(),
         },
       });
+
+      // Notify departments that fees have been settled
+      if (input.labOrderIds && input.labOrderIds.length > 0) {
+        await createHospitalNotification({
+          tenantId: ctx.tenantId,
+          targetRole: "Lab Technician",
+          type: "lab",
+          title: "Payment Cleared — Lab Investigation",
+          body: `Receipt ${receiptNumber} issued for ${visit.patient.nameEn}. Diagnostic tests authorized for processing.`,
+        });
+      }
+
+      if (input.prescriptionLineIds && input.prescriptionLineIds.length > 0) {
+        await createHospitalNotification({
+          tenantId: ctx.tenantId,
+          targetRole: "Pharmacist",
+          type: "pharmacy",
+          title: "Payment Cleared — Rx Dispensing",
+          body: `Receipt ${receiptNumber} issued for ${visit.patient.nameEn}. Prescription items authorized for dispensing.`,
+        });
+      }
 
       return {
         receiptNumber,

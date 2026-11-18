@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Hash,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { PatientIDCardVisual } from "@/components/nova/patient-qr";
 import QRScanner from "@/components/nova/qr-scanner";
@@ -27,8 +28,19 @@ import { PATIENTS } from "@/lib/nova-mock-data";
 export default function PatientRegistrationPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [form, setForm] = useState({ nameEn: "", nameAm: "", dob: "", sex: "M" as "M" | "F", phone: "", email: "", kebele: "", cbhiStatus: false });
+  const [form, setForm] = useState({
+    nameEn: "",
+    nameAm: "",
+    dob: "",
+    sex: "M" as "M" | "F",
+    phone: "",
+    email: "",
+    kebele: "",
+    cbhiStatus: false,
+    portalPin: Math.floor(1000 + Math.random() * 9000).toString(),
+  });
   const [isEmergency, setIsEmergency] = useState(false);
+  const [isVip, setIsVip] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "telebirr" | "cbe_birr" | "unpaid">("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const [submitted, setSubmitted] = useState<{
@@ -43,9 +55,11 @@ export default function PatientRegistrationPage() {
     receiptNumber?: string;
     paymentStatus: string;
     feeAmount: number;
+    portalPin?: string;
   } | null>(null);
   const [tab, setTab] = useState<"new" | "existing">("new");
   const [selectedExisting, setSelectedExisting] = useState<string | null>(null);
+  const [existingResetPinSuccess, setExistingResetPinSuccess] = useState<string | null>(null);
 
   // ─── Side Kiosk Check-In State ───────────────────────────────────────────────
   const [kioskMethod, setKioskMethod] = useState<"id" | "qr">("id");
@@ -68,8 +82,11 @@ export default function PatientRegistrationPage() {
   );
   const generalTariff = regTariffs.find((t) => t.code === "OPD_REG_GENERAL");
   const emergTariff = regTariffs.find((t) => t.code === "OPD_REG_EMERGENCY");
+  const vipTariff = regTariffs.find((t) => t.code === "OPD_REG_VIP");
   const cardFeeAmount = isEmergency
     ? (emergTariff?.price ?? 100)
+    : isVip
+    ? (vipTariff?.price ?? (tenant as any)?.vipCardFeeAmount ?? 300)
     : (generalTariff?.price ?? tenant?.cardFeeAmount ?? 50);
 
   const searchResults = useQuery({
@@ -81,13 +98,17 @@ export default function PatientRegistrationPage() {
 
   const registerMutation = useMutation(trpc.patient.register.mutationOptions());
   const openVisitMutation = useMutation(trpc.visit.openVisit.mutationOptions());
+  const resetPinMutation = useMutation(trpc.patient.resetPortalPin.mutationOptions());
 
   const handleRegisterNew = async () => {
     if (!form.nameEn || !form.dob) return;
     const patient = await registerMutation.mutateAsync(form);
+    const assignedPin = (patient as any).portalPin || form.portalPin || "1234";
+
     const { ticket, receiptNumber } = await openVisitMutation.mutateAsync({
       patientId: patient.id,
       type: isEmergency ? "emergency" : "opd",
+      tier: isEmergency ? "emergency" : isVip ? "vip" : "standard",
       isEmergency,
       paymentMethod: form.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
       paymentReference,
@@ -106,6 +127,7 @@ export default function PatientRegistrationPage() {
         healthId: patient.healthId,
         kebele: form.kebele,
         cbhi: form.cbhiStatus,
+        portalPin: assignedPin,
         visits: 1,
         lastVisit: "Today",
       });
@@ -124,6 +146,7 @@ export default function PatientRegistrationPage() {
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
       feeAmount: ticket.feeAmount,
+      portalPin: assignedPin,
     });
   };
 
@@ -134,6 +157,7 @@ export default function PatientRegistrationPage() {
     const { ticket, receiptNumber } = await openVisitMutation.mutateAsync({
       patientId: patient.id,
       type: isEmergency ? "emergency" : "opd",
+      tier: isEmergency ? "emergency" : isVip ? "vip" : "standard",
       isEmergency,
       paymentMethod: patient.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
       paymentReference,
@@ -151,6 +175,7 @@ export default function PatientRegistrationPage() {
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
       feeAmount: ticket.feeAmount,
+      portalPin: (patient as any).portalPin || "1234",
     });
   };
 
@@ -280,10 +305,11 @@ export default function PatientRegistrationPage() {
                   kebele: submitted.kebele,
                   phone: submitted.phone,
                   cbhi: submitted.cbhiStatus,
+                  portalPin: submitted.portalPin,
                 }}
               />
               <p className="text-[11px] text-slate-400 mt-2 text-center max-w-sm">
-                This QR code is uniquely tied to {submitted.name} and can be scanned at triage, consultation, laboratory, and pharmacy.
+                This QR code is uniquely tied to {submitted.name} and contains secure credentials for one-tap patient portal login and clinical triage.
               </p>
             </div>
 
@@ -298,6 +324,15 @@ export default function PatientRegistrationPage() {
                   <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
                     <span className="text-slate-400">Assigned Health ID:</span>
                     <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{submitted.healthId}</span>
+                  </div>
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700 bg-amber-500/10 p-2 rounded-lg border border-amber-500/30">
+                    <div>
+                      <span className="text-amber-900 dark:text-amber-200 font-bold block text-xs">Patient Portal Security PIN:</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">Hand this PIN to the patient for online portal access</span>
+                    </div>
+                    <span className="font-mono font-black text-amber-700 dark:text-amber-300 text-lg tracking-widest px-2.5 py-0.5 bg-white dark:bg-slate-900 border border-amber-400/50 rounded-md">
+                      {submitted.portalPin || "1234"}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-700">
                     <span className="text-slate-400">Queue Ticket Number:</span>
@@ -342,6 +377,15 @@ export default function PatientRegistrationPage() {
                     <span>Print Registration Slip &amp; Card</span>
                   </button>
 
+                  <Link
+                    href={"/nova/patient/login" as any}
+                    target="_blank"
+                    className="w-full py-2 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-teal-800 dark:text-teal-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 border border-teal-200 dark:border-teal-800 transition"
+                  >
+                    <ExternalLink size={14} />
+                    <span>Test Patient Portal Login with this Card</span>
+                  </Link>
+
                   <button
                     type="button"
                     onClick={() => router.push("/nova/reception/queue")}
@@ -354,7 +398,17 @@ export default function PatientRegistrationPage() {
                     type="button"
                     onClick={() => {
                       setSubmitted(null);
-                      setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", email: "", kebele: "", cbhiStatus: false });
+                      setForm({
+                        nameEn: "",
+                        nameAm: "",
+                        dob: "",
+                        sex: "M",
+                        phone: "",
+                        email: "",
+                        kebele: "",
+                        cbhiStatus: false,
+                        portalPin: Math.floor(1000 + Math.random() * 9000).toString(),
+                      });
                       setSearchQuery("");
                       setSelectedExisting(null);
                       setIsEmergency(false);
@@ -469,7 +523,42 @@ export default function PatientRegistrationPage() {
 
               {/* Card Fee & Payment for Returning Patient */}
               {selectedExisting && (
-                <Card className="p-5 border-teal-200 dark:border-teal-800 bg-teal-50/30 dark:bg-teal-950/20">
+                <>
+                  {/* Patient Portal PIN Management */}
+                  <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-bold text-amber-900 dark:text-amber-200 block text-xs">
+                        🔑 Patient Portal Security PIN
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Required for patient login at /nova/patient
+                      </span>
+                      {existingResetPinSuccess && (
+                        <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                          ✓ {existingResetPinSuccess}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-amber-800 dark:text-amber-300 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-md border border-amber-400/50 text-sm tracking-widest">
+                        {(searchResults.data?.find((p) => p.id === selectedExisting) as any)?.portalPin || "1234"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await resetPinMutation.mutateAsync({ patientId: selectedExisting });
+                          setExistingResetPinSuccess(`PIN reset to: ${res.portalPin}`);
+                          await searchResults.refetch();
+                          setTimeout(() => setExistingResetPinSuccess(null), 4000);
+                        }}
+                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-md text-[11px] font-semibold transition flex items-center gap-1 shadow-xs"
+                      >
+                        Reset PIN ⟳
+                      </button>
+                    </div>
+                  </div>
+
+                  <Card className="p-5 border-teal-200 dark:border-teal-800 bg-teal-50/30 dark:bg-teal-950/20">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Card Fee &amp; Payment Settlement</h3>
                     <span className="text-xs px-2 py-0.5 bg-teal-100 dark:bg-teal-900 text-teal-800 dark:text-teal-200 rounded font-medium">Standard Tariff: ETB {cardFeeAmount}</span>
@@ -480,10 +569,26 @@ export default function PatientRegistrationPage() {
                       <input
                         type="checkbox"
                         checked={isEmergency}
-                        onChange={(e) => setIsEmergency(e.target.checked)}
+                        onChange={(e) => {
+                          setIsEmergency(e.target.checked);
+                          if (e.target.checked) setIsVip(false);
+                        }}
                         className="accent-red-600 w-4 h-4"
                       />
                       <span className="text-xs font-semibold text-red-800 dark:text-red-300">🚨 Emergency Case (Bypass payment gate directly to Urgent Triage)</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 p-2.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isVip && !isEmergency}
+                        disabled={isEmergency}
+                        onChange={(e) => setIsVip(e.target.checked)}
+                        className="accent-amber-600 w-4 h-4"
+                      />
+                      <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1">
+                        ⭐ VIP Fast-Track Pass ({vipTariff?.price ?? (tenant as any)?.vipCardFeeAmount ?? 300} ETB — Priority queue jump &amp; lounge)
+                      </span>
                     </label>
 
                     {searchResults.data?.find((p) => p.id === selectedExisting)?.cbhiStatus ? (
@@ -532,6 +637,7 @@ export default function PatientRegistrationPage() {
                     )}
                   </div>
                 </Card>
+                </>
               )}
 
               <button
@@ -583,6 +689,43 @@ export default function PatientRegistrationPage() {
                 </div>
               </Card>
 
+              {/* Patient Portal Security & PIN Issuance */}
+              <Card className="p-5 border-teal-200 dark:border-teal-900 bg-gradient-to-r from-teal-950/20 via-slate-900/30 to-teal-950/20">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                      <ShieldCheck size={16} className="text-teal-500" />
+                      Patient Portal Security &amp; PIN Issuance (የመጀመሪያ ጉብኝት መግቢያ)
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Assigned live during this first clinic visit. Printed on the patient's card for secure online portal login.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, portalPin: Math.floor(1000 + Math.random() * 9000).toString() }))}
+                    className="text-xs text-teal-600 dark:text-teal-400 hover:underline font-semibold flex items-center gap-1"
+                  >
+                    <span>Generate New PIN</span> ⟳
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="4-Digit Portal Security PIN">
+                    <input
+                      className={`${inputCls} font-mono text-base font-bold tracking-widest text-teal-600 dark:text-teal-300`}
+                      value={form.portalPin}
+                      maxLength={4}
+                      onChange={(e) => setForm((p) => ({ ...p, portalPin: e.target.value.replace(/\D/g, "") }))}
+                      placeholder="e.g. 4829"
+                    />
+                  </FormField>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 flex flex-col justify-center space-y-1">
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">✓ Printed automatically on physical card and receipt.</span>
+                    <span>✓ Patient logs in with assigned Health ID + this PIN from their phone.</span>
+                  </div>
+                </div>
+              </Card>
+
               <Card className="p-5">
                 <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-3">Health Insurance Verification</h3>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -610,10 +753,26 @@ export default function PatientRegistrationPage() {
                     <input
                       type="checkbox"
                       checked={isEmergency}
-                      onChange={(e) => setIsEmergency(e.target.checked)}
+                      onChange={(e) => {
+                        setIsEmergency(e.target.checked);
+                        if (e.target.checked) setIsVip(false);
+                      }}
                       className="accent-red-600 w-4 h-4"
                     />
                     <span className="text-xs font-semibold text-red-800 dark:text-red-300">🚨 Emergency Case (Bypass payment gate directly to Urgent Triage)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isVip && !isEmergency}
+                      disabled={isEmergency}
+                      onChange={(e) => setIsVip(e.target.checked)}
+                      className="accent-amber-600 w-4 h-4"
+                    />
+                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1">
+                      ⭐ VIP Fast-Track Pass ({vipTariff?.price ?? (tenant as any)?.vipCardFeeAmount ?? 300} ETB — Priority queue jump &amp; lounge)
+                    </span>
                   </label>
 
                   {form.cbhiStatus ? (
@@ -672,7 +831,19 @@ export default function PatientRegistrationPage() {
                   {isLoading ? "Registering…" : `Register & Issue Ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
                 </button>
                 <button
-                  onClick={() => setForm({ nameEn: "", nameAm: "", dob: "", sex: "M", phone: "", email: "", kebele: "", cbhiStatus: false })}
+                  onClick={() =>
+                    setForm({
+                      nameEn: "",
+                      nameAm: "",
+                      dob: "",
+                      sex: "M",
+                      phone: "",
+                      email: "",
+                      kebele: "",
+                      cbhiStatus: false,
+                      portalPin: Math.floor(1000 + Math.random() * 9000).toString(),
+                    })
+                  }
                   className={btnSecondary}
                 >
                   Clear Form

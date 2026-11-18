@@ -37,12 +37,12 @@ export const HOSPITALS = [
 ];
 
 export const PATIENTS = [
-  { id: "P001", name: "Abebe Kebede", nameAm: "አበበ ከበደ", dob: "1985-03-12", sex: "M", phone: "0911234567", healthId: "DMH-00123", kebele: "Kebele 03", cbhi: true, visits: 4, lastVisit: "2026-08-28" },
-  { id: "P002", name: "Tigist Worku", nameAm: "ትግስት ወርቁ", dob: "1992-07-22", sex: "F", phone: "0922345678", healthId: "DMH-00456", kebele: "Kebele 07", cbhi: false, visits: 2, lastVisit: "2026-09-01" },
-  { id: "P003", name: "Mulugeta Haile", nameAm: "ሙሉጌታ ሃይሌ", dob: "1975-11-04", sex: "M", phone: "0933456789", healthId: "DMH-00789", kebele: "Kebele 01", cbhi: true, visits: 8, lastVisit: "2026-09-03" },
-  { id: "P004", name: "Birtukan Tadesse", nameAm: "ብርቱካን ታደሰ", dob: "2001-01-30", sex: "F", phone: "0944567890", healthId: "DMH-01012", kebele: "Kebele 12", cbhi: true, visits: 1, lastVisit: "2026-09-05" },
-  { id: "P005", name: "Dawit Bekele", nameAm: "ዳዊት በቀለ", dob: "1968-09-15", sex: "M", phone: "0955678901", healthId: "DMH-01345", kebele: "Kebele 05", cbhi: false, visits: 12, lastVisit: "2026-08-20" },
-  { id: "P006", name: "Selamawit Girma", nameAm: "ሰላማዊት ግርማ", dob: "1998-05-08", sex: "F", phone: "0966789012", healthId: "DMH-01678", kebele: "Kebele 09", cbhi: true, visits: 3, lastVisit: "2026-09-04" },
+  { id: "P001", name: "Abebe Kebede", nameAm: "አበበ ከበደ", dob: "1985-03-12", sex: "M", phone: "0911234567", healthId: "DMH-00123", kebele: "Kebele 03", cbhi: true, visits: 4, lastVisit: "2026-08-28", portalPin: "1234" },
+  { id: "P002", name: "Tigist Worku", nameAm: "ትግስት ወርቁ", dob: "1992-07-22", sex: "F", phone: "0922345678", healthId: "DMH-00456", kebele: "Kebele 07", cbhi: false, visits: 2, lastVisit: "2026-09-01", portalPin: "1234" },
+  { id: "P003", name: "Mulugeta Haile", nameAm: "ሙሉጌታ ሃይሌ", dob: "1975-11-04", sex: "M", phone: "0933456789", healthId: "DMH-00789", kebele: "Kebele 01", cbhi: true, visits: 8, lastVisit: "2026-09-03", portalPin: "1234" },
+  { id: "P004", name: "Birtukan Tadesse", nameAm: "ብርቱካን ታደሰ", dob: "2001-01-30", sex: "F", phone: "0944567890", healthId: "DMH-01012", kebele: "Kebele 12", cbhi: true, visits: 1, lastVisit: "2026-09-05", portalPin: "1234" },
+  { id: "P005", name: "Dawit Bekele", nameAm: "ዳዊት በቀለ", dob: "1968-09-15", sex: "M", phone: "0955678901", healthId: "DMH-01345", kebele: "Kebele 05", cbhi: false, visits: 12, lastVisit: "2026-08-20", portalPin: "1234" },
+  { id: "P006", name: "Selamawit Girma", nameAm: "ሰላማዊት ግርማ", dob: "1998-05-08", sex: "F", phone: "0966789012", healthId: "DMH-01678", kebele: "Kebele 09", cbhi: true, visits: 3, lastVisit: "2026-09-04", portalPin: "1234" },
 ];
 
 export const OPD_QUEUE = [

@@ -13,6 +13,7 @@ export interface PatientQRData {
   cbhi?: boolean;
   facility?: string;
   bloodGroup?: string;
+  portalPin?: string;
 }
 
 export function createPatientQRPayload(patient: PatientQRData): string {
@@ -23,6 +24,7 @@ export function createPatientQRPayload(patient: PatientQRData): string {
     name: patient.name,
     dob: patient.dob,
     cbhi: patient.cbhi,
+    pin: patient.portalPin,
     facility: patient.facility || "Debre Markos Referral Hospital",
     issued: new Date().toISOString().split("T")[0],
   });
@@ -33,6 +35,7 @@ export function parsePatientQRPayload(raw: string): {
   name?: string;
   dob?: string;
   cbhi?: boolean;
+  portalPin?: string;
   raw: string;
 } {
   try {
@@ -43,6 +46,7 @@ export function parsePatientQRPayload(raw: string): {
         name: parsed.name,
         dob: parsed.dob,
         cbhi: parsed.cbhi,
+        portalPin: parsed.pin || parsed.portalPin,
         raw,
       };
     }
@@ -322,6 +326,15 @@ export function PatientIDCardVisual({
             <div>
               <span className="text-[10px] text-teal-300/80 block uppercase tracking-wider">Phone</span>
               <span className="text-slate-200 text-[11px] font-mono">{patient.phone}</span>
+            </div>
+          )}
+
+          {patient.portalPin && (
+            <div className="pt-1">
+              <span className="text-[9px] text-teal-300/90 block uppercase tracking-wider font-bold">Portal PIN (መግቢያ ፒን)</span>
+              <span className="font-mono font-black text-amber-300 text-sm tracking-widest bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded inline-block">
+                {patient.portalPin}
+              </span>
             </div>
           )}
         </div>

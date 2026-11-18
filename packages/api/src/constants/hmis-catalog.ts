@@ -223,7 +223,7 @@ export function matchHmisCategory(diagnosisName: string, icdCode?: string): Hmis
   }
 
   // 3. Fallback to catch-all category
-  return ETHIOPIAN_HMIS_MORBIDITY_CATALOG[ETHIOPIAN_HMIS_MORBIDITY_CATALOG.length - 1];
+  return ETHIOPIAN_HMIS_MORBIDITY_CATALOG[ETHIOPIAN_HMIS_MORBIDITY_CATALOG.length - 1]!;
 }
 
 /**

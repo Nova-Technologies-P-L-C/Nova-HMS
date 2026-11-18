@@ -35,13 +35,13 @@ async function main() {
     },
     {
       id: "u-admin",
-      name: "Hospital Admin",
+      name: "Branch Admin",
       email: "admin@dmrh.gov.et",
-      role: "Hospital Admin",
+      role: "Branch Admin",
       department: "Administration",
-      title: "Chief Executive Officer (CEO)",
+      title: "Branch General Manager",
       phone: "0911223344",
-      licenseNumber: "ETH-ADM-001",
+      licenseNumber: "ETH-BA-001",
     },
     {
       id: "u-tigist",
@@ -191,19 +191,6 @@ async function main() {
         "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
       ],
       description: "Full administrative, financial, clinical, and security privileges across branch operations.",
-      icon: "🛡️",
-      color: "rose",
-    },
-    "Hospital Admin": {
-      permissions: [
-        "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
-        "lab.order.create", "lab.results.enter", "lab.results.approve",
-        "rx.prescribe", "rx.dispense", "inventory.manage",
-        "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
-        "ward.admit", "ward.discharge", "ward.mar.administer",
-        "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
-      ],
-      description: "Full administrative, financial, clinical, and security privileges across all hospital operations.",
       icon: "🛡️",
       color: "rose",
     },

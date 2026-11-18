@@ -1,7 +1,7 @@
 import prisma from "@my-better-t-app/db";
-import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
+import { createHospitalNotification } from "./notification";
 
 export type DoctorPresenceStatus =
   | "available"
@@ -444,15 +444,14 @@ export const doctorRouter = router({
     .mutation(async ({ ctx, input }) => {
       // Record Notification
       if (input.doctorId) {
-        await prisma.notification.create({
-          data: {
-            tenantId: ctx.tenantId,
-            userId: input.doctorId,
-            type: "clinical",
-            title: `Reception Alert: ${input.urgency.toUpperCase()}`,
-            body: input.message,
-          },
-        }).catch(() => null);
+        await createHospitalNotification({
+          tenantId: ctx.tenantId,
+          targetUserId: input.doctorId,
+          targetRole: "Doctor",
+          type: input.urgency === "emergency" ? "emergency" : "clinical",
+          title: `Reception Intercom Alert: ${input.urgency.toUpperCase()}`,
+          body: input.message,
+        });
       }
 
       await prisma.auditLog.create({

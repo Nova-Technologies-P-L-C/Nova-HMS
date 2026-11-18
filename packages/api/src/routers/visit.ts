@@ -2,6 +2,7 @@ import prisma from "@my-better-t-app/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
+import { createHospitalNotification } from "./notification";
 
 export const visitRouter = router({
   // Open a new visit and issue OPD ticket
@@ -9,6 +10,9 @@ export const visitRouter = router({
     .input(z.object({
       patientId: z.string(),
       type: z.enum(["opd", "inpatient", "emergency"]).default("opd"),
+      tier: z.enum(["standard", "vip", "emergency"]).default("standard"),
+      channel: z.enum(["walk_in", "online"]).default("walk_in"),
+      department: z.string().default("OPD"),
       isEmergency: z.boolean().default(false),
       paymentMethod: z.enum(["cash", "telebirr", "cbe_birr", "card", "unpaid"]).default("unpaid"),
       paymentReference: z.string().default(""),
@@ -17,11 +21,20 @@ export const visitRouter = router({
       const patient = await prisma.patient.findFirstOrThrow({ where: { id: input.patientId, tenantId: ctx.tenantId } });
       const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: ctx.tenantId } });
 
-      const isEmerg = input.type === "emergency" || input.isEmergency;
-      let feeAmount = isEmerg ? 100 : (tenant.cardFeeAmount ?? 50);
+      const isEmerg = input.type === "emergency" || input.isEmergency || input.tier === "emergency";
+      const isVip = input.tier === "vip";
+      const effectiveTier = isEmerg ? "emergency" : (isVip ? "vip" : "standard");
+      const priorityScore = isEmerg ? 100 : (isVip ? 10 : 0);
+
+      let feeAmount = isEmerg
+        ? 100
+        : (isVip ? (tenant.vipCardFeeAmount ?? 300) : (tenant.cardFeeAmount ?? 50));
 
       // Check configured tariff
-      const tariffCode = isEmerg ? "OPD_REG_EMERGENCY" : "OPD_REG_GENERAL";
+      const tariffCode = isEmerg
+        ? "OPD_REG_EMERGENCY"
+        : (isVip ? "OPD_REG_VIP" : "OPD_REG_GENERAL");
+
       const configuredTariff = await prisma.hospitalServiceTariff.findFirst({
         where: { tenantId: ctx.tenantId, code: tariffCode, isActive: true },
       });
@@ -55,7 +68,8 @@ export const visitRouter = router({
       const todayCount = await prisma.oPDTicket.count({
         where: { tenantId: ctx.tenantId, issuedAt: { gte: today } },
       });
-      const ticketNumber = `${isEmerg ? "E" : "A"}-${String(todayCount + 1).padStart(3, "0")}`;
+      const prefix = isEmerg ? "E" : (isVip ? "V" : "A");
+      const ticketNumber = `${prefix}-${String(todayCount + 1).padStart(3, "0")}`;
 
       let receiptNumber = "";
       if (paymentStatus === "paid") {
@@ -68,12 +82,12 @@ export const visitRouter = router({
             receiptNumber,
             patientId: patient.id,
             visitId: visit.id,
-            category: "card_fee",
+            category: isVip ? "card_fee_vip" : "card_fee",
             amount: feeAmount,
             paymentMethod: input.paymentMethod,
             collectedBy: ctx.userId ?? "Receptionist",
             reference: input.paymentReference,
-            notes: `Card Fee for ${ticketNumber}`,
+            notes: `${isVip ? "VIP Fast-Track" : "Standard"} Card Fee for ${ticketNumber}`,
           },
         });
       }
@@ -84,12 +98,25 @@ export const visitRouter = router({
           visitId: visit.id,
           ticketNumber,
           status,
+          tier: effectiveTier,
+          channel: input.channel,
+          priorityScore,
+          department: input.department,
           feeAmount,
           paymentStatus,
           paidAt: paymentStatus === "paid" ? new Date() : undefined,
           receiptNumber,
           paymentMethod: paymentStatus === "paid" ? input.paymentMethod : (paymentStatus === "cbhi_covered" ? "cbhi" : (paymentStatus === "emergency_exempt" ? "emergency" : "")),
         },
+      });
+
+      // Broadcast clinical notifications
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: isEmerg ? "Doctor" : "Triage Nurse",
+        type: isEmerg ? "emergency" : "clinical",
+        title: isEmerg ? "🚨 EMERGENCY: Patient Queued" : "New Patient at Triage",
+        body: `${patient.nameEn} (Ticket ${ticketNumber}) queued for ${input.department}.`,
       });
 
       return { visit, ticket, receiptNumber };
@@ -170,7 +197,10 @@ export const visitRouter = router({
           },
         },
       },
-      orderBy: { issuedAt: "asc" },
+      orderBy: [
+        { priorityScore: "desc" },
+        { issuedAt: "asc" },
+      ],
     });
   }),
 
@@ -204,10 +234,24 @@ export const visitRouter = router({
       height: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      await prisma.visit.findFirstOrThrow({ where: { id: input.visitId, tenantId: ctx.tenantId } });
-      return prisma.vitalSigns.create({
+      const visit = await prisma.visit.findFirstOrThrow({
+        where: { id: input.visitId, tenantId: ctx.tenantId },
+        include: { patient: true, ticket: true },
+      });
+      const vitals = await prisma.vitalSigns.create({
         data: { ...input, recordedBy: ctx.userId },
       });
+
+      // Notify Doctor that patient vitals are recorded and ready
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Doctor",
+        type: "clinical",
+        title: "Patient Vitals Recorded",
+        body: `${visit.patient.nameEn} (Ticket ${visit.ticket?.ticketNumber ?? "N/A"}) vitals recorded. Patient ready for consultation.`,
+      });
+
+      return vitals;
     }),
 
   // Add clinical/nursing note (auto-resolves or creates visit if needed)
@@ -330,7 +374,10 @@ export const visitRouter = router({
           },
         },
       },
-      orderBy: { issuedAt: "asc" },
+      orderBy: [
+        { priorityScore: "desc" },
+        { issuedAt: "asc" },
+      ],
     });
 
     return {
@@ -358,6 +405,10 @@ export const visitRouter = router({
         visitId: t.visit.id,
         patient: t.visit.patient,
         status: t.status,
+        tier: t.tier,
+        channel: t.channel,
+        priorityScore: t.priorityScore,
+        department: t.department,
         issuedAt: t.issuedAt,
         assignedNurseId: t.assignedNurseId,
         assignedNurseName: t.assignedNurseName || "Unassigned",
@@ -423,14 +474,19 @@ export const visitRouter = router({
         });
       }
 
-      await prisma.notification.create({
-        data: {
-          tenantId: ctx.tenantId,
-          userId: "cashier",
-          type: "billing",
-          title: "Patient Transferred to Billing",
-          body: `${visit.patient.nameEn} (Ticket ${visit.ticket?.ticketNumber ?? "N/A"}) transferred for final checkout.`,
-        },
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Billing Officer",
+        type: "billing",
+        title: "Patient Ready for Billing Checkout",
+        body: `${visit.patient.nameEn} (Ticket ${visit.ticket?.ticketNumber ?? "N/A"}) transferred for cashier settlement.`,
+      });
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Accountant",
+        type: "billing",
+        title: "Patient Ready for Billing Checkout",
+        body: `${visit.patient.nameEn} (Ticket ${visit.ticket?.ticketNumber ?? "N/A"}) transferred for cashier settlement.`,
       });
 
       return updatedVisit;

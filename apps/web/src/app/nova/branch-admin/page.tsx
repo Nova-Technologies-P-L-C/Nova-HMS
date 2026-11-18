@@ -24,15 +24,36 @@ import {
   Stethoscope,
   Bed,
   RotateCcw,
+  RefreshCw,
+  Clock,
 } from "lucide-react";
 
 export default function BranchAdminDashboard() {
   const queryClient = useQueryClient();
-  const { data: stats } = useQuery(trpc.tenant.dashboardStats.queryOptions());
+  const [range, setRange] = useState<"today" | "7d" | "30d" | "month" | "quarter" | "all">("today");
+
+  const {
+    data: stats,
+    refetch: refetchStats,
+    isFetching: isStatsFetching,
+  } = useQuery(trpc.tenant.dashboardStats.queryOptions({ range }));
+
   const { data: queue = [] } = useQuery(trpc.visit.queue.queryOptions());
-  const { data: auditLogs = [] } = useQuery(trpc.tenant.auditLog.queryOptions());
+
+  const {
+    data: auditLogs = [],
+    refetch: refetchAudit,
+    isFetching: isAuditFetching,
+  } = useQuery(trpc.tenant.auditLog.queryOptions({ range }));
+
   const { data: ropAlerts = [] } = useQuery(trpc.inventory.ropAlerts.queryOptions());
   const { data: roles = [] } = useQuery(trpc.tenant.getRolesWithStats.queryOptions());
+
+  const isRefreshing = isStatsFetching || isAuditFetching;
+  const handleRefresh = () => {
+    refetchStats();
+    refetchAudit();
+  };
 
   const occupancyPct = stats ? Math.round((stats.occupiedBeds / Math.max(stats.beds, 1)) * 100) : 0;
   const customRolesCount = roles.filter((r) => !r.isSystem).length;
@@ -63,7 +84,49 @@ export default function BranchAdminDashboard() {
   );
 
   return (
-    <PageShell title="Branch Admin Control Center" subtitle="Comprehensive Branch Management & Dynamic RBAC Governance">
+    <PageShell
+      title="Branch Admin Control Center"
+      subtitle="Comprehensive Branch Management & Dynamic RBAC Governance"
+      action={
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Time Range Filter Pill Group */}
+          <div className="inline-flex items-center bg-white dark:bg-slate-900 p-1 rounded-full border border-slate-200 dark:border-slate-800 text-xs shadow-2xs">
+            {(
+              [
+                ["today", "Today"],
+                ["7d", "7D"],
+                ["30d", "30D"],
+                ["month", "This Month"],
+                ["quarter", "Quarter"],
+                ["all", "All Time"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setRange(key)}
+                className={`px-3 py-1 rounded-full font-semibold transition-all duration-150 cursor-pointer ${
+                  range === key
+                    ? "bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Refresh Control */}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-teal-500 transition shadow-2xs cursor-pointer"
+            title="Refresh Branch Metrics"
+          >
+            <RefreshCw size={14} className={isRefreshing ? "animate-spin text-teal-600" : ""} />
+          </button>
+        </div>
+      }
+    >
       {/* RBAC Quick Feature Banner */}
       <div className="bg-gradient-to-r from-teal-700 via-slate-800 to-indigo-900 rounded-xl p-5 text-white mb-6 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -91,10 +154,43 @@ export default function BranchAdminDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Patients today" value={stats?.todayVisits ?? "—"} sub="OPD registrations" accent />
-        <KpiCard label="Total patients" value={stats?.patients ?? "—"} />
-        <KpiCard label="Bed occupancy" value={`${occupancyPct}%`} sub={`${stats?.occupiedBeds ?? 0} / ${stats?.beds ?? 0} beds`} />
-        <KpiCard label="Critical stock" value={stats?.criticalStock ?? "—"} sub="items need reorder" />
+        <KpiCard
+          label={
+            range === "today"
+              ? "Patients today"
+              : range === "7d"
+              ? "OPD Visits (7D)"
+              : range === "30d"
+              ? "OPD Visits (30D)"
+              : range === "month"
+              ? "OPD Visits (This Month)"
+              : range === "quarter"
+              ? "OPD Visits (Quarter)"
+              : "Total OPD Visits"
+          }
+          value={stats ? (range === "today" ? stats.todayVisits : stats.periodVisits) : "—"}
+          sub={range === "today" ? "Live OPD registrations" : `${stats?.todayVisits ?? 0} registered today`}
+          accent
+        />
+        <KpiCard
+          label={range === "all" ? "Total Registered Patients" : "New Patient Intake"}
+          value={stats ? (range === "all" ? stats.patients : stats.newPatientsPeriod) : "—"}
+          sub={range === "all" ? "All-time patient records" : `Total: ${stats?.patients ?? 0} records`}
+        />
+        <KpiCard
+          label={range === "today" ? "Collections Today" : "Branch Collections"}
+          value={stats ? `${(stats.periodRevenue ?? 0).toLocaleString()} ETB` : "—"}
+          sub={
+            stats?.periodWaivedAmount
+              ? `${stats.periodWaivedAmount.toLocaleString()} ETB social relief`
+              : "Gross receipts settled"
+          }
+        />
+        <KpiCard
+          label="Bed Occupancy"
+          value={`${occupancyPct}%`}
+          sub={`${stats?.occupiedBeds ?? 0} / ${stats?.beds ?? 0} beds (${stats?.criticalStock ?? 0} stock alerts)`}
+        />
       </div>
 
       {ropAlerts.length > 0 && (
@@ -440,22 +536,31 @@ export default function BranchAdminDashboard() {
         </Card>
 
         <Card>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <p className="font-medium text-slate-800 text-sm">Branch Security & Activity Audit</p>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-slate-800 dark:text-slate-200 text-sm">Branch Security & Activity Audit</p>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 uppercase">
+                {range}
+              </span>
+            </div>
             <Link href={"/nova/branch-admin/audit" as any} className="text-xs text-teal-600 hover:underline flex items-center gap-1">
               Audit log <ArrowRight size={11} />
             </Link>
           </div>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-slate-50 dark:divide-slate-800">
             {auditLogs.slice(0, 4).map((a) => (
               <div key={a.id} className="px-4 py-2.5">
-                <p className="text-sm text-slate-700">{a.action}</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300">{a.action}</p>
                 <p className="text-xs text-slate-400">
                   {a.entity} · {new Date(a.createdAt).toLocaleString()}
                 </p>
               </div>
             ))}
-            {auditLogs.length === 0 && <p className="px-4 py-4 text-sm text-slate-400">No recent activity logged</p>}
+            {auditLogs.length === 0 && (
+              <p className="px-4 py-4 text-sm text-slate-400">
+                No recent activity logged in selected period ({range})
+              </p>
+            )}
           </div>
         </Card>
       </div>

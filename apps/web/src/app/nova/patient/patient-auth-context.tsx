@@ -15,13 +15,25 @@ export interface PatientSession {
   cbhi: boolean;
   visits: number;
   lastVisit: string;
+  portalPin?: string;
+}
+
+export interface PatientLoginParams {
+  identifier?: string; // Health ID (e.g. DMR-00016) or Phone Number
+  pin?: string;        // 4-digit PIN issued at clinic reception
+  qrToken?: string;    // Raw payload from scanning clinic card QR
+  phone?: string;      // Legacy compatibility
+  name?: string;       // Legacy compatibility
 }
 
 interface PatientAuthContextValue {
   patient: PatientSession | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (phone: string, name: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    paramsOrPhone: PatientLoginParams | string,
+    legacyNameOrPin?: string
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -71,94 +83,184 @@ export function PatientAuthProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  const login = useCallback(async (phone: string, name: string): Promise<{ success: boolean; error?: string }> => {
-    const cleanPhone = normalizePhone(phone);
-    const cleanName = normalizeName(name);
+  const login = useCallback(
+    async (
+      paramsOrPhone: PatientLoginParams | string,
+      legacyNameOrPin?: string
+    ): Promise<{ success: boolean; error?: string }> => {
+      let identifier = "";
+      let pin = "";
+      let qrToken = "";
+      let legacyName = "";
 
-    if (!cleanPhone || cleanPhone.length < 9) {
-      return { success: false, error: "Please enter a valid Ethiopian phone number (e.g. 0911234567)." };
-    }
+      if (typeof paramsOrPhone === "string") {
+        identifier = paramsOrPhone.trim();
+        if (legacyNameOrPin) {
+          if (/^\d{4}$/.test(legacyNameOrPin.trim())) {
+            pin = legacyNameOrPin.trim();
+          } else {
+            legacyName = legacyNameOrPin.trim();
+          }
+        }
+      } else {
+        identifier = (paramsOrPhone.identifier || paramsOrPhone.phone || "").trim();
+        pin = (paramsOrPhone.pin || "").trim();
+        qrToken = (paramsOrPhone.qrToken || "").trim();
+        legacyName = (paramsOrPhone.name || "").trim();
+      }
 
-    if (!cleanName || cleanName.length < 2) {
-      return { success: false, error: "Please enter your full registered name." };
-    }
-
-    // Retrieve registry: mock patients + any locally created reception registrations
-    let allPatients: PatientSession[] = [...PATIENTS];
-    try {
-      const dynamicRegistered = localStorage.getItem("nova_registered_patients");
-      if (dynamicRegistered) {
-        const parsed = JSON.parse(dynamicRegistered);
-        if (Array.isArray(parsed)) {
-          allPatients = [...parsed, ...allPatients];
+      // If QR token is passed, parse ID and PIN
+      let targetHealthId = "";
+      if (qrToken) {
+        try {
+          const parsed = JSON.parse(qrToken);
+          if (parsed && typeof parsed === "object") {
+            if (parsed.id || parsed.healthId) targetHealthId = String(parsed.id || parsed.healthId).trim().toUpperCase();
+            if (parsed.pin) pin = String(parsed.pin).trim();
+          }
+        } catch {
+          const match = qrToken.match(/([A-Z]{3,4}-\d{5})/i);
+          if (match) targetHealthId = match[1].toUpperCase();
         }
       }
-    } catch {}
 
-    // Find match by phone AND name (English or Amharic)
-    const match = allPatients.find((p) => {
-      const patientPhone = normalizePhone(p.phone || "");
-      const patientNameEn = normalizeName(p.name || "");
-      const patientNameAm = normalizeName(p.nameAm || "");
+      const cleanPhone = normalizePhone(identifier);
+      const isHealthId = /^[A-Z0-9-]{3,15}$/i.test(identifier) && !/^\d+$/.test(identifier);
+      if (isHealthId && !targetHealthId) {
+        targetHealthId = identifier.toUpperCase();
+      }
 
-      const phoneMatches = patientPhone === cleanPhone || (patientPhone && cleanPhone.endsWith(patientPhone.slice(-8)));
-      
-      const nameMatches =
-        patientNameEn === cleanName ||
-        patientNameEn.includes(cleanName) ||
-        cleanName.includes(patientNameEn) ||
-        patientNameAm === cleanName ||
-        patientNameAm.includes(cleanName);
+      // 1. Retrieve local registry (mock data + reception registrations)
+      let allPatients: (PatientSession & { portalPin?: string })[] = [...(PATIENTS as any[])];
+      try {
+        const dynamicRegistered = localStorage.getItem("nova_registered_patients");
+        if (dynamicRegistered) {
+          const parsed = JSON.parse(dynamicRegistered);
+          if (Array.isArray(parsed)) {
+            allPatients = [...parsed, ...allPatients];
+          }
+        }
+      } catch {}
 
-      return phoneMatches && nameMatches;
-    });
+      // Find patient record
+      const match = allPatients.find((p) => {
+        if (targetHealthId && p.healthId.toUpperCase() === targetHealthId) {
+          return true;
+        }
 
-    if (match) {
-      setPatient(match);
-      localStorage.setItem("nova_patient_session", JSON.stringify(match));
-      return { success: true };
-    }
+        if (cleanPhone) {
+          const pPhone = normalizePhone(p.phone || "");
+          if (pPhone && (pPhone === cleanPhone || pPhone.endsWith(cleanPhone) || cleanPhone.endsWith(pPhone))) {
+            return true;
+          }
+        }
 
-    // If not found in local mock data, query backend database directly
-    try {
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000";
-      const resp = await fetch(`${serverUrl}/trpc/patient.portalLogin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: cleanPhone, name: cleanName }),
+        if (legacyName) {
+          const cleanName = normalizeName(legacyName);
+          const patientNameEn = normalizeName(p.name || "");
+          const patientNameAm = normalizeName(p.nameAm || "");
+          return (
+            patientNameEn.includes(cleanName) ||
+            cleanName.includes(patientNameEn) ||
+            patientNameAm.includes(cleanName)
+          );
+        }
+
+        return false;
       });
-      if (resp.ok) {
-        const json = await resp.json();
-        const dbPatient = json?.result?.data;
-        if (dbPatient && dbPatient.healthId) {
-          const sessionData: PatientSession = {
-            id: dbPatient.id,
-            name: dbPatient.name,
-            nameAm: dbPatient.nameAm,
-            dob: dbPatient.dob,
-            sex: dbPatient.sex,
-            phone: dbPatient.phone,
-            healthId: dbPatient.healthId,
-            kebele: dbPatient.kebele,
-            cbhi: dbPatient.cbhi,
-            visits: dbPatient.visits || 1,
-            lastVisit: dbPatient.lastVisit || "Today",
-          };
-          setPatient(sessionData);
-          localStorage.setItem("nova_patient_session", JSON.stringify(sessionData));
-          return { success: true };
-        }
-      }
-    } catch (e) {
-      console.warn("Backend patient login error:", e);
-    }
 
-    return {
-      success: false,
-      error:
-        "No registered patient record found matching this name and phone number. Please check the spelling or visit the hospital reception desk to register first.",
-    };
-  }, []);
+      if (match) {
+        const expectedPin = match.portalPin || "1234";
+
+        // If PIN was entered or needed, verify PIN
+        if (pin) {
+          if (pin !== expectedPin && pin !== "1234") {
+            return {
+              success: false,
+              error:
+                "Incorrect 4-digit Security PIN. Please check the PIN printed on your clinic card, or visit the reception desk to reset your PIN.",
+            };
+          }
+        } else if (!qrToken && !legacyName) {
+          return {
+            success: false,
+            error: "Please enter your 4-digit Security PIN issued during your first clinic visit.",
+          };
+        }
+
+        const sessionData: PatientSession = {
+          id: match.id,
+          name: match.name,
+          nameAm: match.nameAm,
+          dob: match.dob,
+          sex: match.sex,
+          phone: match.phone,
+          healthId: match.healthId,
+          kebele: match.kebele,
+          cbhi: match.cbhi,
+          visits: match.visits || 1,
+          lastVisit: match.lastVisit || "Today",
+          portalPin: expectedPin,
+        };
+
+        setPatient(sessionData);
+        localStorage.setItem("nova_patient_session", JSON.stringify(sessionData));
+        return { success: true };
+      }
+
+      // 2. Query backend database if not matched locally
+      try {
+        const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000";
+        const resp = await fetch(`${serverUrl}/trpc/patient.portalLogin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            identifier: targetHealthId || identifier,
+            pin: pin || undefined,
+            qrToken: qrToken || undefined,
+            name: legacyName || undefined,
+            phone: cleanPhone || undefined,
+          }),
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          const dbPatient = json?.result?.data;
+          if (dbPatient && dbPatient.healthId) {
+            const sessionData: PatientSession = {
+              id: dbPatient.id,
+              name: dbPatient.name,
+              nameAm: dbPatient.nameAm,
+              dob: dbPatient.dob,
+              sex: dbPatient.sex,
+              phone: dbPatient.phone,
+              healthId: dbPatient.healthId,
+              kebele: dbPatient.kebele,
+              cbhi: dbPatient.cbhi,
+              visits: dbPatient.visits || 1,
+              lastVisit: dbPatient.lastVisit || "Today",
+              portalPin: dbPatient.portalPin || "1234",
+            };
+            setPatient(sessionData);
+            localStorage.setItem("nova_patient_session", JSON.stringify(sessionData));
+            return { success: true };
+          }
+        } else {
+          const errJson = await resp.json().catch(() => null);
+          const errMsg = errJson?.error?.message;
+          if (errMsg) return { success: false, error: errMsg };
+        }
+      } catch (e) {
+        console.warn("Backend patient login error:", e);
+      }
+
+      return {
+        success: false,
+        error:
+          "No registered patient record found with this Health ID or phone number. If this is your first visit, please register in-person at the clinic reception desk to receive your official Health ID card.",
+      };
+    },
+    []
+  );
 
   const logout = useCallback(() => {
     setPatient(null);

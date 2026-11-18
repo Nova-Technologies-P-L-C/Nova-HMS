@@ -2,6 +2,7 @@ import prisma from "@my-better-t-app/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { router, tenantProcedure } from "../index";
+import { createHospitalNotification } from "./notification";
 
 export const labRouter = router({
   // Doctor orders a lab test
@@ -69,20 +70,13 @@ export const labRouter = router({
       });
 
       // Notify lab technicians
-      const labStaff = await prisma.userTenantRole.findMany({
-        where: { tenantId: ctx.tenantId, role: "Lab Technician", status: "active" },
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Lab Technician",
+        type: "lab",
+        title: input.priority === "urgent" ? "🚨 URGENT: New Lab Order" : "New Lab Order",
+        body: `${input.testName} requested for ${visit.patient.nameEn} (${input.indication || "Routine"}).`,
       });
-      await Promise.all(labStaff.map((s) =>
-        prisma.notification.create({
-          data: {
-            tenantId: ctx.tenantId,
-            userId: s.userId,
-            type: "in-app",
-            title: "New lab order",
-            body: `${input.priority === "urgent" ? "URGENT: " : ""}${input.testName} ordered`,
-          },
-        })
-      ));
 
       return order;
     }),
@@ -160,6 +154,7 @@ export const labRouter = router({
     .mutation(async ({ ctx, input }) => {
       const order = await prisma.labOrder.findFirstOrThrow({
         where: { id: input.orderId, tenantId: ctx.tenantId },
+        include: { visit: { include: { patient: true } } },
       });
       if (order.status === "completed") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot change status of completed order" });
@@ -189,6 +184,7 @@ export const labRouter = router({
     .mutation(async ({ ctx, input }) => {
       const order = await prisma.labOrder.findFirstOrThrow({
         where: { id: input.orderId, tenantId: ctx.tenantId },
+        include: { visit: { include: { patient: true } } },
       });
 
       if (order.paymentStatus === "unpaid") {
@@ -210,14 +206,13 @@ export const labRouter = router({
 
       // Notify ordering doctor
       const hasCritical = input.results.some((r) => r.flag === "critical");
-      await prisma.notification.create({
-        data: {
-          tenantId: ctx.tenantId,
-          userId: order.orderedBy,
-          type: "in-app",
-          title: hasCritical ? "⚠ CRITICAL lab result" : "Lab result ready",
-          body: `Result for ${order.testName} is ready`,
-        },
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetUserId: order.orderedBy,
+        targetRole: "Doctor",
+        type: hasCritical ? "emergency" : "lab",
+        title: hasCritical ? "⚠️ CRITICAL Lab Finding" : "Lab Result Verified",
+        body: `Test result for ${order.testName} (${order.visit?.patient?.nameEn || "Patient"}) is ready. Review in EMR.`,
       });
 
       return result;

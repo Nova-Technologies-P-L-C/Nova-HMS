@@ -64,8 +64,13 @@ export const tenantRouter = router({
 
   // List staff in current tenant with complete person details & effective permissions
   staff: tenantProcedure.query(async ({ ctx }) => {
+    const isOrgAdmin = ctx.role === "Organizational Admin";
     const roles = await prisma.userTenantRole.findMany({
-      where: { tenantId: ctx.tenantId },
+      where: {
+        tenantId: ctx.tenantId,
+        // Branch Admins and other staff must not see Organizational Admin or legacy Hospital Admin
+        ...(isOrgAdmin ? {} : { role: { notIn: ["Organizational Admin", "Hospital Admin"] } }),
+      },
       include: { user: { select: { id: true, name: true, email: true, image: true } } },
       orderBy: [{ role: "asc" }, { assignedAt: "desc" }],
     });
@@ -100,7 +105,7 @@ export const tenantRouter = router({
     }));
   }),
 
-  // Add / invite staff member with complete profile metadata (Hospital Admin only)
+  // Add / invite staff member with complete profile metadata (Branch Admin only)
   addStaff: tenantProcedure
     .input(
       z.object({
@@ -117,6 +122,12 @@ export const tenantRouter = router({
       if (!isBranchOrHospitalAdmin(ctx.role)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only Branch Admin can manage staff" });
       }
+
+      if (input.role === "Organizational Admin" && ctx.role !== "Organizational Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Branch Admin cannot assign Organizational Admin role" });
+      }
+
+      const assignedRole = input.role === "Hospital Admin" ? "Branch Admin" : input.role;
 
       // Find or create user
       let user = await prisma.user.findUnique({ where: { email: input.email } });
@@ -141,7 +152,7 @@ export const tenantRouter = router({
         create: {
           userId: user.id,
           tenantId: ctx.tenantId,
-          role: input.role,
+          role: assignedRole,
           department: input.department,
           title: input.title,
           phone: input.phone,
@@ -149,7 +160,7 @@ export const tenantRouter = router({
           status: "active",
         },
         update: {
-          role: input.role,
+          role: assignedRole,
           department: input.department,
           title: input.title,
           phone: input.phone,
@@ -161,8 +172,8 @@ export const tenantRouter = router({
       await prisma.auditLog.create({
         data: {
           tenantId: ctx.tenantId,
-          userId: ctx.userId ?? "Hospital Admin",
-          action: `Assigned role ${input.role} to ${input.name} (${input.email}) in ${input.department}`,
+          userId: ctx.userId ?? "Branch Admin",
+          action: `Assigned role ${assignedRole} to ${input.name} (${input.email}) in ${input.department}`,
           entity: "UserTenantRole",
           entityId: assignment.id,
         },
@@ -171,7 +182,7 @@ export const tenantRouter = router({
       return assignment;
     }),
 
-  // Update existing staff member's role and profile data (Hospital Admin only)
+  // Update existing staff member's role and profile data (Branch Admin only)
   updateStaff: tenantProcedure
     .input(
       z.object({
@@ -195,6 +206,16 @@ export const tenantRouter = router({
         include: { user: true },
       });
 
+      if (existing.role === "Organizational Admin" && ctx.role !== "Organizational Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Branch Admin cannot modify Organizational Admin accounts" });
+      }
+
+      if (input.role === "Organizational Admin" && ctx.role !== "Organizational Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Branch Admin cannot assign Organizational Admin role" });
+      }
+
+      const updatedRole = input.role === "Hospital Admin" ? "Branch Admin" : input.role;
+
       if (input.name && input.name !== existing.user.name) {
         await prisma.user.update({
           where: { id: existing.userId },
@@ -205,7 +226,7 @@ export const tenantRouter = router({
       const updated = await prisma.userTenantRole.update({
         where: { id: input.id },
         data: {
-          ...(input.role ? { role: input.role } : {}),
+          ...(updatedRole ? { role: updatedRole } : {}),
           ...(input.department !== undefined ? { department: input.department } : {}),
           ...(input.title !== undefined ? { title: input.title } : {}),
           ...(input.phone !== undefined ? { phone: input.phone } : {}),
@@ -217,8 +238,8 @@ export const tenantRouter = router({
       await prisma.auditLog.create({
         data: {
           tenantId: ctx.tenantId,
-          userId: ctx.userId ?? "Hospital Admin",
-          action: `Updated staff profile for ${existing.user.name} (Role: ${input.role ?? existing.role}, Status: ${input.status ?? existing.status})`,
+          userId: ctx.userId ?? "Branch Admin",
+          action: `Updated staff profile for ${existing.user.name} (Role: ${updatedRole ?? existing.role}, Status: ${input.status ?? existing.status})`,
           entity: "UserTenantRole",
           entityId: updated.id,
         },
@@ -227,7 +248,7 @@ export const tenantRouter = router({
       return updated;
     }),
 
-  // Remove staff member assignment from hospital (Hospital Admin only)
+  // Remove staff member assignment from hospital (Branch Admin only)
   removeStaff: tenantProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -244,13 +265,21 @@ export const tenantRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot remove your own admin assignment" });
       }
 
+      if (assignment.role === "Organizational Admin" && ctx.role !== "Organizational Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Branch Admin cannot remove Organizational Admin accounts" });
+      }
+
+      if (assignment.role === "Branch Admin" && ctx.role !== "Organizational Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Branch Admin cannot delete branch administrator accounts. Contact Organizational Admin." });
+      }
+
       await prisma.userTenantRole.delete({ where: { id: input.id } });
 
       await prisma.auditLog.create({
         data: {
           tenantId: ctx.tenantId,
-          userId: ctx.userId ?? "Hospital Admin",
-          action: `Removed staff member ${assignment.user.name} (${assignment.role}) from hospital`,
+          userId: ctx.userId ?? "Branch Admin",
+          action: `Removed staff member ${assignment.user.name} (${assignment.role}) from branch`,
           entity: "UserTenantRole",
           entityId: assignment.id,
         },
@@ -261,8 +290,14 @@ export const tenantRouter = router({
 
   // List all role permissions configured for this hospital/branch
   rolePermissions: tenantProcedure.query(async ({ ctx }) => {
+    const isOrgAdmin = ctx.role === "Organizational Admin";
     const records = await prisma.rolePermission.findMany({
-      where: { tenantId: ctx.tenantId },
+      where: {
+        tenantId: ctx.tenantId,
+        role: {
+          notIn: isOrgAdmin ? ["Hospital Admin"] : ["Hospital Admin", "Organizational Admin"],
+        },
+      },
       orderBy: [{ isSystem: "desc" }, { role: "asc" }],
     });
 
@@ -288,13 +323,24 @@ export const tenantRouter = router({
 
   // Dynamic RBAC: Get all roles with member counts and active members
   getRolesWithStats: tenantProcedure.query(async ({ ctx }) => {
+    const isOrgAdmin = ctx.role === "Organizational Admin";
     const [roles, userRoles] = await Promise.all([
       prisma.rolePermission.findMany({
-        where: { tenantId: ctx.tenantId },
+        where: {
+          tenantId: ctx.tenantId,
+          role: {
+            notIn: isOrgAdmin ? ["Hospital Admin"] : ["Hospital Admin", "Organizational Admin"],
+          },
+        },
         orderBy: [{ isSystem: "desc" }, { role: "asc" }],
       }),
       prisma.userTenantRole.findMany({
-        where: { tenantId: ctx.tenantId },
+        where: {
+          tenantId: ctx.tenantId,
+          role: {
+            notIn: isOrgAdmin ? ["Hospital Admin"] : ["Hospital Admin", "Organizational Admin"],
+          },
+        },
         include: { user: { select: { id: true, name: true, email: true, image: true } } },
       }),
     ]);
@@ -691,11 +737,17 @@ export const tenantRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "Only Branch Admin can configure role permissions" });
       }
 
+      if (input.role === "Organizational Admin" && ctx.role !== "Organizational Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Branch Admin cannot configure Organizational Admin permissions" });
+      }
+
+      const targetRole = input.role === "Hospital Admin" ? "Branch Admin" : input.role;
+
       const updated = await prisma.rolePermission.upsert({
-        where: { tenantId_role: { tenantId: ctx.tenantId, role: input.role } },
+        where: { tenantId_role: { tenantId: ctx.tenantId, role: targetRole } },
         create: {
           tenantId: ctx.tenantId,
-          role: input.role,
+          role: targetRole,
           permissions: JSON.stringify(input.permissions),
         },
         update: {
@@ -707,7 +759,7 @@ export const tenantRouter = router({
         data: {
           tenantId: ctx.tenantId,
           userId: ctx.userId ?? "Branch Admin",
-          action: `Updated permission policies for role: ${input.role} (${input.permissions.length} permissions granted)`,
+          action: `Updated permission policies for role: ${targetRole} (${input.permissions.length} permissions granted)`,
           entity: "RolePermission",
           entityId: updated.id,
         },
@@ -722,6 +774,11 @@ export const tenantRouter = router({
     .mutation(async ({ ctx, input }) => {
       if (!isBranchOrHospitalAdmin(ctx.role)) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Only Branch Admin can reset permissions" });
+      }
+
+      const targetRole = input.role === "Hospital Admin" ? "Branch Admin" : input.role;
+      if (targetRole === "Organizational Admin" && ctx.role !== "Organizational Admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Branch Admin cannot reset Organizational Admin permissions" });
       }
 
       const defaults: Record<string, { perms: string[]; description: string; icon: string; color: string }> = {
@@ -749,19 +806,6 @@ export const tenantRouter = router({
             "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
           ],
           description: "Full clinical, operational, and administrative control over this branch",
-          icon: "🛡️",
-          color: "rose",
-        },
-        "Hospital Admin": {
-          perms: [
-            "clinical.notes.view", "clinical.notes.create", "clinical.vitals.record", "clinical.referral.create",
-            "lab.order.create", "lab.results.enter", "lab.results.approve",
-            "rx.prescribe", "rx.dispense", "inventory.manage",
-            "billing.view", "billing.collect", "billing.waiver.request", "billing.waiver.approve", "tariff.manage",
-            "ward.admit", "ward.discharge", "ward.mar.administer",
-            "admin.staff.manage", "admin.roles.manage", "admin.audit.view", "admin.reports.view"
-          ],
-          description: "Legacy administrative alias for Branch Admin",
           icon: "🛡️",
           color: "rose",
         },
@@ -869,7 +913,9 @@ export const tenantRouter = router({
         },
       };
 
-      const rolesToReset = input.role ? [input.role] : Object.keys(defaults);
+      const isOrgAdmin = ctx.role === "Organizational Admin";
+      const allowedDefaultKeys = Object.keys(defaults).filter((r) => isOrgAdmin || r !== "Organizational Admin");
+      const rolesToReset = targetRole ? [targetRole] : allowedDefaultKeys;
       for (const r of rolesToReset) {
         if (defaults[r]) {
           const def = defaults[r];
@@ -908,31 +954,133 @@ export const tenantRouter = router({
     }),
 
   // Audit log
-  auditLog: tenantProcedure.query(async ({ ctx }) => {
-    return prisma.auditLog.findMany({
-      where: { tenantId: ctx.tenantId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
-  }),
+  auditLog: tenantProcedure
+    .input(
+      z.object({
+        range: z.enum(["today", "7d", "30d", "month", "quarter", "all"]).default("all"),
+      }).default({ range: "all" })
+    )
+    .query(async ({ ctx, input }) => {
+      const whereClause: any = { tenantId: ctx.tenantId };
+      if (input.range !== "all") {
+        const now = new Date();
+        let startDate: Date;
+        if (input.range === "today") {
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        } else if (input.range === "7d") {
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        } else if (input.range === "30d") {
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        } else if (input.range === "quarter") {
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        } else {
+          // "month"
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+        whereClause.createdAt = { gte: startDate };
+      }
+      return prisma.auditLog.findMany({
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+    }),
 
   // Dashboard stats
-  dashboardStats: tenantProcedure.query(async ({ ctx }) => {
-    const [patients, todayVisits, beds, occupiedBeds, criticalStock] = await Promise.all([
-      prisma.patient.count({ where: { tenantId: ctx.tenantId } }),
-      prisma.visit.count({
-        where: {
-          tenantId: ctx.tenantId,
-          openedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      prisma.bed.count({ where: { tenantId: ctx.tenantId } }),
-      prisma.bed.count({ where: { tenantId: ctx.tenantId, status: "occupied" } }),
-      prisma.inventoryItem.count({ where: { tenantId: ctx.tenantId, status: "critical" } }),
-    ]);
+  dashboardStats: tenantProcedure
+    .input(
+      z.object({
+        range: z.enum(["today", "7d", "30d", "month", "quarter", "all"]).default("today"),
+      }).default({ range: "today" })
+    )
+    .query(async ({ ctx, input }) => {
+      const range = input.range;
+      const now = new Date();
+      let startDate: Date;
 
-    return { patients, todayVisits, beds, occupiedBeds, criticalStock };
-  }),
+      if (range === "today") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (range === "7d") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (range === "30d") {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (range === "quarter") {
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      } else if (range === "all") {
+        startDate = new Date(2020, 0, 1);
+      } else {
+        // "month"
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const [
+        patients,
+        newPatientsPeriod,
+        todayVisits,
+        periodVisits,
+        beds,
+        occupiedBeds,
+        criticalStock,
+        periodReceipts,
+        periodWaivers,
+      ] = await Promise.all([
+        prisma.patient.count({ where: { tenantId: ctx.tenantId } }),
+        prisma.patient.count({
+          where: {
+            tenantId: ctx.tenantId,
+            createdAt: { gte: startDate },
+          },
+        }),
+        prisma.visit.count({
+          where: {
+            tenantId: ctx.tenantId,
+            openedAt: { gte: todayStart },
+          },
+        }),
+        prisma.visit.count({
+          where: {
+            tenantId: ctx.tenantId,
+            openedAt: { gte: startDate },
+          },
+        }),
+        prisma.bed.count({ where: { tenantId: ctx.tenantId } }),
+        prisma.bed.count({ where: { tenantId: ctx.tenantId, status: "occupied" } }),
+        prisma.inventoryItem.count({ where: { tenantId: ctx.tenantId, status: "critical" } }),
+        prisma.paymentReceipt.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            createdAt: { gte: startDate },
+          },
+          select: { amount: true },
+        }),
+        prisma.feeWaiver.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            createdAt: { gte: startDate },
+            status: "approved",
+          },
+          select: { amount: true },
+        }),
+      ]);
+
+      const periodRevenue = periodReceipts.reduce((sum: number, r: { amount: number }) => sum + r.amount, 0);
+      const periodWaivedAmount = periodWaivers.reduce((sum: number, w: { amount: number }) => sum + w.amount, 0);
+
+      return {
+        range,
+        patients,
+        newPatientsPeriod,
+        todayVisits,
+        periodVisits,
+        periodRevenue,
+        periodWaivedAmount,
+        beds,
+        occupiedBeds,
+        criticalStock,
+      };
+    }),
 
   // Reports & Analytics Comprehensive Data Engine
   reportsAnalytics: tenantProcedure
@@ -1547,7 +1695,7 @@ export const tenantRouter = router({
 
       if (input.period && input.period !== "current" && input.period !== "all") {
         const parts = input.period.split("-");
-        if (parts.length === 2) {
+        if (parts.length === 2 && parts[0] && parts[1]) {
           targetYear = parseInt(parts[0], 10) || targetYear;
           targetMonth = (parseInt(parts[1], 10) - 1) || targetMonth;
         }
@@ -1704,7 +1852,7 @@ export const tenantRouter = router({
           }
         } else {
           const defaultCat = ETHIOPIAN_HMIS_MORBIDITY_CATALOG[ETHIOPIAN_HMIS_MORBIDITY_CATALOG.length - 1];
-          const row = matrixMap[defaultCat.code];
+          const row = defaultCat ? matrixMap[defaultCat.code] : undefined;
           if (row) {
             if (isUnder5) {
               if (isMale) row.u5Male++;
@@ -1724,7 +1872,7 @@ export const tenantRouter = router({
       }
 
       const morbidityMatrix = ETHIOPIAN_HMIS_MORBIDITY_CATALOG.map((cat) => {
-        const row = matrixMap[cat.code];
+        const row = matrixMap[cat.code]!;
         const burdenPercent = totalMorbidityCases > 0 ? Math.round((row.grandTotal / totalMorbidityCases) * 100) : 0;
         return {
           ...row,
@@ -1752,7 +1900,7 @@ export const tenantRouter = router({
         "July", "August", "September", "October", "November", "December"
       ];
       const ethMonthIndex = (targetMonth + 4) % 12;
-      const ethMonth = ETHIOPIAN_CALENDAR_MONTHS[ethMonthIndex];
+      const ethMonth = ETHIOPIAN_CALENDAR_MONTHS[ethMonthIndex] ?? { nameAm: "መስከረም", nameEn: "Meskerem" };
       const ethYear = targetMonth >= 8 ? targetYear - 7 : targetYear - 8;
 
       const periodLabel = input.period === "all"
@@ -1761,10 +1909,11 @@ export const tenantRouter = router({
 
       const dhis2DataValues: { dataElement: string; categoryOptionCombo: string; value: string }[] = [];
       for (const row of morbidityMatrix) {
-        if (row.u5Male > 0) dhis2DataValues.push({ dataElement: row.dhis2ElementId, categoryOptionCombo: "U5_MALE", value: String(row.u5Male) });
-        if (row.u5Female > 0) dhis2DataValues.push({ dataElement: row.dhis2ElementId, categoryOptionCombo: "U5_FEMALE", value: String(row.u5Female) });
-        if (row.o5Male > 0) dhis2DataValues.push({ dataElement: row.dhis2ElementId, categoryOptionCombo: "O5_MALE", value: String(row.o5Male) });
-        if (row.o5Female > 0) dhis2DataValues.push({ dataElement: row.dhis2ElementId, categoryOptionCombo: "O5_FEMALE", value: String(row.o5Female) });
+        const dElement = row.dhis2ElementId ?? "";
+        if (row.u5Male > 0) dhis2DataValues.push({ dataElement: dElement, categoryOptionCombo: "U5_MALE", value: String(row.u5Male) });
+        if (row.u5Female > 0) dhis2DataValues.push({ dataElement: dElement, categoryOptionCombo: "U5_FEMALE", value: String(row.u5Female) });
+        if (row.o5Male > 0) dhis2DataValues.push({ dataElement: dElement, categoryOptionCombo: "O5_MALE", value: String(row.o5Male) });
+        if (row.o5Female > 0) dhis2DataValues.push({ dataElement: dElement, categoryOptionCombo: "O5_FEMALE", value: String(row.o5Female) });
       }
 
       dhis2DataValues.push({ dataElement: "DE_TOTAL_OPD_VISITS", categoryOptionCombo: "TOTAL", value: String(visits.length) });
@@ -1981,7 +2130,7 @@ export const tenantRouter = router({
   }),
 
   // Organizational Admin: Get all branches and their designated Branch Admins
-  getBranchAdmins: tenantProcedure.query(async ({ ctx }) => {
+  getBranchAdmins: tenantProcedure.query(async () => {
     const allTenants = await prisma.tenant.findMany({
       include: {
         userRoles: {
