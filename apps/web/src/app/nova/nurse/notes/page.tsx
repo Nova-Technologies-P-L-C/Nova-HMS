@@ -1,8 +1,11 @@
 "use client";
-import { useState, useMemo } from "react";
+
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { PageShell, Card, btnPrimary, btnSecondary, inputCls } from "@/components/nova/nova-ui";
+import { PageShell, Card, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
 import {
   CheckCircle,
   FileText,
@@ -12,9 +15,14 @@ import {
   Clock,
   Sparkles,
   ClipboardList,
-  ShieldCheck,
   Send,
+  X,
+  RefreshCw,
+  Activity,
+  Pill,
+  ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const NOTE_TEMPLATES = [
   {
@@ -25,44 +33,89 @@ const NOTE_TEMPLATES = [
   {
     label: "IV Line & Therapy",
     category: "IV Care",
-    text: "Peripheral IV cannula patent and secure. No erythema, tenderness, or infiltration observed. Prescribed intravenous infusion running at designated drop rate.",
+    text: "Peripheral IV cannula patent and secure. No erythema, tenderness, or swelling observed. Prescribed intravenous fluids running at designated drop rate.",
   },
   {
     label: "Wound Dressing",
     category: "Wound Care",
-    text: "Surgical wound dressing inspected and renewed using aseptic technique. Incision site clean, margins well-approximated, no active bleeding or purulent discharge.",
+    text: "Surgical wound dressing inspected and renewed using aseptic technique. Incision site clean, margins well-approximated, no active bleeding or discharge.",
   },
   {
-    label: "Medication Administered",
+    label: "Medicine Given",
     category: "Medication",
-    text: "Scheduled doses administered per MAR after double-checking 5 rights. Patient swallowed medication with water. Monitored for 30 minutes with zero adverse reaction.",
+    text: "Scheduled doses administered per medicine plan. Patient swallowed medication with water. Monitored with zero adverse reaction.",
   },
   {
     label: "Doctor Follow-up",
     category: "Doctor Orders",
-    text: "Attending physician conducted ward rounds and updated treatment plan. New laboratory orders noted and forwarded to laboratory technician.",
+    text: "Attending physician conducted ward rounds and updated treatment plan. New orders noted and executed.",
   },
 ];
 
-export default function NursingNotesPage() {
+function calculateAge(dobString?: string) {
+  if (!dobString) return "—";
+  const birth = new Date(dobString);
+  if (isNaN(birth.getTime())) return "—";
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  const m = now.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+    years--;
+  }
+  return years > 0 ? `${years}y` : "< 1y";
+}
+
+function NurseNotesContent() {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"inpatient" | "opd" | "all">("inpatient");
-  const [search, setSearch] = useState("");
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const paramPatientId = searchParams.get("patientId") || "";
+
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(paramPatientId);
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
+  const [selectedWard, setSelectedWard] = useState<string>("All");
+  const [search, setSearch] = useState("");
   const [noteCategory, setNoteCategory] = useState("Shift Round");
   const [noteTitle, setNoteTitle] = useState("");
   const [newNote, setNewNote] = useState("");
   const [saved, setSaved] = useState(false);
 
-  // Load unified worklist (ward admissions + OPD triage patients)
-  const { data: worklist, isLoading: loadingWorklist } = useQuery({
-    ...trpc.visit.nurseWorklist.queryOptions(),
+  // Load active ward admissions (strictly inpatients)
+  const {
+    data: admissions = [],
+    isLoading: loadingAdmissions,
+    refetch: refetchAdmissions,
+    isRefetching: isAdmissionsRefetching,
+  } = useQuery({
+    ...trpc.ward.admissions.queryOptions(),
     refetchOnMount: true,
   });
 
+  // Automatically select first patient or patient from URL parameter
+  useEffect(() => {
+    if (paramPatientId) {
+      setSelectedPatientId(paramPatientId);
+    } else if (!selectedPatientId && admissions.length > 0) {
+      setSelectedPatientId(admissions[0].patientId);
+      setSelectedVisitId(admissions[0].visitId || null);
+    }
+  }, [paramPatientId, admissions, selectedPatientId]);
+
+  // When selected patient changes, keep visitId in sync
+  useEffect(() => {
+    if (selectedPatientId) {
+      const match = admissions.find((a) => a.patientId === selectedPatientId);
+      if (match) {
+        setSelectedVisitId(match.visitId || null);
+      }
+    }
+  }, [selectedPatientId, admissions]);
+
   // Load patient notes history
-  const { data: patientNotes = [], refetch: refetchNotes } = useQuery({
+  const {
+    data: patientNotes = [],
+    refetch: refetchNotes,
+    isLoading: loadingNotes,
+  } = useQuery({
     ...trpc.visit.patientNotes.queryOptions({ patientId: selectedPatientId || "" }),
     enabled: !!selectedPatientId,
   });
@@ -75,68 +128,39 @@ export default function NursingNotesPage() {
         setSaved(true);
         refetchNotes();
         qc.invalidateQueries({ queryKey: trpc.visit.get.queryKey() });
+        toast.success("Nurse note saved successfully");
         setTimeout(() => setSaved(false), 3500);
+      },
+      onError: (err) => {
+        toast.error(err.message || "Failed to save note");
       },
     })
   );
 
-  const wardPatients = worklist?.wardAdmissions ?? [];
-  const opdPatients = worklist?.opdQueue ?? [];
+  // Wards list
+  const wards = useMemo(() => {
+    const list = Array.from(new Set(admissions.map((a) => a.bed?.ward).filter(Boolean)));
+    return ["All", ...list];
+  }, [admissions]);
 
-  // Filter patients based on tab & search
-  const filteredList = useMemo(() => {
-    let list: Array<{
-      id: string;
-      patientId: string;
-      visitId?: string | null;
-      patient: any;
-      badge: string;
-      subtext: string;
-      assignedNurseName: string;
-      type: "inpatient" | "opd";
-    }> = [];
+  // Filter admissions by ward & search
+  const filteredAdmissions = useMemo(() => {
+    return admissions.filter((a) => {
+      const matchesWard = selectedWard === "All" || a.bed?.ward === selectedWard;
+      const q = search.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        a.patient?.nameEn?.toLowerCase().includes(q) ||
+        a.patient?.nameAm?.includes(q) ||
+        a.patient?.healthId?.toLowerCase().includes(q) ||
+        a.bed?.room?.toLowerCase().includes(q) ||
+        a.bed?.ward?.toLowerCase().includes(q);
 
-    if (activeTab === "inpatient" || activeTab === "all") {
-      list.push(
-        ...wardPatients.map((w) => ({
-          id: `inpatient-${w.id}`,
-          patientId: w.patientId,
-          visitId: w.visitId,
-          patient: w.patient,
-          badge: `${w.ward} · Bed #${w.room}`,
-          subtext: `${w.daysStayed}d stayed`,
-          assignedNurseName: w.assignedNurseName,
-          type: "inpatient" as const,
-        }))
-      );
-    }
+      return matchesWard && matchesSearch;
+    });
+  }, [admissions, selectedWard, search]);
 
-    if (activeTab === "opd" || activeTab === "all") {
-      list.push(
-        ...opdPatients.map((o) => ({
-          id: `opd-${o.id}`,
-          patientId: o.patientId,
-          visitId: o.visitId,
-          patient: o.patient,
-          badge: `OPD Ticket ${o.ticketNumber}`,
-          subtext: o.status === "urgent" ? "Urgent Triage" : "Waiting",
-          assignedNurseName: o.assignedNurseName,
-          type: "opd" as const,
-        }))
-      );
-    }
-
-    if (!search.trim()) return list;
-    const q = search.toLowerCase();
-    return list.filter(
-      (item) =>
-        item.patient.nameEn.toLowerCase().includes(q) ||
-        item.patient.healthId.toLowerCase().includes(q) ||
-        item.badge.toLowerCase().includes(q)
-    );
-  }, [wardPatients, opdPatients, activeTab, search]);
-
-  const selectedItem = filteredList.find((i) => i.patientId === selectedPatientId);
+  const selectedAdmission = admissions.find((a) => a.patientId === selectedPatientId) || null;
 
   const handleSelectPatient = (patientId: string, visitId?: string | null) => {
     setSelectedPatientId(patientId);
@@ -158,7 +182,7 @@ export default function NursingNotesPage() {
     });
   };
 
-  const handleApplyTemplate = (tmpl: typeof NOTE_TEMPLATES[0]) => {
+  const handleApplyTemplate = (tmpl: (typeof NOTE_TEMPLATES)[0]) => {
     setNoteCategory(tmpl.category);
     setNoteTitle(tmpl.label);
     setNewNote(tmpl.text);
@@ -167,164 +191,263 @@ export default function NursingNotesPage() {
   return (
     <PageShell
       title="Nurse Notes"
-      subtitle="Write and view bedside notes for patients"
+      subtitle="Shift rounds, bedside clinical observations, and patient care history"
+      action={
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => {
+              refetchAdmissions();
+              refetchNotes();
+            }}
+            disabled={isAdmissionsRefetching}
+            className="p-2 text-xs font-medium rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-xs"
+            title="Refresh notes and patients"
+          >
+            <RefreshCw size={14} className={isAdmissionsRefetching ? "animate-spin text-teal-600" : ""} />
+          </button>
+
+          <Link
+            href="/nova/nurse"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors flex items-center gap-1.5 shadow-xs"
+          >
+            <Bed size={14} className="text-teal-600" />
+            <span>Ward Patients</span>
+          </Link>
+
+          <Link
+            href="/nova/nurse/mar"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors flex items-center gap-1.5 shadow-xs"
+          >
+            <Pill size={14} className="text-teal-600" />
+            <span>Give Medicines</span>
+          </Link>
+        </div>
+      }
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Clear Patient Selector */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card className="p-4 border-slate-200">
-            {/* Tab switchers */}
-            <div className="flex p-1 bg-slate-100 rounded-xl mb-3 text-xs font-semibold text-slate-600">
-              <button
-                type="button"
-                onClick={() => setActiveTab("inpatient")}
-                className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  activeTab === "inpatient" ? "bg-white text-teal-700 shadow-xs font-bold" : "hover:text-slate-900"
-                }`}
-              >
-                <Bed size={13} />
-                <span>Ward Beds ({wardPatients.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("opd")}
-                className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  activeTab === "opd" ? "bg-white text-teal-700 shadow-xs font-bold" : "hover:text-slate-900"
-                }`}
-              >
-                <Clock size={13} />
-                <span>OPD Triage ({opdPatients.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("all")}
-                className={`py-1.5 px-3 rounded-lg transition-all ${
-                  activeTab === "all" ? "bg-white text-teal-700 shadow-xs font-bold" : "hover:text-slate-900"
-                }`}
-              >
-                All
-              </button>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pb-12 w-full max-w-[1700px] mx-auto">
+        {/* ── LEFT COLUMN: ADMITTED WARD PATIENTS LIST (NO OPD) ── */}
+        <div className="lg:col-span-4 space-y-3">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
+            {/* Header & Count */}
+            <div className="p-3 border-b border-slate-100 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bed size={16} className="text-teal-600" />
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                    Ward Patients ({filteredAdmissions.length})
+                  </h3>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Admitted inpatients
+                </span>
+              </div>
+
+              {/* Search input */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search patient, bed, or ID..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className={`${inputCls} pl-8.5 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80`}
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Ward filter pills */}
+              <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin">
+                {wards.map((ward) => {
+                  const isActive = selectedWard === ward;
+                  return (
+                    <button
+                      key={ward}
+                      onClick={() => setSelectedWard(ward)}
+                      className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all shrink-0 ${
+                        isActive
+                          ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      }`}
+                    >
+                      {ward === "All" ? "All Wards" : ward}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Live Search */}
-            <div className="relative mb-3">
-              <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search patient name, ID, or bed…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={`${inputCls} pl-8 text-xs`}
-              />
-            </div>
-
-            {/* Patient List */}
-            <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-              {loadingWorklist && (
-                <p className="text-xs text-slate-400 py-6 text-center">Loading patients list…</p>
-              )}
-
-              {!loadingWorklist && filteredList.length === 0 && (
-                <div className="text-center py-10 px-4">
-                  <p className="text-xs text-slate-400">No patients found matching this view.</p>
+            {/* Patients List */}
+            <div className="max-h-[620px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+              {loadingAdmissions && (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Loading admitted patients…
                 </div>
               )}
 
-              {filteredList.map((item) => {
-                const isSelected = selectedPatientId === item.patientId;
+              {!loadingAdmissions && filteredAdmissions.length === 0 && (
+                <div className="p-8 text-center text-slate-400 text-xs space-y-2">
+                  <p>No admitted patients found.</p>
+                  <Link
+                    href="/nova/ward/admissions"
+                    className="inline-block text-teal-600 dark:text-teal-400 font-semibold hover:underline"
+                  >
+                    Admit a patient →
+                  </Link>
+                </div>
+              )}
+
+              {filteredAdmissions.map((a) => {
+                const isSelected = selectedPatientId === a.patientId;
+                const patient = a.patient;
+                const bed = a.bed;
+
                 return (
                   <button
-                    key={item.id}
+                    key={a.id}
                     type="button"
-                    onClick={() => handleSelectPatient(item.patientId, item.visitId)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all text-xs flex flex-col gap-1.5 ${
+                    onClick={() => handleSelectPatient(a.patientId, a.visitId)}
+                    className={`w-full text-left p-3 transition-colors flex items-center justify-between ${
                       isSelected
-                        ? "border-teal-500 bg-teal-50/70 shadow-xs"
-                        : "border-slate-200 hover:border-teal-300 bg-white"
+                        ? "bg-teal-50/70 dark:bg-teal-950/40 border-l-4 border-teal-600 dark:border-teal-400"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <p className="font-bold text-slate-900 text-sm">{item.patient.nameEn}</p>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          item.type === "inpatient"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
+                    <div className="min-w-0 flex-1 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`font-bold text-xs truncate ${
+                            isSelected
+                              ? "text-teal-950 dark:text-teal-100"
+                              : "text-slate-800 dark:text-slate-200"
+                          }`}
+                        >
+                          {patient?.nameEn || "Patient"}
+                        </span>
+                        {patient?.nameAm && (
+                          <span className="text-[10px] text-slate-400 truncate">
+                            ({patient.nameAm})
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">
+                          Bed {bed?.room}
+                        </span>
+                        <span>•</span>
+                        <span>{bed?.ward || "Ward"}</span>
+                        <span>•</span>
+                        <span className="font-mono text-[10px]">{patient?.healthId}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
+                        <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded text-slate-600 dark:text-slate-300">
+                          Day {a.daysElapsed || 1}
+                        </span>
+                        <span>Nurse: {a.assignedNurseName || "On duty"}</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                      <span className="font-mono">{item.patient.healthId}</span>
-                      <span>{item.subtext}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
-                      <span className="text-slate-400 flex items-center gap-1">
-                        <UserCheck size={11} className="text-teal-600" />
-                        <span>Nurse: <strong>{item.assignedNurseName}</strong></span>
-                      </span>
-
-                    </div>
+                    <ChevronRight
+                      size={14}
+                      className={
+                        isSelected ? "text-teal-600 dark:text-teal-400" : "text-slate-300"
+                      }
+                    />
                   </button>
                 );
               })}
             </div>
-          </Card>
+          </div>
         </div>
 
-        {/* Right Column: Note Writer & Patient Clinical History */}
-        <div className="lg:col-span-7 space-y-5">
-          {!selectedItem ? (
-            <Card className="p-16 text-center border-dashed border-2 border-slate-200">
-              <ClipboardList size={40} className="text-slate-300 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-700 text-base mb-1">
-                Select a Patient to Write a Note
+        {/* ── RIGHT COLUMN: NOTE WRITER & CARE HISTORY ── */}
+        <div className="lg:col-span-8 space-y-4">
+          {!selectedAdmission ? (
+            <Card className="p-16 text-center border-dashed border-2 border-slate-200 dark:border-slate-800">
+              <ClipboardList size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <h3 className="font-bold text-slate-700 dark:text-slate-300 text-base mb-1">
+                Select a Ward Patient to Write Notes
               </h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Click a patient on the left to see past notes or write a new one.
+                Choose an admitted patient from the left panel to review previous care notes or record a new shift note.
               </p>
             </Card>
           ) : (
             <>
-              {/* Patient Banner */}
-              <Card className="p-4 bg-gradient-to-r from-teal-50/50 dark:from-teal-950/20 via-white dark:via-slate-900 to-white dark:to-slate-900 border-teal-200 dark:border-teal-800 flex flex-wrap items-center justify-between gap-3">
+              {/* Selected Patient Banner */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-teal-600 text-white font-black text-sm flex items-center justify-center shrink-0">
-                    {selectedItem.patient.nameEn.slice(0, 2).toUpperCase()}
+                  <div className="w-10 h-10 rounded-xl bg-teal-600 text-white font-black text-sm flex items-center justify-center shrink-0">
+                    {selectedAdmission.patient?.nameEn?.slice(0, 2).toUpperCase() || "PT"}
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
-                      {selectedItem.patient.nameEn}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      ID: <span className="font-mono font-medium">{selectedItem.patient.healthId}</span> · {selectedItem.badge} · Nurse: <strong>{selectedItem.assignedNurseName}</strong>
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-base">
+                        {selectedAdmission.patient?.nameEn}
+                      </h3>
+                      {selectedAdmission.patient?.nameAm && (
+                        <span className="text-xs text-slate-400">
+                          ({selectedAdmission.patient.nameAm})
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                        Bed {selectedAdmission.bed?.room} · {selectedAdmission.bed?.ward}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap">
+                      <span className="font-mono font-medium">ID: {selectedAdmission.patient?.healthId}</span>
+                      <span>•</span>
+                      <span>
+                        {selectedAdmission.patient?.sex?.toUpperCase() === "M" ? "Male" : selectedAdmission.patient?.sex?.toUpperCase() === "F" ? "Female" : "—"}{" "}
+                        · {calculateAge(selectedAdmission.patient?.dob)}
+                      </span>
+                      <span>•</span>
+                      <span>Day {selectedAdmission.daysElapsed || 1} Admitted</span>
+                      <span>•</span>
+                      <span>Duty Nurse: <strong>{selectedAdmission.assignedNurseName || "On duty"}</strong></span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800">
-                    Active Patient
-                  </span>
+                  <Link
+                    href={`/nova/nurse/vitals?visitId=${selectedAdmission.visitId || ""}`}
+                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1"
+                  >
+                    <Activity size={12} className="text-teal-600" />
+                    <span>Vitals</span>
+                  </Link>
+                  <Link
+                    href={`/nova/nurse/mar?patientId=${selectedAdmission.patientId}`}
+                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1"
+                  >
+                    <Pill size={12} className="text-teal-600" />
+                    <span>Medicines</span>
+                  </Link>
                 </div>
-              </Card>
+              </div>
 
               {/* Note Input Box */}
-              <Card className="p-5 shadow-sm space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 border-slate-100">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 border-slate-100 dark:border-slate-800">
                   <div>
-                    <h4 className="font-bold text-slate-800 text-sm">Write Note</h4>
-                    <p className="text-[11px] text-slate-400">Write details about how the patient is doing</p>
+                    <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Write Nurse Note</h4>
+                    <p className="text-[11px] text-slate-400">Document patient status, observations, and care given</p>
                   </div>
 
                   {/* Note Category */}
                   <div className="flex items-center gap-1.5 text-xs">
                     <span className="text-slate-400">Category:</span>
                     <select
-                      className="text-xs py-1 px-2 rounded-lg border border-slate-200 bg-slate-50 font-medium text-slate-700"
+                      className="text-xs py-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-medium text-slate-700 dark:text-slate-200"
                       value={noteCategory}
                       onChange={(e) => setNoteCategory(e.target.value)}
                     >
@@ -340,7 +463,7 @@ export default function NursingNotesPage() {
 
                 {/* 1-Click Fast Templates */}
                 <div>
-                  <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 mb-2">
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">
                     <Sparkles size={12} className="text-teal-600" />
                     <span>Quick templates:</span>
                   </div>
@@ -350,7 +473,7 @@ export default function NursingNotesPage() {
                         key={idx}
                         type="button"
                         onClick={() => handleApplyTemplate(tmpl)}
-                        className="text-[11px] px-2.5 py-1 rounded-md bg-slate-100 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 border border-slate-200 transition-colors text-slate-600 font-medium"
+                        className="text-[11px] px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-teal-950/40 hover:text-teal-700 dark:hover:text-teal-300 hover:border-teal-300 border border-slate-200 dark:border-slate-700 transition-colors text-slate-600 dark:text-slate-300 font-medium"
                       >
                         + {tmpl.label}
                       </button>
@@ -360,48 +483,42 @@ export default function NursingNotesPage() {
 
                 {/* Optional Note Heading / Title */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Note Subject / Focus (Optional)
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    Subject / Focus (Optional)
                   </label>
                   <input
                     type="text"
                     value={noteTitle}
                     onChange={(e) => setNoteTitle(e.target.value)}
-                    placeholder="e.g. Morning Shift Round, Pre-op Preparation, Post-analgesic check…"
+                    placeholder="e.g. Morning Shift Round, Pre-op Check, Wound Cleaned…"
                     className={`${inputCls} text-xs py-2`}
                   />
                 </div>
 
                 {/* Main Note Body */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                    Clinical Observation & Nursing Actions
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    Observation & Care Given
                   </label>
                   <textarea
                     rows={4}
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Type detailed nursing observation, care delivered, vital changes, or patient feedback here…"
+                    placeholder="Type details about the patient's condition, care given, vital changes, or physician instructions…"
                     className={`${inputCls} text-xs py-2.5 resize-y leading-relaxed`}
                   />
                 </div>
 
                 {saved && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
                     <CheckCircle size={16} className="text-emerald-600 shrink-0" />
-                    <span className="font-medium">Nursing note successfully recorded and permanently saved in patient EMR!</span>
-                  </div>
-                )}
-
-                {addNote.error && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
-                    {addNote.error.message}
+                    <span className="font-medium">Nurse note saved successfully.</span>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[11px] text-slate-400">
-                    Logged under Nurse account · Visible to Doctors & Care Team
+                    Visible to doctors and nurses on duty
                   </span>
                   <div className="flex gap-2">
                     <button
@@ -421,46 +538,53 @@ export default function NursingNotesPage() {
                       className={`${btnPrimary} flex items-center gap-1.5`}
                     >
                       <Send size={13} />
-                      <span>{addNote.isPending ? "Recording…" : "Save Nursing Note"}</span>
+                      <span>{addNote.isPending ? "Saving…" : "Save Note"}</span>
                     </button>
                   </div>
                 </div>
-              </Card>
+              </div>
 
               {/* Past Nursing Notes History */}
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-1.5">
                     <FileText size={15} className="text-teal-600" />
-                    <span>Chronological Care History</span>
+                    <span>Past Notes History</span>
                   </h4>
-                  <span className="text-xs text-slate-500 font-medium">
-                    {patientNotes.length} recorded note{patientNotes.length === 1 ? "" : "s"}
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {patientNotes.length} note{patientNotes.length === 1 ? "" : "s"} recorded
                   </span>
                 </div>
 
-                {patientNotes.length === 0 ? (
-                  <Card className="p-8 text-center bg-slate-50/50">
+                {loadingNotes ? (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    Loading notes…
+                  </div>
+                ) : patientNotes.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl">
                     <p className="text-xs text-slate-400">
-                      No notes recorded yet for this patient. Add the first observation above!
+                      No notes recorded yet for this patient. Write the first note above.
                     </p>
-                  </Card>
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     {patientNotes.map((n) => (
-                      <Card key={n.id} className="p-4 border-l-4 border-l-teal-500">
-                        <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-100 text-xs">
-                          <span className="font-bold text-teal-800 uppercase tracking-wider text-[11px]">
+                      <div
+                        key={n.id}
+                        className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 border-l-teal-500 rounded-xl shadow-xs"
+                      >
+                        <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-100 dark:border-slate-800 text-xs">
+                          <span className="font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider text-[11px]">
                             {n.chiefComplaint || n.noteType.toUpperCase()}
                           </span>
                           <span className="text-slate-400 font-mono text-[11px]">
                             {new Date(n.createdAt).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                           {n.examination || n.plan || n.assessment || "Note entry"}
                         </p>
-                      </Card>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -473,3 +597,18 @@ export default function NursingNotesPage() {
   );
 }
 
+export default function NursingNotesPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageShell title="Nurse Notes">
+          <div className="p-12 text-center text-slate-400 text-sm">
+            Loading Nurse Notes…
+          </div>
+        </PageShell>
+      }
+    >
+      <NurseNotesContent />
+    </Suspense>
+  );
+}
