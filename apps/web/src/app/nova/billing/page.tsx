@@ -2,12 +2,11 @@
 import { useState, useMemo, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { PageShell, KpiCard, inputCls } from "@/components/nova/nova-ui";
+import { PageShell, KpiCard } from "@/components/nova/nova-ui";
 import {
   CheckCircle,
   Receipt,
   Clock,
-  ShieldCheck,
   Printer,
   RefreshCw,
   Search,
@@ -47,17 +46,17 @@ function formatDateOnly(dateStr: string | Date): string {
 function formatCategory(cat: string): string {
   switch (cat) {
     case "final_settlement":
-      return "Visit Settlement";
+      return "Full Bill";
     case "card_fee":
       return "Card Fee";
     case "pharmacy":
-      return "Pharmacy / Meds";
+      return "Medicine";
     case "lab":
-      return "Laboratory";
+      return "Lab Test";
     case "consultation":
-      return "Consultation";
+      return "Doctor Fee";
     case "admission":
-      return "Ward Admission";
+      return "Ward Stay";
     default:
       return cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
@@ -165,8 +164,8 @@ function BillingDashboardContent() {
         key: `card-${v.ticket.id}`,
         type: "card",
         icon: "🏥",
-        title: `Card Fee & Registration (${v.ticket.ticketNumber})`,
-        subtitle: "Front desk intake fee",
+        title: `Card Fee (${v.ticket.ticketNumber})`,
+        subtitle: "Registration fee",
         amount: v.ticket.feeAmount,
         paymentStatus: v.ticket.paymentStatus as any,
         rawId: v.ticket.id,
@@ -179,8 +178,8 @@ function BillingDashboardContent() {
       key: `consult-${v.id}`,
       type: "consultation",
       icon: "👨‍⚕️",
-      title: "Doctor Consultation Fee",
-      subtitle: "Clinical evaluation tariff",
+      title: "Doctor Fee",
+      subtitle: "Doctor visit fee",
       amount: 100,
       paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : consultPaid ? "paid" : "unpaid",
       rawId: v.id,
@@ -192,8 +191,8 @@ function BillingDashboardContent() {
         key: `lab-${lab.id}`,
         type: "lab",
         icon: "🔬",
-        title: `Lab Test: ${lab.testName}`,
-        subtitle: `Diagnostic investigation (${lab.status === "completed" ? "Result Ready" : lab.status === "sample_collected" ? "Sample in Lab" : "Ordered"})`,
+        title: `Lab: ${lab.testName}`,
+        subtitle: `Lab test (${lab.status === "completed" ? "Ready" : lab.status === "sample_collected" ? "In Lab" : "Ordered"})`,
         amount: lab.price,
         paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : (lab.paymentStatus as any),
         rawId: lab.id,
@@ -207,8 +206,8 @@ function BillingDashboardContent() {
           key: `drug-${line.id}`,
           type: "drug",
           icon: "💊",
-          title: `Medication: ${line.itemName}`,
-          subtitle: "Pharmacy dispense order",
+          title: `Medicine: ${line.itemName}`,
+          subtitle: "Prescribed medicine",
           amount: line.totalPrice,
           paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : (line.paymentStatus as any),
           rawId: line.id,
@@ -293,8 +292,8 @@ function BillingDashboardContent() {
 
   return (
     <PageShell
-      title="Accountant & Billing Counter"
-      subtitle={`${transferredCount} patients ready for final settlement · ETB ${todayTotal.toLocaleString()} collected today`}
+      title="Cashier & Billing"
+      subtitle={`${transferredCount} patients with pending orders · ETB ${todayTotal.toLocaleString()} collected today`}
       action={
         <button
           onClick={() => {
@@ -303,14 +302,14 @@ function BillingDashboardContent() {
           }}
           disabled={isFetchingQueue || isFetchingReceipts}
           className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg hover:border-teal-400 transition flex items-center gap-1.5"
-          title="Refresh billing data"
+          title="Refresh data"
         >
           <RefreshCw size={13} className={isFetchingQueue || isFetchingReceipts ? "animate-spin text-teal-600" : ""} />
           <span>Refresh</span>
         </button>
       }
     >
-      {/* Official Receipt Modal */}
+      {/* Payment Receipt Modal */}
       {issuedReceipt && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 text-center space-y-4 border border-slate-200 dark:border-slate-800">
@@ -318,7 +317,7 @@ function BillingDashboardContent() {
               <CheckCircle size={32} />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold">Official Payment Receipt</p>
+              <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold">Payment Receipt</p>
               <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 font-mono mt-1">{issuedReceipt.receiptNumber}</h2>
             </div>
             <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 text-left text-xs space-y-2 border border-slate-200 dark:border-slate-700">
@@ -327,11 +326,11 @@ function BillingDashboardContent() {
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{issuedReceipt.patientName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Payment Method:</span>
+                <span className="text-slate-500">Paid With:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200 uppercase">{payMethod}</span>
               </div>
               <div className="border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
-                <span className="text-slate-500 block mb-1">Cleared Items:</span>
+                <span className="text-slate-500 block mb-1">Paid Items:</span>
                 <ul className="list-disc pl-4 space-y-0.5 text-slate-700 dark:text-slate-300">
                   {issuedReceipt.items.map((it, idx) => (
                     <li key={idx}>{it}</li>
@@ -339,12 +338,12 @@ function BillingDashboardContent() {
                 </ul>
               </div>
               <div className="border-t border-slate-200/60 dark:border-slate-700/60 pt-2 flex justify-between font-bold text-sm">
-                <span className="text-slate-800 dark:text-slate-200">Amount Collected:</span>
+                <span className="text-slate-800 dark:text-slate-200">Total Paid:</span>
                 <span className="text-emerald-700 dark:text-emerald-400 font-mono">ETB {issuedReceipt.total}</span>
               </div>
             </div>
             <p className="text-[11px] text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 py-2 px-3 rounded-lg font-medium border border-teal-200/80 dark:border-teal-800/80">
-              ✓ Payment cleared. Patient can proceed to the service department.
+              ✓ Payment completed. Receipt is ready.
             </p>
             <div className="flex gap-2">
               <button
@@ -366,7 +365,7 @@ function BillingDashboardContent() {
         </div>
       )}
 
-      {/* Single Service Pre-Payment Modal */}
+      {/* Collect Payment Modal */}
       {singleTarget && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 border border-slate-200 dark:border-slate-800">
@@ -374,7 +373,7 @@ function BillingDashboardContent() {
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
                   <CreditCard size={15} className="text-teal-600" />
-                  Collect Pre-Payment
+                  Collect Payment
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {singleTarget.patientName} · {singleTarget.ticketNumber} ({singleTarget.patientHealthId})
@@ -391,15 +390,15 @@ function BillingDashboardContent() {
 
             <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1.5 border border-slate-200/80 dark:border-slate-700/80">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Service:</span>
+                <span className="text-slate-500">Item:</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{singleTarget.service.title}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Department:</span>
+                <span className="text-slate-500">Type:</span>
                 <span className="text-slate-700 dark:text-slate-300">{singleTarget.service.subtitle}</span>
               </div>
               <div className="border-t border-slate-200 dark:border-slate-700 pt-1.5 flex items-center justify-between font-bold text-sm">
-                <span className="text-slate-800 dark:text-slate-200">Amount Due:</span>
+                <span className="text-slate-800 dark:text-slate-200">Amount:</span>
                 <span className="text-emerald-700 dark:text-emerald-400 font-mono">ETB {singleTarget.service.amount}</span>
               </div>
             </div>
@@ -430,7 +429,7 @@ function BillingDashboardContent() {
                 <input
                   value={payRef}
                   onChange={(e) => setPayRef(e.target.value)}
-                  placeholder="Transaction Reference ID (e.g. TLB-998241)"
+                  placeholder="Reference number (e.g. TLB-12345)"
                   className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs rounded-lg focus:outline-hidden focus:border-teal-500"
                 />
               )}
@@ -450,7 +449,7 @@ function BillingDashboardContent() {
                 onClick={handleSingleServiceCheckout}
                 className="px-4 py-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg text-xs shadow-xs transition"
               >
-                {collectPaymentMutation.isPending ? "Collecting…" : `Confirm & Issue Receipt (ETB ${singleTarget.service.amount})`}
+                {collectPaymentMutation.isPending ? "Collecting…" : `Confirm Payment (ETB ${singleTarget.service.amount})`}
               </button>
             </div>
           </div>
@@ -459,24 +458,24 @@ function BillingDashboardContent() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Today's Collections" value={`ETB ${todayTotal.toLocaleString()}`} sub={`${todayReceipts.length} payments today`} accent />
-        <KpiCard label="Ready for Settlement" value={transferredCount} sub="transferred by doctor" />
-        <KpiCard label="Past 7 Days" value={`ETB ${weekTotal.toLocaleString()}`} sub={`${weekReceipts.length} transactions`} />
-        <KpiCard label="All-Time Revenue" value={`ETB ${totalCollected.toLocaleString()}`} sub={`${receipts.length} total receipts`} />
+        <KpiCard label="Collected Today" value={`ETB ${todayTotal.toLocaleString()}`} sub={`${todayReceipts.length} payments`} accent />
+        <KpiCard label="Waiting to Pay" value={transferredCount} sub="patients from doctor" />
+        <KpiCard label="This Week" value={`ETB ${weekTotal.toLocaleString()}`} sub={`${weekReceipts.length} payments`} />
+        <KpiCard label="Total Collected" value={`ETB ${totalCollected.toLocaleString()}`} sub={`${receipts.length} receipts`} />
       </div>
 
-      {/* Section 1: Pre-Payment Treatment & Transferred Patients Queue */}
+      {/* Section 1: Patients & Orders */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-teal-600" />
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                Pre-Payment Treatment & Settle Orders
+                Patients & Orders
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Click the arrow (▶) to expand patient services and collect payment for individual card, lab, or medication orders
+              Click the arrow (▶) to view and collect payment for card, lab, or medicines
             </p>
           </div>
 
@@ -491,7 +490,7 @@ function BillingDashboardContent() {
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
-                All Active Patients ({settlementQueue.length})
+                All Patients ({settlementQueue.length})
               </button>
               <button
                 type="button"
@@ -502,7 +501,7 @@ function BillingDashboardContent() {
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
-                Ready for Settlement ({transferredCount})
+                From Doctor ({transferredCount})
               </button>
             </div>
 
@@ -511,7 +510,7 @@ function BillingDashboardContent() {
               <input
                 value={queueSearch}
                 onChange={(e) => setQueueSearch(e.target.value)}
-                placeholder="Search patient, ID, ticket…"
+                placeholder="Search name, ID, or ticket…"
                 className="w-full pl-8 pr-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-teal-500"
               />
             </div>
@@ -528,9 +527,9 @@ function BillingDashboardContent() {
                 <th className="text-left px-3.5 py-2.5 font-semibold">Patient</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Health ID</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Coverage</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Pre-Payment Service Summary</th>
-                <th className="text-right px-3.5 py-2.5 font-semibold">Unpaid Balance</th>
-                <th className="text-right px-3.5 py-2.5 font-semibold">Action</th>
+                <th className="text-left px-3.5 py-2.5 font-semibold">Orders</th>
+                <th className="text-right px-3.5 py-2.5 font-semibold">Unpaid Total</th>
+                <th className="text-right px-3.5 py-2.5 font-semibold">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -569,7 +568,7 @@ function BillingDashboardContent() {
                           <p className="font-semibold text-slate-900 dark:text-slate-100">{v.patient.nameEn}</p>
                           {isTransferred && (
                             <span className="text-[10px] px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 font-bold rounded">
-                              Transferred
+                              From Doctor
                             </span>
                           )}
                         </div>
@@ -602,7 +601,7 @@ function BillingDashboardContent() {
                                   : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/50"
                               }`}
                             >
-                              {s.icon} {s.type === "card" ? "Card Fee" : s.type === "lab" ? "Lab" : s.type === "drug" ? "Med" : "Consult"}
+                              {s.icon} {s.type === "card" ? "Card" : s.type === "lab" ? "Lab" : s.type === "drug" ? "Medicine" : "Doctor"}
                               {s.paymentStatus === "paid" ? " ✓" : s.paymentStatus === "unpaid" ? ` (ETB ${s.amount})` : ""}
                             </span>
                           ))}
@@ -614,7 +613,7 @@ function BillingDashboardContent() {
                         ) : totalUnpaid > 0 ? (
                           <span className="text-amber-700 dark:text-amber-400">ETB {totalUnpaid}</span>
                         ) : (
-                          <span className="text-emerald-600 dark:text-emerald-400 text-[11px]">All Cleared ✓</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 text-[11px]">All Paid ✓</span>
                         )}
                       </td>
                       <td className="px-3.5 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
@@ -626,12 +625,12 @@ function BillingDashboardContent() {
                           {isExpanded ? (
                             <>
                               <ChevronDown size={13} className="text-teal-600" />
-                              <span>Hide Services</span>
+                              <span>Hide Items</span>
                             </>
                           ) : (
                             <>
                               <ChevronRight size={13} />
-                              <span>View Services ({serviceRows.length})</span>
+                              <span>View Items ({serviceRows.length})</span>
                             </>
                           )}
                         </button>
@@ -653,12 +652,12 @@ function BillingDashboardContent() {
                               <span>{s.icon}</span>
                               <span className="uppercase text-[10px] tracking-wider font-semibold">
                                 {s.type === "card"
-                                  ? "Card Intake"
+                                  ? "Card"
                                   : s.type === "lab"
-                                  ? "Lab Order"
+                                  ? "Lab"
                                   : s.type === "drug"
-                                  ? "Prescription"
-                                  : "Consultation"}
+                                  ? "Medicine"
+                                  : "Doctor"}
                               </span>
                             </span>
                           </td>
@@ -677,12 +676,12 @@ function BillingDashboardContent() {
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded font-semibold">
-                                Unpaid Pre-Payment
+                                Unpaid
                               </span>
                             )}
                           </td>
                           <td className="px-3.5 py-2 text-slate-600 dark:text-slate-400 text-xs">
-                            <span className="text-[11px] font-mono">Charge: ETB {s.amount}</span>
+                            <span className="text-[11px] font-mono">Fee: ETB {s.amount}</span>
                           </td>
                           <td className="px-3.5 py-2 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
                             ETB {s.amount}
@@ -706,11 +705,11 @@ function BillingDashboardContent() {
                               </button>
                             ) : s.paymentStatus === "paid" ? (
                               <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
-                                Cleared ✓
+                                Paid ✓
                               </span>
                             ) : (
                               <span className="text-teal-600 dark:text-teal-400 text-[11px] font-medium">
-                                0 ETB (CBHI)
+                                Free (CBHI)
                               </span>
                             )}
                           </td>
@@ -726,7 +725,7 @@ function BillingDashboardContent() {
                     {queueSearch
                       ? `No patients matching "${queueSearch}"`
                       : queueTab === "ready"
-                      ? "No patients currently transferred from doctor."
+                      ? "No patients waiting from doctor."
                       : "No active patients in clinic."}
                   </td>
                 </tr>
@@ -736,18 +735,18 @@ function BillingDashboardContent() {
         </div>
       </div>
 
-      {/* Section 2: Payment History According to Time with Cumulative Total */}
+      {/* Section 2: Recent Payments */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2">
               <Receipt size={16} className="text-teal-600" />
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                Payment Transactions by Time
+                Recent Payments
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Cashier receipts organized by time with a cumulative running total column showing total collected
+              List of completed payments with running total
             </p>
           </div>
 
@@ -785,7 +784,7 @@ function BillingDashboardContent() {
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
-                Past 7 Days ({weekReceipts.length})
+                This Week ({weekReceipts.length})
               </button>
               <button
                 type="button"
@@ -819,14 +818,14 @@ function BillingDashboardContent() {
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
                 <th className="text-left px-3.5 py-2.5 font-semibold">Time</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Receipt Number</th>
+                <th className="text-left px-3.5 py-2.5 font-semibold">Receipt #</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Patient</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Health ID</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Service Collected</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Payment Method</th>
-                <th className="text-right px-3.5 py-2.5 font-semibold">Amount Paid</th>
+                <th className="text-left px-3.5 py-2.5 font-semibold">Item Paid</th>
+                <th className="text-left px-3.5 py-2.5 font-semibold">Paid With</th>
+                <th className="text-right px-3.5 py-2.5 font-semibold">Amount</th>
                 <th className="text-right px-3.5 py-2.5 font-semibold text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20">
-                  Cumulative Total Collected
+                  Running Total
                 </th>
                 <th className="text-right px-3.5 py-2.5 font-semibold">Status</th>
               </tr>
@@ -875,7 +874,7 @@ function BillingDashboardContent() {
                   </td>
                   <td className="px-3.5 py-2.5 text-right">
                     <span className="text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded text-[10px]">
-                      ✓ Cleared
+                      ✓ Paid
                     </span>
                   </td>
                 </tr>
@@ -884,7 +883,7 @@ function BillingDashboardContent() {
               {receiptsWithCumulative.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-slate-400 text-xs">
-                    {receiptSearch ? `No receipts matching "${receiptSearch}"` : "No payment transactions in this time period."}
+                    {receiptSearch ? `No receipts matching "${receiptSearch}"` : "No payments in this time period."}
                   </td>
                 </tr>
               )}
@@ -898,7 +897,7 @@ function BillingDashboardContent() {
 
 export default function BillingDashboard() {
   return (
-    <Suspense fallback={<PageShell title="Accountant & Billing Counter"><p className="p-4 text-slate-400">Loading…</p></PageShell>}>
+    <Suspense fallback={<PageShell title="Cashier & Billing"><p className="p-4 text-slate-400">Loading…</p></PageShell>}>
       <BillingDashboardContent />
     </Suspense>
   );
