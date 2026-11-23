@@ -20,6 +20,7 @@ import {
   Sparkles,
   ShieldCheck,
   RefreshCw,
+  X,
 } from "lucide-react";
 import PatientQRCode from "@/components/nova/patient-qr";
 import QRScanner from "@/components/nova/qr-scanner";
@@ -522,76 +523,154 @@ export default function PatientRegistrationPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left / Main Column (7-8 cols): Patient Registration Desk */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-3">
-          {/* Mode Selector */}
-          <div className="flex items-center justify-between pb-1">
-            <div className="flex gap-1.5">
+          {/* Intake Mode: New Patient or Find Returning Patient */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
+            <div className="flex items-center gap-2 flex-1 max-w-xl">
               <button
                 type="button"
-                onClick={() => setTab("new")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition ${
-                  tab === "new"
+                onClick={() => {
+                  setTab("new");
+                  setSelectedExisting(null);
+                }}
+                className={`px-3.5 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition shrink-0 cursor-pointer ${
+                  tab === "new" && !selectedExisting
                     ? "bg-teal-600 text-white shadow-xs"
-                    : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400"
+                    : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-teal-400"
                 }`}
               >
-                <UserPlus size={13} /> New Patient
+                <UserPlus size={13} />
+                <span>New Patient</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setTab("existing")}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition ${
-                  tab === "existing"
-                    ? "bg-teal-600 text-white shadow-xs"
-                    : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400"
-                }`}
-              >
-                <Search size={13} /> Returning Patient
-              </button>
+
+              <div className="relative flex-1">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Find Returning Patient (name, ID, or phone)…"
+                  value={searchQuery}
+                  onFocus={() => {
+                    if (tab !== "existing") setTab("existing");
+                  }}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (tab !== "existing") setTab("existing");
+                    if (selectedExisting) setSelectedExisting(null);
+                  }}
+                  className={`${inputCls} pl-9 pr-8 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-teal-500`}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedExisting(null);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
             </div>
-            <span className="text-[11px] text-slate-400 hidden sm:inline">Intake Counter 01</span>
+
+            <span className="text-[11px] text-slate-400 hidden lg:inline">Intake Counter 01</span>
           </div>
 
-          {/* Returning Patient Lookup */}
+          {/* Returning Patient Lookup & Summary */}
           {tab === "existing" && (
             <Card className="p-4 sm:p-5 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-4">
-              <div>
-                <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-2">Find Returning Patient</h3>
-                <input
-                  className={inputCls}
-                  placeholder="Enter name, Health ID (DMH-...), or phone number…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoFocus
-                />
-              </div>
+              {!selectedExisting && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
+                      {searchQuery.length > 1
+                        ? `Search Results (${searchResults.data?.length ?? 0})`
+                        : "Find Returning Patient"}
+                    </h3>
+                    {searchResults.isFetching && (
+                      <span className="text-xs text-teal-600 font-medium animate-pulse">Searching…</span>
+                    )}
+                  </div>
 
-              {searchResults.data && searchResults.data.length > 0 && !selectedExisting && (
-                <div className="space-y-1.5 max-h-56 overflow-y-auto">
-                  {searchResults.data.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => { setSelectedExisting(p.id); setSearchQuery(p.nameEn); }}
-                      className="w-full text-left p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-400 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 text-xs transition"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {p.nameEn} {p.nameAm && <span className="text-slate-400 font-normal">({p.nameAm})</span>}
-                        </span>
-                        <span className="font-mono text-teal-600 dark:text-teal-400 font-medium">{p.healthId}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        DOB: {p.dob} · {p.sex === "M" ? "Male" : "Female"} · {p.cbhiStatus ? "✓ CBHI Member" : "Self-pay"}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                  {searchQuery.length <= 1 && (
+                    <div className="p-8 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
+                      <Search size={24} className="mx-auto text-slate-300 dark:text-slate-600" />
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                        Type a patient's name, Health ID, or phone number in the search box above.
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        Or click{" "}
+                        <button
+                          type="button"
+                          onClick={() => setTab("new")}
+                          className="text-teal-600 dark:text-teal-400 underline font-semibold cursor-pointer"
+                        >
+                          New Patient
+                        </button>{" "}
+                        to register a first-time patient.
+                      </p>
+                    </div>
+                  )}
 
-              {searchQuery.length > 1 && searchResults.data?.length === 0 && (
-                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg p-2.5">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  <span>No patient found in database. Switch to "New Patient" above.</span>
+                  {searchResults.data && searchResults.data.length > 0 && (
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                      {searchResults.data.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => { setSelectedExisting(p.id); setSearchQuery(p.nameEn); }}
+                          className="w-full text-left p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-400 hover:bg-teal-50/40 dark:hover:bg-teal-950/20 text-xs transition cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
+                              {p.nameEn} {p.nameAm && <span className="text-slate-400 font-normal">({p.nameAm})</span>}
+                            </span>
+                            <span className="font-mono text-teal-600 dark:text-teal-400 font-bold bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-800">
+                              {p.healthId}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1">
+                            <span>DOB: {p.dob}</span>
+                            <span>•</span>
+                            <span>{p.sex === "M" ? "Male" : "Female"}</span>
+                            {p.phone && (
+                              <>
+                                <span>•</span>
+                                <span>{p.phone}</span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span className={p.cbhiStatus ? "text-emerald-600 font-semibold" : "text-slate-500"}>
+                              {p.cbhiStatus ? "✓ CBHI Member" : "Self-pay"}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchQuery.length > 1 && searchResults.data?.length === 0 && !searchResults.isFetching && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl p-3.5">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={16} className="shrink-0 text-amber-600" />
+                        <span>No patient found for "{searchQuery}".</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTab("new");
+                          setForm((prev) => ({ ...prev, nameEn: searchQuery }));
+                        }}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold shrink-0 transition cursor-pointer"
+                      >
+                        + Register as New Patient
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
