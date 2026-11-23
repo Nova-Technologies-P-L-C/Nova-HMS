@@ -6,7 +6,6 @@ import { trpc } from "@/utils/trpc";
 import { PageShell } from "@/components/nova/nova-ui";
 import { toast } from "sonner";
 import {
-  Search,
   Printer,
   CheckCircle,
   FileText,
@@ -154,7 +153,6 @@ export default function InvoicesPage() {
   );
 
   // UI state
-  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
   const [dateFilter, setDateFilter] = useState<"all" | "today" | "week" | "month">("all");
   const [selectedInvoice, setSelectedInvoice] = useState<UnifiedInvoice | null>(null);
@@ -262,22 +260,9 @@ export default function InvoicesPage() {
         }
       }
 
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = inv.patientName.toLowerCase().includes(q);
-        const matchHealthId = inv.healthId.toLowerCase().includes(q);
-        const matchInvNo = inv.invoiceNumber.toLowerCase().includes(q);
-        const matchItems = inv.lines.some((l) => l.description.toLowerCase().includes(q));
-        const matchRef = inv.paymentReference?.toLowerCase().includes(q);
-        if (!matchName && !matchHealthId && !matchInvNo && !matchItems && !matchRef) {
-          return false;
-        }
-      }
-
       return true;
     });
-  }, [allInvoices, statusFilter, dateFilter, searchQuery]);
+  }, [allInvoices, statusFilter, dateFilter]);
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
@@ -531,128 +516,84 @@ export default function InvoicesPage() {
           </div>
         </div>
 
-        {/* ── 2. SEARCH & FILTER TOOLBAR ── */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by Patient Name, Health ID (DMH-...), Invoice #, or Item…"
-                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500 font-medium"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Status Tabs */}
-              <div className="flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter("all")}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
-                    statusFilter === "all"
-                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  All ({allInvoices.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter("paid")}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
-                    statusFilter === "paid"
-                      ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  ✓ Paid ({metrics.countPaid})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStatusFilter("pending")}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
-                    statusFilter === "pending"
-                      ? "bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-2xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  ⏳ Pending ({metrics.countPending})
-                </button>
-              </div>
-
-              {/* Date Filter */}
-              <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
-                <button
-                  type="button"
-                  onClick={() => setDateFilter("all")}
-                  className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                    dateFilter === "all"
-                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-2xs"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  All Time
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDateFilter("today")}
-                  className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                    dateFilter === "today"
-                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-2xs"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDateFilter("week")}
-                  className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                    dateFilter === "week"
-                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-2xs"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  7 Days
-                </button>
-              </div>
-            </div>
+        {/* ── 2. FILTER TOOLBAR ── */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Status Tabs */}
+          <div className="flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                statusFilter === "all"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              All ({allInvoices.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("paid")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                statusFilter === "paid"
+                  ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              ✓ Paid ({metrics.countPaid})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("pending")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                statusFilter === "pending"
+                  ? "bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              ⏳ Pending ({metrics.countPending})
+            </button>
           </div>
 
-          {/* Active Filter Bar Details */}
-          {(searchQuery || statusFilter !== "all" || dateFilter !== "all") && (
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500">
-              <span>
-                Showing <strong>{filteredInvoices.length}</strong> of {allInvoices.length} invoices
-                {searchQuery ? ` matching "${searchQuery}"` : ""}
-              </span>
+          {/* Date Filter */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-slate-400 font-medium">Period:</span>
+            <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs">
               <button
                 type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setStatusFilter("all");
-                  setDateFilter("all");
-                }}
-                className="text-teal-600 hover:underline font-semibold cursor-pointer"
+                onClick={() => setDateFilter("all")}
+                className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+                  dateFilter === "all"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
               >
-                Reset Filters
+                All Time
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateFilter("today")}
+                className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+                  dateFilter === "today"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateFilter("week")}
+                className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+                  dateFilter === "week"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                7 Days
               </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* ── 3. INVOICES & PAYMENTS DATA TABLE ── */}
@@ -812,19 +753,18 @@ export default function InvoicesPage() {
                           No matching invoices found
                         </p>
                         <p className="text-xs text-slate-400 max-w-sm">
-                          Try adjusting your search terms or status filters.
+                          Try adjusting your status or date filters.
                         </p>
-                        {(searchQuery || statusFilter !== "all" || dateFilter !== "all") && (
+                        {(statusFilter !== "all" || dateFilter !== "all") && (
                           <button
                             type="button"
                             onClick={() => {
-                              setSearchQuery("");
                               setStatusFilter("all");
                               setDateFilter("all");
                             }}
                             className="mt-2 text-xs font-semibold text-teal-600 hover:underline cursor-pointer"
                           >
-                            Clear all filters
+                            Reset filters
                           </button>
                         )}
                       </div>
