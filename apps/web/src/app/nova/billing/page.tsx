@@ -7,7 +7,6 @@ import { PageShell, KpiCard, inputCls } from "@/components/nova/nova-ui";
 import {
   CheckCircle,
   Receipt,
-  DollarSign,
   Clock,
   ShieldCheck,
   Printer,
@@ -15,9 +14,8 @@ import {
   Search,
   X,
   CreditCard,
-  UserCheck,
-  AlertCircle,
-  ArrowRight,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 // Time categorization helpers
@@ -50,11 +48,11 @@ function formatDateOnly(dateStr: string | Date): string {
 function formatCategory(cat: string): string {
   switch (cat) {
     case "final_settlement":
-      return "Final Settlement";
+      return "Visit Settlement";
     case "card_fee":
       return "Card Fee";
     case "pharmacy":
-      return "Pharmacy";
+      return "Pharmacy / Meds";
     case "lab":
       return "Laboratory";
     case "consultation":
@@ -66,6 +64,17 @@ function formatCategory(cat: string): string {
   }
 }
 
+interface PayableServiceItem {
+  key: string;
+  type: "card" | "consultation" | "lab" | "drug";
+  icon: string;
+  title: string;
+  subtitle: string;
+  amount: number;
+  paymentStatus: "unpaid" | "paid" | "cbhi_covered" | "emergency_exempt";
+  rawId: string;
+}
+
 function BillingDashboardContent() {
   const qc = useQueryClient();
   const searchParams = useSearchParams();
@@ -73,6 +82,14 @@ function BillingDashboardContent() {
 
   // Settlement & modal states
   const [settlingVisitId, setSettlingVisitId] = useState<string>(initialVisitId);
+  const [singleTarget, setSingleTarget] = useState<{
+    visitId: string;
+    patientName: string;
+    patientHealthId: string;
+    ticketNumber: string;
+    service: PayableServiceItem;
+  } | null>(null);
+
   const [payCard, setPayCard] = useState<boolean>(true);
   const [payConsultation, setPayConsultation] = useState<boolean>(true);
   const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
@@ -81,8 +98,11 @@ function BillingDashboardContent() {
   const [payRef, setPayRef] = useState<string>("");
   const [issuedReceipt, setIssuedReceipt] = useState<{ receiptNumber: string; total: number; patientName: string; items: string[] } | null>(null);
 
+  // Expanded patient accordion rows
+  const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set());
+
   // Queue table filter & search
-  const [queueTab, setQueueTab] = useState<"ready" | "all">("ready");
+  const [queueTab, setQueueTab] = useState<"ready" | "all">("all");
   const [queueSearch, setQueueSearch] = useState("");
 
   // Payment history filter by time & search
@@ -111,6 +131,15 @@ function BillingDashboardContent() {
     }
   }, [payables]);
 
+  const toggleExpand = (visitId: string) => {
+    setExpandedVisits((prev) => {
+      const next = new Set(prev);
+      if (next.has(visitId)) next.delete(visitId);
+      else next.add(visitId);
+      return next;
+    });
+  };
+
   const collectPaymentMutation = useMutation({
     ...trpc.billing.collectCashierPayment.mutationOptions(),
     onSuccess: (res) => {
@@ -126,15 +155,16 @@ function BillingDashboardContent() {
       setIssuedReceipt({
         receiptNumber: res.receiptNumber,
         total: res.total,
-        patientName: payables?.patient.nameEn ?? "Patient",
+        patientName: singleTarget?.patientName ?? payables?.patient.nameEn ?? "Patient",
         items: res.descriptionList,
       });
       setSettlingVisitId("");
+      setSingleTarget(null);
       setPayRef("");
     },
   });
 
-  // Dynamic total calculation for the current modal
+  // Dynamic total calculation for the full modal
   let dynamicTotal = 0;
   if (payables) {
     if (payCard && payables.items.some((i) => i.type === "card_fee" && i.paymentStatus === "unpaid")) {
@@ -162,7 +192,24 @@ function BillingDashboardContent() {
 
   const isCbhi = payables?.patient.cbhiStatus;
 
-  const handleCheckout = () => {
+  // Single service quick payment checkout
+  const handleSingleServiceCheckout = () => {
+    if (!singleTarget) return;
+    const { visitId, service } = singleTarget;
+    collectPaymentMutation.mutate({
+      visitId,
+      payCardFee: service.type === "card",
+      payConsultation: service.type === "consultation",
+      payAdmissionCharges: false,
+      labOrderIds: service.type === "lab" ? [service.rawId] : [],
+      prescriptionLineIds: service.type === "drug" ? [service.rawId] : [],
+      paymentMethod: payMethod,
+      reference: payRef,
+    });
+  };
+
+  // Full visit checkout
+  const handleFullCheckout = () => {
     if (!settlingVisitId) return;
     collectPaymentMutation.mutate({
       visitId: settlingVisitId,
@@ -174,6 +221,70 @@ function BillingDashboardContent() {
       paymentMethod: payMethod,
       reference: payRef,
     });
+  };
+
+  // Extract individual payable pre-payment service rows for a visit
+  const getPatientServiceRows = (v: typeof settlementQueue[0]): PayableServiceItem[] => {
+    const list: PayableServiceItem[] = [];
+
+    // 1. Card Fee
+    if (v.ticket) {
+      list.push({
+        key: `card-${v.ticket.id}`,
+        type: "card",
+        icon: "🏥",
+        title: `Card Fee & Registration (${v.ticket.ticketNumber})`,
+        subtitle: "Front desk intake fee",
+        amount: v.ticket.feeAmount,
+        paymentStatus: v.ticket.paymentStatus as any,
+        rawId: v.ticket.id,
+      });
+    }
+
+    // 2. Doctor Consultation
+    const consultPaid = v.receipts.some((r) => r.category === "consultation" || r.category === "final_settlement");
+    list.push({
+      key: `consult-${v.id}`,
+      type: "consultation",
+      icon: "👨‍⚕️",
+      title: "Doctor Consultation Fee",
+      subtitle: "Clinical evaluation tariff",
+      amount: 100,
+      paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : consultPaid ? "paid" : "unpaid",
+      rawId: v.id,
+    });
+
+    // 3. Diagnostic Labs
+    for (const lab of v.labOrders) {
+      list.push({
+        key: `lab-${lab.id}`,
+        type: "lab",
+        icon: "🔬",
+        title: `Lab Test: ${lab.testName}`,
+        subtitle: `Diagnostic investigation (${lab.status === "completed" ? "Result Ready" : lab.status === "sample_collected" ? "Sample in Lab" : "Ordered"})`,
+        amount: lab.price,
+        paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : (lab.paymentStatus as any),
+        rawId: lab.id,
+      });
+    }
+
+    // 4. Prescriptions
+    for (const rx of v.prescriptions) {
+      for (const line of rx.lines) {
+        list.push({
+          key: `drug-${line.id}`,
+          type: "drug",
+          icon: "💊",
+          title: `Medication: ${line.itemName}`,
+          subtitle: "Pharmacy dispense order",
+          amount: line.totalPrice,
+          paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : (line.paymentStatus as any),
+          rawId: line.id,
+        });
+      }
+    }
+
+    return list;
   };
 
   // Filtered Queue
@@ -225,6 +336,29 @@ function BillingDashboardContent() {
     return list;
   }, [receipts, timeFilter, todayReceipts, yesterdayReceipts, weekReceipts, receiptSearch]);
 
+  // Compute cumulative running total for each payment transaction
+  const receiptsWithCumulative = useMemo(() => {
+    // Sort chronologically ascending to compute running cumulative sum accurately
+    const sortedAsc = [...activeReceipts].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    let runningSum = 0;
+    const runningMap = new Map<string, number>();
+    for (const r of sortedAsc) {
+      runningSum += r.amount;
+      runningMap.set(r.id, runningSum);
+    }
+
+    // Return sorted descending (newest transaction first for cashier view)
+    return [...activeReceipts]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((r) => ({
+        ...r,
+        cumulativeTotal: runningMap.get(r.id) ?? r.amount,
+      }));
+  }, [activeReceipts]);
+
   return (
     <PageShell
       title="Accountant & Billing Counter"
@@ -252,7 +386,7 @@ function BillingDashboardContent() {
               <CheckCircle size={32} />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold">Official Final Discharge Receipt</p>
+              <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold">Official Payment Receipt</p>
               <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 font-mono mt-1">{issuedReceipt.receiptNumber}</h2>
             </div>
             <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-4 text-left text-xs space-y-2 border border-slate-200 dark:border-slate-700">
@@ -265,7 +399,7 @@ function BillingDashboardContent() {
                 <span className="font-semibold text-slate-800 dark:text-slate-200 uppercase">{payMethod}</span>
               </div>
               <div className="border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
-                <span className="text-slate-500 block mb-1">Cleared Services:</span>
+                <span className="text-slate-500 block mb-1">Cleared Items:</span>
                 <ul className="list-disc pl-4 space-y-0.5 text-slate-700 dark:text-slate-300">
                   {issuedReceipt.items.map((it, idx) => (
                     <li key={idx}>{it}</li>
@@ -273,12 +407,12 @@ function BillingDashboardContent() {
                 </ul>
               </div>
               <div className="border-t border-slate-200/60 dark:border-slate-700/60 pt-2 flex justify-between font-bold text-sm">
-                <span className="text-slate-800 dark:text-slate-200">Total Collected:</span>
+                <span className="text-slate-800 dark:text-slate-200">Amount Collected:</span>
                 <span className="text-emerald-700 dark:text-emerald-400 font-mono">ETB {issuedReceipt.total}</span>
               </div>
             </div>
             <p className="text-[11px] text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 py-2 px-3 rounded-lg font-medium border border-teal-200/80 dark:border-teal-800/80">
-              ✓ Visit cleared. Patient can proceed to Pharmacy or exit.
+              ✓ Payment cleared. Patient can proceed to the service department.
             </p>
             <div className="flex gap-2">
               <button
@@ -300,7 +434,98 @@ function BillingDashboardContent() {
         </div>
       )}
 
-      {/* Focused Patient Final Settlement Modal */}
+      {/* Single Service Pre-Payment Modal */}
+      {singleTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
+                  <CreditCard size={15} className="text-teal-600" />
+                  Collect Pre-Payment
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {singleTarget.patientName} · {singleTarget.ticketNumber} ({singleTarget.patientHealthId})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSingleTarget(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1.5 border border-slate-200/80 dark:border-slate-700/80">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Service:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{singleTarget.service.title}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">Department:</span>
+                <span className="text-slate-700 dark:text-slate-300">{singleTarget.service.subtitle}</span>
+              </div>
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-1.5 flex items-center justify-between font-bold text-sm">
+                <span className="text-slate-800 dark:text-slate-200">Amount Due:</span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-mono">ETB {singleTarget.service.amount}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Payment Method:</label>
+              <div className="grid grid-cols-4 gap-1.5 text-xs">
+                {(["cash", "telebirr", "cbe_birr", "card"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPayMethod(m)}
+                    className={`py-1.5 px-2 rounded-lg border font-semibold text-center transition ${
+                      payMethod === m
+                        ? "bg-teal-600 text-white border-teal-600 shadow-xs"
+                        : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-400"
+                    }`}
+                  >
+                    {m === "cash" && "💵 Cash"}
+                    {m === "telebirr" && "📱 Telebirr"}
+                    {m === "cbe_birr" && "🏦 CBE Birr"}
+                    {m === "card" && "💳 Card"}
+                  </button>
+                ))}
+              </div>
+
+              {(payMethod === "telebirr" || payMethod === "cbe_birr") && (
+                <input
+                  value={payRef}
+                  onChange={(e) => setPayRef(e.target.value)}
+                  placeholder="Transaction Reference ID (e.g. TLB-998241)"
+                  className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs rounded-lg focus:outline-hidden focus:border-teal-500"
+                />
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSingleTarget(null)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg text-xs hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={collectPaymentMutation.isPending}
+                onClick={handleSingleServiceCheckout}
+                className="px-4 py-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg text-xs shadow-xs transition"
+              >
+                {collectPaymentMutation.isPending ? "Collecting…" : `Confirm & Issue Receipt (ETB ${singleTarget.service.amount})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Multi-Service Settlement Modal */}
       {settlingVisitId && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-5 border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
@@ -309,7 +534,7 @@ function BillingDashboardContent() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
-                    Final Bill Settlement & Discharge Clearance
+                    Full Visit Settlement & Discharge Clearance
                   </h3>
                   {isCbhi ? (
                     <span className="text-xs px-2 py-0.5 bg-teal-100 text-teal-800 dark:bg-teal-950/80 dark:text-teal-300 rounded-full font-semibold flex items-center gap-1">
@@ -549,7 +774,7 @@ function BillingDashboardContent() {
                           {m === "cash" && "💵 Cash"}
                           {m === "telebirr" && "📱 Telebirr"}
                           {m === "cbe_birr" && "🏦 CBE Birr"}
-                          {m === "card" && "💳 Bank Card"}
+                          {m === "card" && "💳 Card"}
                         </button>
                       ))}
                     </div>
@@ -577,7 +802,7 @@ function BillingDashboardContent() {
                   <button
                     type="button"
                     disabled={collectPaymentMutation.isPending || (!isCbhi && dynamicTotal <= 0 && payables.items.length > 0 && payables.grossTotal > 0 && payables.totalPaid === 0)}
-                    onClick={handleCheckout}
+                    onClick={handleFullCheckout}
                     className="px-5 py-2 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg text-xs shadow-xs transition flex items-center gap-1.5"
                   >
                     <Receipt size={14} />
@@ -602,23 +827,34 @@ function BillingDashboardContent() {
         <KpiCard label="All-Time Revenue" value={`ETB ${totalCollected.toLocaleString()}`} sub={`${receipts.length} total receipts`} />
       </div>
 
-      {/* Section 1: Patients Transferred from Doctor / Ready for Final Settlement */}
+      {/* Section 1: Pre-Payment Treatment & Transferred Patients Queue */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-teal-600" />
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                Patients Transferred from Doctor / Ready for Final Settlement
+                Pre-Payment Treatment & Settle Orders
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Patients who finished doctor consultation and need final cashier discharge settlement
+              Click the arrow (▶) to expand patient services and collect payment for individual card, lab, or medication orders
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="flex gap-1 bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg text-xs">
+              <button
+                type="button"
+                onClick={() => setQueueTab("all")}
+                className={`px-3 py-1 rounded-md font-medium transition ${
+                  queueTab === "all"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-bold shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                All Active Patients ({settlementQueue.length})
+              </button>
               <button
                 type="button"
                 onClick={() => setQueueTab("ready")}
@@ -629,17 +865,6 @@ function BillingDashboardContent() {
                 }`}
               >
                 Ready for Settlement ({transferredCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setQueueTab("all")}
-                className={`px-3 py-1 rounded-md font-medium transition ${
-                  queueTab === "all"
-                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-bold shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                All Open Visits ({settlementQueue.length})
               </button>
             </div>
 
@@ -655,108 +880,225 @@ function BillingDashboardContent() {
           </div>
         </div>
 
-        {/* Easy Settlement Table */}
+        {/* Accordion Pre-Payment Table */}
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
           <table className="min-w-full text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
-                <th className="text-left px-3.5 py-2.5 font-semibold">Ticket</th>
+                <th className="w-8 px-2 py-2.5 text-center"></th>
+                <th className="text-left px-3 py-2.5 font-semibold">Ticket</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Patient</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Health ID</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Coverage</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Ordered Services</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Billing Status</th>
+                <th className="text-left px-3.5 py-2.5 font-semibold">Pre-Payment Service Summary</th>
+                <th className="text-right px-3.5 py-2.5 font-semibold">Unpaid Balance</th>
                 <th className="text-right px-3.5 py-2.5 font-semibold">Action</th>
               </tr>
             </thead>
             <tbody>
               {filteredQueue.map((v) => {
+                const isExpanded = expandedVisits.has(v.id);
+                const serviceRows = getPatientServiceRows(v);
+                const unpaidRows = serviceRows.filter((s) => s.paymentStatus === "unpaid");
+                const totalUnpaid = unpaidRows.reduce((sum, s) => sum + s.amount, 0);
                 const isTransferred = v.status === "ready_for_billing";
-                const labCount = v.labOrders.length;
-                const rxCount = v.prescriptions.reduce((s, p) => s + p.lines.length, 0);
 
                 return (
-                  <tr
-                    key={v.id}
-                    className={`border-b border-slate-100 dark:border-slate-800/60 last:border-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
-                      isTransferred ? "bg-amber-50/30 dark:bg-amber-950/10" : ""
-                    }`}
-                  >
-                    <td className="px-3.5 py-2.5 font-mono font-bold text-slate-800 dark:text-slate-100">
-                      {v.ticket?.ticketNumber ?? "—"}
-                    </td>
-                    <td className="px-3.5 py-2.5">
-                      <p className="font-medium text-slate-900 dark:text-slate-100">{v.patient.nameEn}</p>
-                      {v.patient.phone && (
-                        <p className="text-[10px] text-slate-400">{v.patient.phone}</p>
-                      )}
-                    </td>
-                    <td className="px-3.5 py-2.5 font-mono text-slate-500 dark:text-slate-400 text-[11px]">
-                      {v.patient.healthId}
-                    </td>
-                    <td className="px-3.5 py-2.5">
-                      {v.patient.cbhiStatus ? (
-                        <span className="text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200/80 dark:border-teal-800/80 text-[10px]">
-                          🛡️ CBHI
-                        </span>
-                      ) : (
-                        <span className="text-slate-600 dark:text-slate-400 text-[11px]">Self-Pay</span>
-                      )}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-400">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {labCount > 0 ? (
-                          <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                            🔬 {labCount} Lab{labCount > 1 ? "s" : ""}
-                          </span>
-                        ) : null}
-                        {rxCount > 0 ? (
-                          <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-medium">
-                            💊 {rxCount} Med{rxCount > 1 ? "s" : ""}
-                          </span>
-                        ) : null}
-                        {labCount === 0 && rxCount === 0 && (
-                          <span className="text-slate-400 text-[11px]">Consultation only</span>
+                  <Suspense key={v.id} fallback={null}>
+                    {/* Main Patient Header Row */}
+                    <tr
+                      onClick={() => toggleExpand(v.id)}
+                      className={`border-b border-slate-100 dark:border-slate-800/60 cursor-pointer transition-colors ${
+                        isExpanded
+                          ? "bg-teal-50/30 dark:bg-teal-950/20"
+                          : isTransferred
+                          ? "bg-amber-50/20 dark:bg-amber-950/10 hover:bg-amber-50/40"
+                          : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                      }`}
+                    >
+                      <td className="px-2 py-2.5 text-center text-slate-400 hover:text-teal-600">
+                        {isExpanded ? (
+                          <ChevronDown size={15} className="text-teal-600 mx-auto" />
+                        ) : (
+                          <ChevronRight size={15} className="mx-auto" />
                         )}
-                      </div>
-                    </td>
-                    <td className="px-3.5 py-2.5">
-                      {isTransferred ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-amber-900 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full font-bold border border-amber-200 dark:border-amber-800/60">
-                          ⏳ Transferred by Doctor
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                          In Consultation
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSettlingVisitId(v.id)}
-                        className={`text-xs px-3 py-1 rounded-lg font-semibold transition shadow-xs flex items-center gap-1 ml-auto cursor-pointer ${
-                          isTransferred
-                            ? "bg-teal-600 hover:bg-teal-500 text-white"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-slate-700 hover:text-teal-700"
-                        }`}
-                      >
-                        <CreditCard size={12} />
-                        <span>Settle Bill</span>
-                      </button>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-3 py-2.5 font-mono font-bold text-slate-800 dark:text-slate-100">
+                        {v.ticket?.ticketNumber ?? "—"}
+                      </td>
+                      <td className="px-3.5 py-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{v.patient.nameEn}</p>
+                          {isTransferred && (
+                            <span className="text-[10px] px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 font-bold rounded">
+                              Transferred
+                            </span>
+                          )}
+                        </div>
+                        {v.patient.phone && (
+                          <p className="text-[10px] text-slate-400">{v.patient.phone}</p>
+                        )}
+                      </td>
+                      <td className="px-3.5 py-2.5 font-mono text-slate-500 dark:text-slate-400 text-[11px]">
+                        {v.patient.healthId}
+                      </td>
+                      <td className="px-3.5 py-2.5">
+                        {v.patient.cbhiStatus ? (
+                          <span className="text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200/80 dark:border-teal-800/80 text-[10px]">
+                            🛡️ CBHI
+                          </span>
+                        ) : (
+                          <span className="text-slate-600 dark:text-slate-400 text-[11px]">Self-Pay</span>
+                        )}
+                      </td>
+                      <td className="px-3.5 py-2.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {serviceRows.map((s) => (
+                            <span
+                              key={s.key}
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                                s.paymentStatus === "paid"
+                                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50"
+                                  : s.paymentStatus === "cbhi_covered"
+                                  ? "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800/50"
+                                  : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/50"
+                              }`}
+                            >
+                              {s.icon} {s.type === "card" ? "Card Fee" : s.type === "lab" ? "Lab" : s.type === "drug" ? "Med" : "Consult"}
+                              {s.paymentStatus === "paid" ? " ✓" : s.paymentStatus === "unpaid" ? ` (ETB ${s.amount})` : ""}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-3.5 py-2.5 text-right font-mono font-bold">
+                        {v.patient.cbhiStatus ? (
+                          <span className="text-teal-700 dark:text-teal-300 text-[11px]">0 ETB (CBHI)</span>
+                        ) : totalUnpaid > 0 ? (
+                          <span className="text-amber-700 dark:text-amber-400">ETB {totalUnpaid}</span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 text-[11px]">All Cleared ✓</span>
+                        )}
+                      </td>
+                      <td className="px-3.5 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(v.id)}
+                            className="text-[11px] px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition"
+                          >
+                            {isExpanded ? "Hide Rows" : `Show Rows (${serviceRows.length})`}
+                          </button>
+                          {totalUnpaid > 0 && !v.patient.cbhiStatus ? (
+                            <button
+                              type="button"
+                              onClick={() => setSettlingVisitId(v.id)}
+                              className="text-xs px-2.5 py-1 rounded-md font-semibold bg-teal-600 hover:bg-teal-500 text-white transition shadow-xs"
+                            >
+                              Pay All
+                            </button>
+                          ) : v.patient.cbhiStatus ? (
+                            <button
+                              type="button"
+                              onClick={() => setSettlingVisitId(v.id)}
+                              className="text-xs px-2.5 py-1 rounded-md font-semibold bg-teal-600 hover:bg-teal-500 text-white transition shadow-xs"
+                            >
+                              Clearance
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Sub-Rows: Separate Row for Card, Lab, and Medication */}
+                    {isExpanded &&
+                      serviceRows.map((s) => (
+                        <tr
+                          key={s.key}
+                          className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800/50 text-xs"
+                        >
+                          <td className="px-2 py-2 text-center text-slate-300 dark:text-slate-600 font-mono">
+                            ↳
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 dark:text-slate-400 font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <span>{s.icon}</span>
+                              <span className="uppercase text-[10px] tracking-wider font-semibold">
+                                {s.type === "card"
+                                  ? "Card Intake"
+                                  : s.type === "lab"
+                                  ? "Lab Order"
+                                  : s.type === "drug"
+                                  ? "Prescription"
+                                  : "Consultation"}
+                              </span>
+                            </span>
+                          </td>
+                          <td colSpan={2} className="px-3.5 py-2">
+                            <p className="font-semibold text-slate-800 dark:text-slate-200">{s.title}</p>
+                            <p className="text-[10px] text-slate-400">{s.subtitle}</p>
+                          </td>
+                          <td className="px-3.5 py-2">
+                            {s.paymentStatus === "paid" ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded font-semibold">
+                                ✓ Paid
+                              </span>
+                            ) : s.paymentStatus === "cbhi_covered" ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/60 px-1.5 py-0.5 rounded font-semibold">
+                                🛡️ Covered
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded font-semibold">
+                                Unpaid Pre-Payment
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-2 text-slate-600 dark:text-slate-400 text-xs">
+                            <span className="text-[11px] font-mono">Charge: ETB {s.amount}</span>
+                          </td>
+                          <td className="px-3.5 py-2 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
+                            ETB {s.amount}
+                          </td>
+                          <td className="px-3.5 py-2 text-right">
+                            {s.paymentStatus === "unpaid" ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSingleTarget({
+                                    visitId: v.id,
+                                    patientName: v.patient.nameEn,
+                                    patientHealthId: v.patient.healthId,
+                                    ticketNumber: v.ticket?.ticketNumber ?? "—",
+                                    service: s,
+                                  })
+                                }
+                                className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded text-xs shadow-xs transition cursor-pointer"
+                              >
+                                Collect ETB {s.amount}
+                              </button>
+                            ) : s.paymentStatus === "paid" ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
+                                Cleared ✓
+                              </span>
+                            ) : (
+                              <span className="text-teal-600 dark:text-teal-400 text-[11px] font-medium">
+                                0 ETB (CBHI)
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </Suspense>
                 );
               })}
 
               {filteredQueue.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs">
                     {queueSearch
                       ? `No patients matching "${queueSearch}"`
                       : queueTab === "ready"
-                      ? "No patients currently waiting for final billing settlement."
-                      : "No visits in queue."}
+                      ? "No patients currently transferred from doctor."
+                      : "No active patients in clinic."}
                   </td>
                 </tr>
               )}
@@ -765,7 +1107,7 @@ function BillingDashboardContent() {
         </div>
       </div>
 
-      {/* Section 2: Payment History According to Time */}
+      {/* Section 2: Payment History According to Time with Cumulative Total */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div>
@@ -776,7 +1118,7 @@ function BillingDashboardContent() {
               </h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Cashier receipts organized by date and time of collection
+              Cashier receipts organized by time with a cumulative running total column showing total collected
             </p>
           </div>
 
@@ -842,7 +1184,7 @@ function BillingDashboardContent() {
           </div>
         </div>
 
-        {/* Time-Segmented Payments Table */}
+        {/* Time-Segmented Payments Table with Cumulative Running Total */}
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
           <table className="min-w-full text-xs">
             <thead>
@@ -851,14 +1193,17 @@ function BillingDashboardContent() {
                 <th className="text-left px-3.5 py-2.5 font-semibold">Receipt Number</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Patient</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Health ID</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Category</th>
+                <th className="text-left px-3.5 py-2.5 font-semibold">Service Collected</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Payment Method</th>
-                <th className="text-right px-3.5 py-2.5 font-semibold">Amount Collected</th>
+                <th className="text-right px-3.5 py-2.5 font-semibold">Amount Paid</th>
+                <th className="text-right px-3.5 py-2.5 font-semibold text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20">
+                  Cumulative Total Collected
+                </th>
                 <th className="text-right px-3.5 py-2.5 font-semibold">Status</th>
               </tr>
             </thead>
             <tbody>
-              {activeReceipts.map((r) => (
+              {receiptsWithCumulative.map((r) => (
                 <tr
                   key={r.id}
                   className="border-b border-slate-100 dark:border-slate-800/60 last:border-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
@@ -896,6 +1241,9 @@ function BillingDashboardContent() {
                   <td className="px-3.5 py-2.5 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
                     ETB {r.amount.toLocaleString()}
                   </td>
+                  <td className="px-3.5 py-2.5 text-right font-mono font-black text-teal-800 dark:text-teal-300 bg-teal-50/40 dark:bg-teal-950/10">
+                    ETB {r.cumulativeTotal.toLocaleString()}
+                  </td>
                   <td className="px-3.5 py-2.5 text-right">
                     <span className="text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded text-[10px]">
                       ✓ Cleared
@@ -904,9 +1252,9 @@ function BillingDashboardContent() {
                 </tr>
               ))}
 
-              {activeReceipts.length === 0 && (
+              {receiptsWithCumulative.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400 text-xs">
                     {receiptSearch ? `No receipts matching "${receiptSearch}"` : "No payment transactions in this time period."}
                   </td>
                 </tr>
