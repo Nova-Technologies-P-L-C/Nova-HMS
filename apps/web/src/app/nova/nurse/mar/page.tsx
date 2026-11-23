@@ -26,7 +26,9 @@ import {
   Check,
   AlertTriangle,
   ChevronRight,
+  ChevronLeft,
   Stethoscope,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -167,7 +169,7 @@ function MARContent() {
     return ["All", ...list];
   }, [admissions]);
 
-  // Filtered patients for sidebar
+  // Filtered patients for toolbar selection
   const filteredAdmissions = useMemo(() => {
     return admissions.filter((a) => {
       const matchesWard = selectedWard === "All" || a.bed?.ward === selectedWard;
@@ -183,6 +185,23 @@ function MARContent() {
       return matchesWard && matchesSearch;
     });
   }, [admissions, selectedWard, searchQuery]);
+
+  // Bed round navigation (Previous / Next patient)
+  const currentPatientIndex = useMemo(() => {
+    return filteredAdmissions.findIndex((a) => a.patientId === selectedAdmission?.patientId);
+  }, [filteredAdmissions, selectedAdmission]);
+
+  const handlePrevPatient = () => {
+    if (currentPatientIndex > 0) {
+      setSelectedPatientId(filteredAdmissions[currentPatientIndex - 1].patientId);
+    }
+  };
+
+  const handleNextPatient = () => {
+    if (currentPatientIndex >= 0 && currentPatientIndex < filteredAdmissions.length - 1) {
+      setSelectedPatientId(filteredAdmissions[currentPatientIndex + 1].patientId);
+    }
+  };
 
   const prescriptions = visitDetail?.prescriptions || [];
   const latestVital = selectedAdmission?.visit?.vitals?.[0];
@@ -303,20 +322,20 @@ function MARContent() {
         </div>
       }
     >
-      <div className="space-y-4 pb-12 w-full max-w-[1600px] mx-auto">
+      <div className="space-y-4 pb-12 w-full max-w-[1700px] mx-auto">
         {/* ── 1. PRO TOP KPI METRICS ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Admitted Patients
+                  Admitted Inpatients
                 </p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-bold text-slate-900 dark:text-white">
                     {admissions.length}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium">on ward</span>
+                  <span className="text-xs text-slate-400 font-medium">in beds</span>
                 </div>
               </div>
               <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
@@ -325,7 +344,7 @@ function MARContent() {
             </div>
             <p className="mt-2 text-[11px] text-teal-700 dark:text-teal-400 font-medium flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Active inpatient care</span>
+              <span>Ward round ready</span>
             </p>
           </div>
 
@@ -339,7 +358,7 @@ function MARContent() {
                   <span className="text-2xl font-bold text-slate-900 dark:text-white">
                     {totalPrescribedLines}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium">for selected patient</span>
+                  <span className="text-xs text-slate-400 font-medium">for current patient</span>
                 </div>
               </div>
               <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -347,7 +366,7 @@ function MARContent() {
               </div>
             </div>
             <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-              Prescribed by medical officer
+              Prescribed by medical doctor
             </p>
           </div>
 
@@ -377,7 +396,7 @@ function MARContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Held / Skipped
+                  Held / Skipped Doses
                 </p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
@@ -396,20 +415,60 @@ function MARContent() {
           </div>
         </div>
 
-        {/* ── 2. TWO-COLUMN WORKSTATION LAYOUT ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
-          {/* ── LEFT COLUMN: PATIENT SELECTION LIST ── */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
-            {/* Search and Ward Filter */}
-            <div className="p-3 border-b border-slate-100 dark:border-slate-800 space-y-2">
-              <div className="relative">
+        {/* ── 2. FULL-PAGE PATIENT SELECTION TOOLBAR ── */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs space-y-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Left: Quick Bed Round Stepper & Active Patient Selector Dropdown */}
+            <div className="flex items-center gap-2 flex-1 max-w-xl">
+              <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 shrink-0">
+                <button
+                  onClick={handlePrevPatient}
+                  disabled={currentPatientIndex <= 0}
+                  className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                  title="Previous Inpatient Bed"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-[11px] font-semibold px-1 text-slate-500">
+                  {currentPatientIndex + 1} / {filteredAdmissions.length}
+                </span>
+                <button
+                  onClick={handleNextPatient}
+                  disabled={currentPatientIndex >= filteredAdmissions.length - 1}
+                  className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                  title="Next Inpatient Bed"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Patient Dropdown Select */}
+              <div className="relative flex-1">
+                <select
+                  value={selectedAdmission?.patientId || ""}
+                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  className={`${inputCls} text-xs font-semibold py-2 pl-3 pr-8 truncate bg-slate-50 dark:bg-slate-800/90 border-teal-300 dark:border-teal-800`}
+                >
+                  {admissions.map((a) => (
+                    <option key={a.id} value={a.patientId}>
+                      Bed {a.bed?.room} ({a.bed?.ward}) — {a.patient?.nameEn} [ID: {a.patient?.healthId}] · Day {a.daysElapsed || 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Right: Search + Ward Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Search input */}
+              <div className="relative w-52 sm:w-64">
                 <Search
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                 />
                 <input
                   type="text"
-                  placeholder="Search patient, bed, or ID..."
+                  placeholder="Filter by name, bed, MRN..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={`${inputCls} pl-8.5 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80`}
@@ -424,7 +483,7 @@ function MARContent() {
                 )}
               </div>
 
-              {/* Ward tabs */}
+              {/* Ward filter pills */}
               <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin">
                 {wards.map((ward) => {
                   const isActive = selectedWard === ward;
@@ -432,7 +491,7 @@ function MARContent() {
                     <button
                       key={ward}
                       onClick={() => setSelectedWard(ward)}
-                      className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all shrink-0 ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                         isActive
                           ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -444,485 +503,445 @@ function MARContent() {
                 })}
               </div>
             </div>
-
-            {/* Patients List */}
-            <div className="max-h-[620px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-              {isAdmissionsLoading ? (
-                <div className="p-8 text-center text-slate-400 text-xs">
-                  Loading admitted patients…
-                </div>
-              ) : filteredAdmissions.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs">
-                  No inpatients found.
-                </div>
-              ) : (
-                filteredAdmissions.map((a) => {
-                  const isSelected = selectedAdmission?.id === a.id;
-                  const patient = a.patient;
-                  const bed = a.bed;
-
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={() => setSelectedPatientId(a.patientId)}
-                      className={`w-full text-left p-3 transition-colors flex items-center justify-between ${
-                        isSelected
-                          ? "bg-teal-50/70 dark:bg-teal-950/40 border-l-4 border-teal-600 dark:border-teal-400"
-                          : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1 pr-2">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`font-bold text-xs truncate ${
-                              isSelected
-                                ? "text-teal-950 dark:text-teal-100"
-                                : "text-slate-800 dark:text-slate-200"
-                            }`}
-                          >
-                            {patient?.nameEn || "Patient"}
-                          </span>
-                          {patient?.nameAm && (
-                            <span className="text-[10px] text-slate-400 truncate">
-                              ({patient.nameAm})
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
-                          <span className="font-semibold text-slate-600 dark:text-slate-300">
-                            Bed {bed?.room}
-                          </span>
-                          <span>•</span>
-                          <span>{bed?.ward || "Ward"}</span>
-                          <span>•</span>
-                          <span className="font-mono text-[10px]">{patient?.healthId}</span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-1">
-                          <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded text-slate-600 dark:text-slate-300">
-                            Day {a.daysElapsed || 1}
-                          </span>
-                          <span>Nurse: {a.assignedNurseName || "On duty"}</span>
-                        </div>
-                      </div>
-
-                      <ChevronRight
-                        size={14}
-                        className={
-                          isSelected ? "text-teal-600 dark:text-teal-400" : "text-slate-300"
-                        }
-                      />
-                    </button>
-                  );
-                })
-              )}
-            </div>
           </div>
 
-          {/* ── RIGHT COLUMN: MAR SCHEDULE & BEDSIDE SAFETY BAR ── */}
-          <div className="lg:col-span-3 space-y-4">
-            {!selectedAdmission ? (
-              <Card className="p-16 text-center">
-                <Pill size={36} className="text-slate-300 mx-auto mb-3" />
-                <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
-                  Select a patient to open their medication schedule
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Choose any admitted patient from the left panel to review doctor orders.
-                </p>
-              </Card>
-            ) : (
-              <>
-                {/* ── BEDSIDE PATIENT SAFETY & VITALS BANNER ── */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                          {selectedAdmission.patient?.nameEn}
-                        </h2>
-                        {selectedAdmission.patient?.nameAm && (
-                          <span className="text-xs text-slate-400">
-                            ({selectedAdmission.patient.nameAm})
-                          </span>
-                        )}
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                          Bed {selectedAdmission.bed?.room} · {selectedAdmission.bed?.ward}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
-                        <span className="font-mono font-medium text-slate-600 dark:text-slate-300">
-                          ID: {selectedAdmission.patient?.healthId || "—"}
-                        </span>
-                        <span>•</span>
-                        <span>
-                          {selectedAdmission.patient?.sex?.toUpperCase() === "M"
-                            ? "Male"
-                            : selectedAdmission.patient?.sex?.toUpperCase() === "F"
-                            ? "Female"
-                            : "—"}{" "}
-                          · {calculateAge(selectedAdmission.patient?.dob)}
-                        </span>
-                        <span>•</span>
-                        <span className="inline-flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
-                          <Clock size={11} className="text-slate-400" />
-                          Admitted Day {selectedAdmission.daysElapsed || 1}
-                        </span>
-                        <span>•</span>
-                        <span>Nurse: {selectedAdmission.assignedNurseName || "On duty"}</span>
-                      </div>
-                    </div>
-
-                    {/* Quick navigation to vitals / notes */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Link
-                        href={`/nova/nurse/vitals?visitId=${selectedAdmission.visitId || ""}`}
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1"
-                      >
-                        <Activity size={12} className="text-teal-600" />
-                        <span>Vitals</span>
-                      </Link>
-                      <Link
-                        href={`/nova/nurse/notes?admissionId=${selectedAdmission.id}&patientId=${selectedAdmission.patientId}`}
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1"
-                      >
-                        <FileText size={12} className="text-blue-600" />
-                        <span>Add Note</span>
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Bedside Vitals Check Before Administration */}
-                  <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        Bedside Vitals:
-                      </span>
-                      {latestVital ? (
-                        <>
-                          {latestVital.bpSystolic && latestVital.bpDiastolic && (
-                            <span
-                              className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
-                                latestVital.bpSystolic >= 140 || latestVital.bpDiastolic >= 90
-                                  ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300"
-                                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
-                              }`}
-                            >
-                              BP: {latestVital.bpSystolic}/{latestVital.bpDiastolic} mmHg
-                            </span>
-                          )}
-                          {latestVital.heartRate && (
-                            <span className="px-2 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-[11px] text-slate-700 dark:text-slate-200">
-                              Pulse: {latestVital.heartRate} bpm
-                            </span>
-                          )}
-                          {latestVital.temperature && (
-                            <span
-                              className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
-                                latestVital.temperature >= 38.0
-                                  ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300"
-                                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
-                              }`}
-                            >
-                              Temp: {latestVital.temperature}°C
-                            </span>
-                          )}
-                          {latestVital.spo2 && (
-                            <span
-                              className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
-                                latestVital.spo2 < 95
-                                  ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300"
-                                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
-                              }`}
-                            >
-                              SpO₂: {latestVital.spo2}%
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-amber-600 dark:text-amber-400 text-xs italic">
-                          No recent vitals logged — verify patient condition before IV administration.
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md">
-                      <ShieldAlert size={12} className="text-teal-600" />
-                      <span>Check 5 Rights: Right Patient, Drug, Dose, Route & Time</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── MAR SCHEDULE TABLE ── */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <Pill size={16} className="text-teal-600" />
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                        Daily Medication Schedule
-                      </h3>
-                      <span className="text-xs text-slate-400">
-                        ({totalPrescribedLines} active prescribed drugs)
-                      </span>
-                    </div>
-
-                    {/* Active Round Legend */}
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="flex items-center gap-1 font-semibold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-800">
-                        <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-                        Current Shift: {currentSlot === "08:00" ? "Morning (08:00)" : currentSlot === "14:00" ? "Afternoon (14:00)" : "Night (20:00)"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {isVisitLoading ? (
-                    <div className="p-12 text-center text-slate-400 text-sm">
-                      Loading doctor's prescription orders…
-                    </div>
-                  ) : prescriptions.length === 0 || totalPrescribedLines === 0 ? (
-                    <div className="p-12 text-center space-y-3">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
-                        <Pill size={22} />
-                      </div>
-                      <p className="font-bold text-slate-700 dark:text-slate-300 text-sm">
-                        No active medication orders found
-                      </p>
-                      <p className="text-xs text-slate-400 max-w-md mx-auto">
-                        When the attending physician or medical officer writes e-prescriptions for this visit, they will automatically appear on this schedule for administration.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                            <th className="py-3 px-4 min-w-[220px]">Prescribed Drug & Dosage</th>
-                            <th className="py-3 px-3 text-center">Payment / Status</th>
-                            {SCHEDULE_SLOTS.map((slot) => {
-                              const isCurrent = slot.time === currentSlot;
-                              return (
-                                <th
-                                  key={slot.time}
-                                  className={`py-3 px-3 text-center min-w-[170px] ${
-                                    isCurrent
-                                      ? "bg-teal-50/70 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 font-bold border-x border-teal-200 dark:border-teal-800"
-                                      : ""
-                                  }`}
-                                >
-                                  <div>
-                                    <span className="text-sm font-bold block">{slot.time}</span>
-                                    <span className="text-[10px] font-normal opacity-80 block">
-                                      {slot.label}
-                                    </span>
-                                    {isCurrent && (
-                                      <span className="inline-block mt-0.5 text-[9px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-teal-600 text-white font-bold">
-                                        Due Now
-                                      </span>
-                                    )}
-                                  </div>
-                                </th>
-                              );
-                            })}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {prescriptions.map((rx) =>
-                            rx.lines.map((line: any) => {
-                              const isPaid = line.paymentStatus === "paid";
-
-                              return (
-                                <tr
-                                  key={line.id}
-                                  className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                                >
-                                  {/* Drug Name & Instructions */}
-                                  <td className="py-3.5 px-4 align-top">
-                                    <div className="space-y-0.5">
-                                      <span className="font-bold text-sm text-slate-900 dark:text-slate-100 block">
-                                        {line.itemName}
-                                      </span>
-                                      <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
-                                        <span className="font-semibold text-teal-700 dark:text-teal-400">
-                                          {line.dose}
-                                        </span>
-                                        <span>•</span>
-                                        <span>{line.frequency}</span>
-                                        {line.durationDays > 0 && (
-                                          <>
-                                            <span>•</span>
-                                            <span>{line.durationDays} day course</span>
-                                          </>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </td>
-
-                                  {/* Cashier / Payment status */}
-                                  <td className="py-3.5 px-3 text-center align-top">
-                                    <div className="space-y-1">
-                                      <span
-                                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                          isPaid
-                                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                                            : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
-                                        }`}
-                                      >
-                                        {isPaid ? "Paid & Cleared" : "Pre-payment Pending"}
-                                      </span>
-                                      {rx.status === "dispensed" && (
-                                        <span className="block text-[10px] text-teal-600 font-medium">
-                                          Stock Dispensed
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  {/* Schedule Slots (08:00, 14:00, 20:00) */}
-                                  {SCHEDULE_SLOTS.map((slot) => {
-                                    const isCurrent = slot.time === currentSlot;
-                                    const record: DoseEntry | undefined = records[line.id]?.[slot.time];
-
-                                    return (
-                                      <td
-                                        key={slot.time}
-                                        className={`py-3.5 px-3 align-middle text-center ${
-                                          isCurrent
-                                            ? "bg-teal-50/30 dark:bg-teal-950/20 border-x border-teal-100 dark:border-teal-900"
-                                            : ""
-                                        }`}
-                                      >
-                                        {record ? (
-                                          /* Dose Already Administered or Logged */
-                                          <div className="space-y-1">
-                                            {record.status === "given" ? (
-                                              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold text-xs shadow-xs">
-                                                <Check size={12} strokeWidth={3} />
-                                                <span>Given</span>
-                                              </div>
-                                            ) : record.status === "held" ? (
-                                              <div
-                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white font-semibold text-[11px] shadow-xs cursor-help"
-                                                title={`Held: ${record.reason || "Clinically indicated"}`}
-                                              >
-                                                <AlertCircle size={11} />
-                                                <span>Held</span>
-                                              </div>
-                                            ) : (
-                                              <div
-                                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-600 text-white font-semibold text-[11px] shadow-xs cursor-help"
-                                                title={`Refused: ${record.reason || "Patient declined"}`}
-                                              >
-                                                <XCircle size={11} />
-                                                <span>Refused</span>
-                                              </div>
-                                            )}
-
-                                            <div className="text-[10px] text-slate-400">
-                                              <span>at {record.timestamp}</span>
-                                              {record.reason && (
-                                                <span className="block text-slate-500 truncate max-w-[140px] mx-auto italic">
-                                                  &quot;{record.reason}&quot;
-                                                </span>
-                                              )}
-                                            </div>
-
-                                            {/* Reset button if logged by mistake */}
-                                            <button
-                                              onClick={() => handleResetDose(line.id, slot.time)}
-                                              className="text-[10px] text-slate-400 hover:text-slate-600 underline block mx-auto"
-                                            >
-                                              Change
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          /* Pending Dose Actions: Give, Hold, Refused */
-                                          <div className="space-y-1.5">
-                                            {/* Give Button */}
-                                            <button
-                                              onClick={() =>
-                                                handleMarkGiven(line.id, rx.id, slot.time, line.itemName)
-                                              }
-                                              className="w-full py-1.5 px-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors shadow-xs flex items-center justify-center gap-1"
-                                            >
-                                              <Check size={12} strokeWidth={2.5} />
-                                              <span>Give Dose</span>
-                                            </button>
-
-                                            {/* Secondary: Hold / Refuse */}
-                                            <div className="grid grid-cols-2 gap-1 text-[11px]">
-                                              <button
-                                                onClick={() =>
-                                                  handleOpenReasonModal(
-                                                    line.id,
-                                                    rx.id,
-                                                    slot.time,
-                                                    line.itemName,
-                                                    "held"
-                                                  )
-                                                }
-                                                className="py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-300 hover:text-amber-700 transition-colors border border-slate-200 dark:border-slate-700 text-center font-medium"
-                                              >
-                                                Hold
-                                              </button>
-                                              <button
-                                                onClick={() =>
-                                                  handleOpenReasonModal(
-                                                    line.id,
-                                                    rx.id,
-                                                    slot.time,
-                                                    line.itemName,
-                                                    "refused"
-                                                  )
-                                                }
-                                                className="py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-slate-700 dark:text-slate-300 hover:text-rose-700 transition-colors border border-slate-200 dark:border-slate-700 text-center font-medium"
-                                              >
-                                                Refused
-                                              </button>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* ── Table Footer Clinical Legend ── */}
-                  <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                        <strong>Given:</strong> Dose successfully administered
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                        <strong>Held:</strong> Temporarily paused (fasting / vitals)
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                        <strong>Refused:</strong> Patient declined
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] text-slate-400">
-                      Standard Ward Rounds: 08:00 (Morning) · 14:00 (Afternoon) · 20:00 (Night)
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+          {/* Horizontal Bed Chips Strip (Quick Bed Switching) */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 pl-1">
+              Beds:
+            </span>
+            {filteredAdmissions.map((a) => {
+              const isSelected = selectedAdmission?.id === a.id;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => setSelectedPatientId(a.patientId)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold shrink-0 transition-all ${
+                    isSelected
+                      ? "bg-teal-600 text-white border-teal-600 shadow-xs"
+                      : "bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-750 text-slate-700 dark:text-slate-300 hover:border-teal-400"
+                  }`}
+                >
+                  <span className="font-mono">Bed {a.bed?.room}</span>
+                  <span className="opacity-75 font-normal truncate max-w-[120px]">
+                    {a.patient?.nameEn}
+                  </span>
+                  <span
+                    className={`text-[10px] px-1 py-0.2 rounded ${
+                      isSelected
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                    }`}
+                  >
+                    D{a.daysElapsed || 1}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* ── 3. CLINICAL REASON MODAL FOR HELD / REFUSED ── */}
+        {/* ── 3. FULL-PAGE BEDSIDE PATIENT SAFETY & VITALS BANNER ── */}
+        {!selectedAdmission ? (
+          <Card className="p-16 text-center">
+            <Pill size={36} className="text-slate-300 mx-auto mb-3" />
+            <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
+              No admitted patients found
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Please admit a patient to a ward bed first.
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                      {selectedAdmission.patient?.nameEn}
+                    </h2>
+                    {selectedAdmission.patient?.nameAm && (
+                      <span className="text-sm text-slate-400">
+                        ({selectedAdmission.patient.nameAm})
+                      </span>
+                    )}
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                      Bed {selectedAdmission.bed?.room} · {selectedAdmission.bed?.ward}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      Day {selectedAdmission.daysElapsed || 1} Admitted
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+                    <span className="font-mono font-medium text-slate-600 dark:text-slate-300">
+                      MRN / Health ID: {selectedAdmission.patient?.healthId || "—"}
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {selectedAdmission.patient?.sex?.toUpperCase() === "M"
+                        ? "Male"
+                        : selectedAdmission.patient?.sex?.toUpperCase() === "F"
+                        ? "Female"
+                        : "—"}{" "}
+                      · {calculateAge(selectedAdmission.patient?.dob)}
+                    </span>
+                    <span>•</span>
+                    <span>Assigned Nurse: <strong>{selectedAdmission.assignedNurseName || "On duty"}</strong></span>
+                    <span>•</span>
+                    <span>Admitted on {new Date(selectedAdmission.admittedAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+
+                {/* Quick actions for vitals and shift notes */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={`/nova/nurse/vitals?visitId=${selectedAdmission.visitId || ""}`}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Activity size={13} className="text-teal-600" />
+                    <span>Bedside Vitals</span>
+                  </Link>
+                  <Link
+                    href={`/nova/nurse/notes?admissionId=${selectedAdmission.id}&patientId=${selectedAdmission.patientId}`}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <FileText size={13} className="text-blue-600" />
+                    <span>Nurse Shift Note</span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Bedside Vitals Check Before Administration */}
+              <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Current Vitals:
+                  </span>
+                  {latestVital ? (
+                    <>
+                      {latestVital.bpSystolic && latestVital.bpDiastolic && (
+                        <span
+                          className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
+                            latestVital.bpSystolic >= 140 || latestVital.bpDiastolic >= 90
+                              ? "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          BP: {latestVital.bpSystolic}/{latestVital.bpDiastolic} mmHg
+                        </span>
+                      )}
+                      {latestVital.heartRate && (
+                        <span className="px-2 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-[11px] text-slate-700 dark:text-slate-200">
+                          Pulse: {latestVital.heartRate} bpm
+                        </span>
+                      )}
+                      {latestVital.temperature && (
+                        <span
+                          className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
+                            latestVital.temperature >= 38.0
+                              ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          Temp: {latestVital.temperature}°C
+                        </span>
+                      )}
+                      {latestVital.spo2 && (
+                        <span
+                          className={`px-2 py-0.5 rounded border text-[11px] font-semibold ${
+                            latestVital.spo2 < 95
+                              ? "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-300"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                          }`}
+                        >
+                          SpO₂: {latestVital.spo2}%
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400 text-xs italic">
+                      No vitals recorded today — verify patient stability before administering IV / oral medications.
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-md">
+                  <ShieldAlert size={13} className="text-teal-600" />
+                  <span>Verify 5 Rights: Right Patient, Right Drug, Right Dose, Right Route, Right Time</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── 4. FULL-WIDTH MEDICATION ADMINISTRATION SCHEDULE (MAR) TABLE ── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden w-full">
+              <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <Pill size={18} className="text-teal-600" />
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
+                    Daily Medication Administration Schedule
+                  </h3>
+                  <span className="text-xs text-slate-400">
+                    ({totalPrescribedLines} active prescribed drugs for this patient)
+                  </span>
+                </div>
+
+                {/* Active Round Legend */}
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="flex items-center gap-1.5 font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 px-3 py-1 rounded-lg border border-teal-200 dark:border-teal-800">
+                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                    Current Shift Window: {currentSlot === "08:00" ? "Morning Round (08:00)" : currentSlot === "14:00" ? "Afternoon Round (14:00)" : "Night Round (20:00)"}
+                  </span>
+                </div>
+              </div>
+
+              {isVisitLoading ? (
+                <div className="p-16 text-center text-slate-400 text-sm">
+                  Loading doctor's prescription orders…
+                </div>
+              ) : prescriptions.length === 0 || totalPrescribedLines === 0 ? (
+                <div className="p-16 text-center space-y-3">
+                  <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                    <Pill size={26} />
+                  </div>
+                  <p className="font-bold text-slate-700 dark:text-slate-300 text-base">
+                    No active medication orders found for this patient
+                  </p>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    When the attending physician or medical officer enters prescriptions for this admission, they will automatically appear here on the 24-hour administration schedule.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                        <th className="py-3.5 px-5 min-w-[280px] w-1/3">Prescribed Medicine & Instructions</th>
+                        <th className="py-3.5 px-4 text-center min-w-[150px]">Payment & Stock</th>
+                        {SCHEDULE_SLOTS.map((slot) => {
+                          const isCurrent = slot.time === currentSlot;
+                          return (
+                            <th
+                              key={slot.time}
+                              className={`py-3.5 px-4 text-center min-w-[190px] ${
+                                isCurrent
+                                  ? "bg-teal-50/70 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 font-bold border-x border-teal-200 dark:border-teal-800"
+                                  : ""
+                              }`}
+                            >
+                              <div className="space-y-0.5">
+                                <span className="text-base font-bold block">{slot.time}</span>
+                                <span className="text-[11px] font-normal opacity-85 block">
+                                  {slot.label}
+                                </span>
+                                {isCurrent && (
+                                  <span className="inline-block mt-0.5 text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-600 text-white font-bold">
+                                    Due Now
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {prescriptions.map((rx) =>
+                        rx.lines.map((line: any) => {
+                          const isPaid = line.paymentStatus === "paid";
+
+                          return (
+                            <tr
+                              key={line.id}
+                              className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              {/* Drug Name, Dosage, Frequency, Duration */}
+                              <td className="py-4 px-5 align-top">
+                                <div className="space-y-1">
+                                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100 block">
+                                    {line.itemName}
+                                  </span>
+                                  <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
+                                    <span className="font-semibold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded border border-teal-200/60 dark:border-teal-800/60">
+                                      {line.dose}
+                                    </span>
+                                    <span>•</span>
+                                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                                      {line.frequency}
+                                    </span>
+                                    {line.durationDays > 0 && (
+                                      <>
+                                        <span>•</span>
+                                        <span>{line.durationDays} days duration</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Cashier / Payment / Stock Clearance */}
+                              <td className="py-4 px-4 text-center align-middle">
+                                <div className="space-y-1">
+                                  <span
+                                    className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                                      isPaid
+                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                                    }`}
+                                  >
+                                    {isPaid ? "Paid & Cleared" : "Pre-payment Pending"}
+                                  </span>
+                                  {rx.status === "dispensed" && (
+                                    <span className="block text-[11px] text-teal-600 dark:text-teal-400 font-medium">
+                                      Stock Dispensed
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Schedule Slots (08:00, 14:00, 20:00) */}
+                              {SCHEDULE_SLOTS.map((slot) => {
+                                const isCurrent = slot.time === currentSlot;
+                                const record: DoseEntry | undefined = records[line.id]?.[slot.time];
+
+                                return (
+                                  <td
+                                    key={slot.time}
+                                    className={`py-4 px-4 align-middle text-center ${
+                                      isCurrent
+                                        ? "bg-teal-50/30 dark:bg-teal-950/20 border-x border-teal-100 dark:border-teal-900"
+                                        : ""
+                                    }`}
+                                  >
+                                    {record ? (
+                                      /* Dose Already Administered or Logged */
+                                      <div className="space-y-1.5 max-w-[170px] mx-auto">
+                                        {record.status === "given" ? (
+                                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 text-white font-semibold text-xs shadow-xs">
+                                            <Check size={13} strokeWidth={3} />
+                                            <span>Given</span>
+                                          </div>
+                                        ) : record.status === "held" ? (
+                                          <div
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 text-white font-semibold text-xs shadow-xs cursor-help"
+                                            title={`Held: ${record.reason || "Clinically indicated"}`}
+                                          >
+                                            <AlertCircle size={12} />
+                                            <span>Held</span>
+                                          </div>
+                                        ) : (
+                                          <div
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600 text-white font-semibold text-xs shadow-xs cursor-help"
+                                            title={`Refused: ${record.reason || "Patient declined"}`}
+                                          >
+                                            <XCircle size={12} />
+                                            <span>Refused</span>
+                                          </div>
+                                        )}
+
+                                        <div className="text-[11px] text-slate-400">
+                                          <span>at {record.timestamp}</span>
+                                          {record.reason && (
+                                            <span className="block text-slate-500 dark:text-slate-400 truncate italic">
+                                              &quot;{record.reason}&quot;
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Reset button if logged by mistake */}
+                                        <button
+                                          onClick={() => handleResetDose(line.id, slot.time)}
+                                          className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline block mx-auto"
+                                        >
+                                          Change Dose
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      /* Pending Dose Actions: Give, Hold, Refused */
+                                      <div className="space-y-1.5 max-w-[170px] mx-auto">
+                                        {/* Give Button */}
+                                        <button
+                                          onClick={() =>
+                                            handleMarkGiven(line.id, rx.id, slot.time, line.itemName)
+                                          }
+                                          className="w-full py-1.5 px-3 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5"
+                                        >
+                                          <Check size={13} strokeWidth={2.5} />
+                                          <span>Give Dose</span>
+                                        </button>
+
+                                        {/* Secondary: Hold / Refuse */}
+                                        <div className="grid grid-cols-2 gap-1 text-[11px]">
+                                          <button
+                                            onClick={() =>
+                                              handleOpenReasonModal(
+                                                line.id,
+                                                rx.id,
+                                                slot.time,
+                                                line.itemName,
+                                                "held"
+                                              )
+                                            }
+                                            className="py-1 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-300 hover:text-amber-700 transition-colors border border-slate-200 dark:border-slate-700 text-center font-medium"
+                                          >
+                                            Hold
+                                          </button>
+                                          <button
+                                            onClick={() =>
+                                              handleOpenReasonModal(
+                                                line.id,
+                                                rx.id,
+                                                slot.time,
+                                                line.itemName,
+                                                "refused"
+                                              )
+                                            }
+                                            className="py-1 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/40 text-slate-700 dark:text-slate-300 hover:text-rose-700 transition-colors border border-slate-200 dark:border-slate-700 text-center font-medium"
+                                          >
+                                            Refused
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ── Table Footer Clinical Legend ── */}
+              <div className="px-5 py-3.5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-5 flex-wrap">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <strong>Given:</strong> Dose successfully swallowed or administered via IV
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <strong>Held:</strong> Temporarily paused (e.g. fasting, low BP, nausea)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <strong>Refused:</strong> Patient declined medication
+                  </span>
+                </div>
+
+                <div className="text-[11px] text-slate-400">
+                  Daily Ward Rounds: 08:00 (Morning) · 14:00 (Afternoon) · 20:00 (Night)
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 5. CLINICAL REASON MODAL FOR HELD / REFUSED ── */}
         {reasonModal && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
