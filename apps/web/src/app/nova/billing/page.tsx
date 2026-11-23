@@ -81,7 +81,7 @@ function BillingDashboardContent() {
   const initialVisitId = searchParams.get("visitId") ?? "";
 
   // Settlement & modal states
-  const [settlingVisitId, setSettlingVisitId] = useState<string>(initialVisitId);
+  const [settlingVisitId, setSettlingVisitId] = useState<string>("");
   const [singleTarget, setSingleTarget] = useState<{
     visitId: string;
     patientName: string;
@@ -102,7 +102,7 @@ function BillingDashboardContent() {
   const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set());
 
   // Queue table filter & search
-  const [queueTab, setQueueTab] = useState<"ready" | "all">("all");
+  const [queueTab, setQueueTab] = useState<"all" | "ready">("all");
   const [queueSearch, setQueueSearch] = useState("");
 
   // Payment history filter by time & search
@@ -116,9 +116,19 @@ function BillingDashboardContent() {
     trpc.billing.receipts.queryOptions()
   );
 
+  // If a valid visitId is in URL, open it once queue loads
+  useEffect(() => {
+    if (initialVisitId && settlementQueue.length > 0) {
+      const match = settlementQueue.find((v) => v.id === initialVisitId);
+      if (match) {
+        setSettlingVisitId(initialVisitId);
+      }
+    }
+  }, [initialVisitId, settlementQueue]);
+
   const { data: payables, refetch: refetchPayables, isFetching: isFetchingPayables } = useQuery({
-    ...trpc.billing.getVisitPayables.queryOptions({ visitId: settlingVisitId }),
-    enabled: !!settlingVisitId,
+    ...trpc.billing.getVisitPayables.queryOptions({ visitId: settlingVisitId || "NONE" }),
+    enabled: Boolean(settlingVisitId),
   });
 
   // When payables load for a selected patient, preselect unpaid items
@@ -149,7 +159,9 @@ function BillingDashboardContent() {
       qc.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
       qc.invalidateQueries({ queryKey: trpc.prescription.queue.queryKey() });
       qc.invalidateQueries({ queryKey: trpc.lab.queue.queryKey() });
-      refetchPayables();
+      if (settlingVisitId) {
+        refetchPayables();
+      }
       refetchQueue();
       refetchReceipts();
       setIssuedReceipt({

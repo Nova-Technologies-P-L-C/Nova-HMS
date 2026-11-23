@@ -288,8 +288,13 @@ export const billingRouter = router({
   getVisitPayables: tenantProcedure
     .input(z.object({ visitId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: ctx.tenantId } });
-      const visit = await prisma.visit.findFirstOrThrow({
+      if (!input.visitId || input.visitId === "NONE") {
+        return null;
+      }
+      const tenant = await prisma.tenant.findUnique({ where: { id: ctx.tenantId } });
+      if (!tenant) return null;
+
+      const visit = await prisma.visit.findFirst({
         where: { id: input.visitId, tenantId: ctx.tenantId },
         include: {
           patient: true,
@@ -301,6 +306,10 @@ export const billingRouter = router({
           receipts: { orderBy: { createdAt: "desc" } },
         },
       });
+
+      if (!visit) {
+        return null;
+      }
 
       const isCbhi = !!visit.patient.cbhiStatus;
       const unbilledItems: Array<{
@@ -443,11 +452,17 @@ export const billingRouter = router({
       notes: z.string().default(""),
     }))
     .mutation(async ({ ctx, input }) => {
-      const tenant = await prisma.tenant.findUniqueOrThrow({ where: { id: ctx.tenantId } });
-      const visit = await prisma.visit.findFirstOrThrow({
+      const tenant = await prisma.tenant.findUnique({ where: { id: ctx.tenantId } });
+      if (!tenant) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Tenant not found" });
+      }
+      const visit = await prisma.visit.findFirst({
         where: { id: input.visitId, tenantId: ctx.tenantId },
         include: { ticket: true, patient: true },
       });
+      if (!visit) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Visit not found: ${input.visitId}` });
+      }
 
       let total = 0;
       const descriptionList: string[] = [];
