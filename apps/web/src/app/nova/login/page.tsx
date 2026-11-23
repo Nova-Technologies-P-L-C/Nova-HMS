@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import {
   Stethoscope,
@@ -434,14 +433,8 @@ export default function NovaLoginPage() {
             )}
 
             {/* Footer */}
-            <div className="pt-2 text-center space-y-1">
+            <div className="pt-2 text-center">
               <p className="text-[11px] text-slate-400">
-                Need to create a new clinic workspace?{" "}
-                <Link href="/nova/signup" className="text-teal-600 dark:text-teal-400 font-semibold hover:underline">
-                  Sign up
-                </Link>
-              </p>
-              <p className="text-[10px] text-slate-400">
                 © {new Date().getFullYear()} Nova Technologies · Debre Markos Referral System
               </p>
             </div>
