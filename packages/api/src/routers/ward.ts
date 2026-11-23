@@ -211,8 +211,24 @@ export const wardRouter = router({
     const list = await prisma.admission.findMany({
       where: { tenantId: ctx.tenantId, status: "active" },
       include: {
-        patient: { select: { id: true, nameEn: true, nameAm: true, healthId: true, cbhiStatus: true } },
+        patient: {
+          select: {
+            id: true,
+            nameEn: true,
+            nameAm: true,
+            healthId: true,
+            cbhiStatus: true,
+            sex: true,
+            dob: true,
+            phone: true,
+          },
+        },
         bed: true,
+        visit: {
+          include: {
+            vitals: { orderBy: { recordedAt: "desc" }, take: 1 },
+          },
+        },
       },
       orderBy: { admittedAt: "desc" },
     });
