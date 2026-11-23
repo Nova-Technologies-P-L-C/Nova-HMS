@@ -153,7 +153,7 @@ const ENTERPRISE_PILLARS = [
 const DEMO_STATIONS = [
   { name: "Doctor Station", path: "/nova/doctor", desc: "EMR, Rx & Lab Orders", role: "Clinician" },
   { name: "Triage Intake", path: "/nova/triage", desc: "Vitals & Urgency Scoring", role: "Triage Nurse" },
-  { name: "OPD Queue Board", path: "/nova/reception/queue", desc: "Live Wait Times", role: "Receptionist" },
+  { name: "Reception & Patient Intake Desk", path: "/nova/reception/register", desc: "Patient Registration & Kiosk", role: "Receptionist" },
   { name: "Central Pharmacy", path: "/nova/pharmacy", desc: "Inventory & ROP Alerts", role: "Pharmacist" },
   { name: "Diagnostic Lab", path: "/nova/lab", desc: "LIS & Result Entry", role: "Lab Technician" },
   { name: "Hospital Admin", path: "/nova/hospital-admin", desc: "Staffing & Tariffs", role: "Facility Manager" },

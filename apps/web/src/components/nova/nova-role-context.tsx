@@ -28,11 +28,20 @@ export function NovaRoleProvider({ children }: { children: React.ReactNode }) {
   const [userName, setUserName] = useState("");
   const [hospitalName, setHospitalName] = useState("Ethiora HMS");
 
-  // Load from sessionStorage on mount (set during login — per-tab, isolated)
+  // Load from sessionStorage on mount (per-tab isolated, with localStorage fallback for new tabs)
   useEffect(() => {
-    const storedRole = sessionStorage.getItem("nova_user_role") as Role | null;
-    const storedName = sessionStorage.getItem("nova_user_name") ?? "";
-    const storedSlug = sessionStorage.getItem("nova_tenant_slug") ?? "";
+    let storedRole = sessionStorage.getItem("nova_user_role") as Role | null;
+    let storedName = sessionStorage.getItem("nova_user_name") ?? "";
+    let storedSlug = sessionStorage.getItem("nova_tenant_slug") ?? "";
+
+    if (!storedRole && typeof window !== "undefined") {
+      storedRole = localStorage.getItem("nova_user_role") as Role | null;
+      storedName = localStorage.getItem("nova_user_name") ?? "";
+      storedSlug = localStorage.getItem("nova_tenant_slug") ?? "";
+      if (storedRole) sessionStorage.setItem("nova_user_role", storedRole);
+      if (storedName) sessionStorage.setItem("nova_user_name", storedName);
+      if (storedSlug) sessionStorage.setItem("nova_tenant_slug", storedSlug);
+    }
 
     if (storedRole) setRoleState(storedRole);
     if (storedName) setUserName(storedName);
@@ -46,7 +55,11 @@ export function NovaRoleProvider({ children }: { children: React.ReactNode }) {
 
   const setRole = (r: Role) => {
     setRoleState(r);
+    // Isolate role per-tab in sessionStorage so tabs can be different stations simultaneously
     sessionStorage.setItem("nova_user_role", r);
+    if (typeof window !== "undefined" && !localStorage.getItem("nova_user_role")) {
+      localStorage.setItem("nova_user_role", r);
+    }
   };
 
   const userInitials = userName

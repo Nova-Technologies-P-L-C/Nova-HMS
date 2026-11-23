@@ -7,7 +7,7 @@ import { trpc } from "@/utils/trpc";
 import {
   Activity, Users, Building2, FileText, BarChart3, Settings, ClipboardList,
   Stethoscope, FlaskConical, Pill, CreditCard, ArrowLeftRight, Bed,
-  Search, QrCode, Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers, Banknote,
+  Bell, User, Home, Globe, ShieldCheck, ToggleLeft, Layers, Banknote,
   Crown, Palette, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, X
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
@@ -27,7 +27,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
   "Branch Admin": [
     { label: "Dashboard", href: "/nova/branch-admin", icon: <Home size={16} /> },
     { label: "Staff & Users", href: "/nova/branch-admin/staff", icon: <Users size={16} /> },
-    { label: "Doctor Duty Roster", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
+    { label: "Doctor Presence", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
     { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
     { label: "Service Tariffs & Pricing", href: "/nova/branch-admin/tariffs", icon: <Banknote size={16} /> },
     { label: "Reports & Analytics", href: "/nova/branch-admin/reports", icon: <BarChart3 size={16} /> },
@@ -38,7 +38,7 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
   "Hospital Admin": [
     { label: "Dashboard", href: "/nova/hospital-admin", icon: <Home size={16} /> },
     { label: "Staff & Users", href: "/nova/hospital-admin/staff", icon: <Users size={16} /> },
-    { label: "Doctor Duty Roster", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
+    { label: "Doctor Presence", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
     { label: "Role Permissions (RBAC)", href: "/nova/branch-admin/roles", icon: <ShieldCheck size={16} /> },
     { label: "Service Tariffs & Pricing", href: "/nova/hospital-admin/tariffs", icon: <Banknote size={16} /> },
     { label: "Reports & Analytics", href: "/nova/hospital-admin/reports", icon: <BarChart3 size={16} /> },
@@ -47,9 +47,9 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "Settings", href: "/nova/hospital-admin/settings", icon: <Settings size={16} /> },
   ],
   "Receptionist": [
-    { label: "Doctor Presence & Roster", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
-    { label: "Patient Registration & Kiosk", href: "/nova/reception/register", icon: <User size={16} /> },
-    { label: "OPD Queue Board", href: "/nova/reception/queue", icon: <Activity size={16} /> },
+    { label: "Patient Intake", href: "/nova/reception/register", icon: <User size={16} /> },
+    { label: "Queue Board", href: "/nova/reception/queue", icon: <Activity size={16} /> },
+    { label: "Doctor Presence", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
     { label: "Appointments", href: "/nova/reception/appointments", icon: <ClipboardList size={16} /> },
   ],
   "Doctor": [
@@ -62,8 +62,8 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
   ],
   "Triage Nurse": [
     { label: "Triage Intake Station", href: "/nova/triage", icon: <Activity size={16} /> },
-    { label: "Doctor Availability", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
-    { label: "OPD Queue Board", href: "/nova/reception/queue", icon: <ClipboardList size={16} /> },
+    { label: "Doctor Presence", href: "/nova/reception/doctors", icon: <Stethoscope size={16} /> },
+    { label: "Queue Board", href: "/nova/reception/queue", icon: <ClipboardList size={16} /> },
     { label: "Rapid Vitals Entry", href: "/nova/nurse/vitals", icon: <Stethoscope size={16} /> },
   ],
   "Ward Nurse": [
@@ -120,13 +120,6 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "Feature Flags", href: "/nova/nova-admin/flags", icon: <ToggleLeft size={16} /> },
   ],
 };
-
-const SHARED_NAV = [
-  { label: "Patient Search", href: "/nova/shared/search", icon: <Search size={16} /> },
-  { label: "QR Scanner", href: "/nova/shared/qr", icon: <QrCode size={16} /> },
-  { label: "Notifications", href: "/nova/shared/notifications", icon: <Bell size={16} /> },
-  { label: "My Profile", href: "/nova/shared/profile", icon: <User size={16} /> },
-];
 
 const PERMISSION_NAV_MAP: {
   permission: string;
@@ -366,61 +359,7 @@ export default function NovaSidebar() {
           );
         })}
 
-        {/* Shared items (hidden for Org Admin) */}
-        {role !== "Organizational Admin" && !pathname.startsWith("/nova/org-admin") && (
-          <>
-            {!isCollapsed ? (
-              <p className={`text-[10px] uppercase tracking-wider px-2 py-1 mt-3 font-semibold ${isWhiteSidebar ? "text-slate-400" : "text-slate-500"}`}>
-                Shared
-              </p>
-            ) : (
-              <div className="w-6 h-[1px] bg-slate-700/60 my-2 mx-auto" />
-            )}
-
-            {SHARED_NAV.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href as any}
-                  onClick={() => setIsMobileOpen(false)}
-                  style={
-                    active
-                      ? {
-                          backgroundColor: theme.primaryColor,
-                          color: "#ffffff",
-                          borderRadius: `${Math.min(theme.radius, 8)}px`,
-                        }
-                      : {
-                          borderRadius: `${Math.min(theme.radius, 8)}px`,
-                        }
-                  }
-                  className={`group relative flex items-center ${
-                    isCollapsed ? "justify-center p-2.5 mx-auto" : "gap-2.5 px-3 py-2"
-                  } text-sm font-medium transition-all duration-150 ${
-                    active
-                      ? "shadow-xs"
-                      : isWhiteSidebar
-                      ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                      : "text-slate-300 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <span className={`shrink-0 ${active ? "text-white" : isWhiteSidebar ? "text-slate-500" : "text-slate-400"}`}>
-                    {item.icon}
-                  </span>
-
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-
-                  {isCollapsed && (
-                    <div className="absolute left-full ml-3 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 whitespace-nowrap pointer-events-none border border-slate-700">
-                      {item.label}
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </>
-        )}
+        {/* Navigation items end */}
       </nav>
 
       {/* ── FOOTER: PUBLIC PAGES & EXPAND TOGGLE IN COLLAPSED MODE ── */}

@@ -55,7 +55,12 @@ export const queryClient = new QueryClient({
 
 function getTenantId(): string {
   if (typeof window === "undefined") return "";
-  return sessionStorage.getItem("nova_tenant_id") ?? "";
+  return sessionStorage.getItem("nova_tenant_id") || localStorage.getItem("nova_tenant_id") || "";
+}
+
+function getUserRole(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem("nova_user_role") || localStorage.getItem("nova_user_role") || "";
 }
 
 const trpcClient = createTRPCClient<AppRouter>({
@@ -64,7 +69,11 @@ const trpcClient = createTRPCClient<AppRouter>({
       url: `${getServerUrl(env.NEXT_PUBLIC_SERVER_URL)}/trpc`,
       headers() {
         const tenantId = getTenantId();
-        return tenantId ? { "x-tenant-id": tenantId } : {};
+        const userRole = getUserRole();
+        const headers: Record<string, string> = {};
+        if (tenantId) headers["x-tenant-id"] = tenantId;
+        if (userRole) headers["x-user-role"] = userRole;
+        return headers;
       },
       fetch(url, options) {
         return fetch(url, {

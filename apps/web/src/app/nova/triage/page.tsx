@@ -4,25 +4,22 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
-import { PageShell, Card, StatusBadge } from "@/components/nova/nova-ui";
+import { PageShell } from "@/components/nova/nova-ui";
 import {
   Activity,
-  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Bed,
   CheckCircle2,
   Clock,
   Heart,
+  RefreshCw,
   Search,
+  ShieldAlert,
   Stethoscope,
   Thermometer,
-  User,
   Users,
   Wind,
-  Bed,
-  ArrowRight,
-  RefreshCw,
-  Flame,
-  ShieldAlert,
-  ArrowLeftRight,
 } from "lucide-react";
 
 function getPatientInfo(item: any) {
@@ -34,10 +31,16 @@ function getPatientInfo(item: any) {
       age = Math.max(0, new Date().getFullYear() - birthYear);
     }
   }
+
+  let sex: "M" | "F" | "—" = "—";
+  const rawSex = (p.sex || "").trim().toLowerCase();
+  if (rawSex.startsWith("m")) sex = "M";
+  else if (rawSex.startsWith("f")) sex = "F";
+
   return {
     nameEn: p.nameEn || "Patient",
     healthId: p.healthId || "—",
-    gender: p.sex || "—",
+    sex,
     age,
     phone: p.phone || "",
     cbhiStatus: !!p.cbhiStatus,
@@ -46,8 +49,10 @@ function getPatientInfo(item: any) {
 
 export default function TriageStationPage() {
   const [search, setSearch] = useState("");
-  const [selectedVisitId, setSelectedVisitId] = useState<string>("");
   const [filterPriority, setFilterPriority] = useState<"all" | "urgent" | "waiting">("all");
+
+  // Selected Patient for Full-Page Triage
+  const [activeItem, setActiveItem] = useState<any | null>(null);
 
   // Vitals State
   const [vitals, setVitals] = useState({
@@ -91,23 +96,17 @@ export default function TriageStationPage() {
     });
   }, [queue, search, filterPriority]);
 
-  // Selected Patient Details
-  const activeItem = useMemo(() => {
-    if (selectedVisitId) {
-      return queue.find((q) => q.visitId === selectedVisitId) || filteredQueue[0];
-    }
-    return filteredQueue[0];
-  }, [queue, filteredQueue, selectedVisitId]);
-
-  const activeVisitId = activeItem?.visitId || "";
-
   // Auto-calculated BMI
   const calculatedBmi = useMemo(() => {
     const w = parseFloat(vitals.weight);
     const h = parseFloat(vitals.height) / 100;
     if (w > 0 && h > 0) {
       const val = w / (h * h);
-      return val.toFixed(1);
+      let cat = "Normal";
+      if (val < 18.5) cat = "Underweight";
+      else if (val >= 25 && val < 30) cat = "Overweight";
+      else if (val >= 30) cat = "Obese";
+      return { val: val.toFixed(1), cat };
     }
     return null;
   }, [vitals.weight, vitals.height]);
@@ -121,13 +120,26 @@ export default function TriageStationPage() {
     },
   });
 
+  const handleOpenTriage = (item: any) => {
+    setActiveItem(item);
+    setAcuity(item.status === "urgent" ? "emergency" : "routine");
+    setChiefComplaint("");
+    setTriageNote("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCloseTriage = () => {
+    setActiveItem(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleSaveTriage = async () => {
-    if (!activeVisitId || !activeItem) return;
+    if (!activeItem) return;
     setSuccessMessage("");
 
     try {
       await recordVitals.mutateAsync({
-        visitId: activeVisitId,
+        visitId: activeItem.visitId,
         bpSystolic: Number(vitals.bpSystolic) || 120,
         bpDiastolic: Number(vitals.bpDiastolic) || 80,
         heartRate: Number(vitals.heartRate) || 75,
@@ -143,12 +155,13 @@ export default function TriageStationPage() {
       });
 
       const activePatient = getPatientInfo(activeItem);
-      setSuccessMessage(`Patient ${activePatient.nameEn} triaged & routed to ${targetDepartment}!`);
-      setTimeout(() => setSuccessMessage(""), 4000);
+      setSuccessMessage(
+        `Patient ${activePatient.nameEn} (#${activeItem.ticketNumber}) triaged and routed to ${targetDepartment}.`
+      );
+      setTimeout(() => setSuccessMessage(""), 5000);
 
-      // Advance to next patient in queue
-      const nextItem = filteredQueue.find((q) => q.visitId !== activeVisitId);
-      if (nextItem) setSelectedVisitId(nextItem.visitId);
+      setActiveItem(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       console.error("Triage error:", err);
     }
@@ -157,18 +170,433 @@ export default function TriageStationPage() {
   const urgentCount = queue.filter((q) => q.status === "urgent").length;
   const waitingCount = queue.filter((q) => q.status === "waiting" || q.status === "urgent").length;
 
+  // -------------------------------------------------------------
+  // VIEW 1: UNIFIED SINGLE-PAGE TRIAGE INTAKE (Spacious & Ergonomic)
+  // -------------------------------------------------------------
+  if (activeItem) {
+    const activePatient = getPatientInfo(activeItem);
+    const isUrgent = activeItem.status === "urgent";
+
+    return (
+      <PageShell
+        title={`Triage: ${activePatient.nameEn}`}
+        subtitle={`Ticket #${activeItem.ticketNumber} • ${activePatient.healthId}`}
+        action={
+          <button
+            onClick={handleCloseTriage}
+            className="group px-4 py-2 text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-teal-50 dark:hover:bg-slate-700 hover:text-teal-700 hover:border-teal-300 transition-all flex items-center gap-2.5 shadow-xs cursor-pointer"
+          >
+            {/* Infinite slow moving arrow */}
+            <span className="flex items-center text-teal-600 animate-slow-glide">
+              <ArrowLeft size={16} />
+            </span>
+            <span>Back to Queue</span>
+          </button>
+        }
+      >
+        {/* CSS for infinite slow gliding arrow */}
+        <style>{`
+          @keyframes slowGlideLeft {
+            0%, 100% {
+              transform: translateX(0);
+            }
+            50% {
+              transform: translateX(-6px);
+            }
+          }
+          .animate-slow-glide {
+            animation: slowGlideLeft 1.8s ease-in-out infinite;
+          }
+        `}</style>
+
+        {/* ONE UNIFIED FULL-PAGE CARD with Generous Vertical Breathing Room */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden animate-in fade-in duration-200 mb-8">
+          {/* Unified Header: Patient Info Strip */}
+          <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div className="flex flex-wrap items-center gap-3.5">
+              <span className="px-3 py-1.5 rounded-xl font-mono font-black text-sm bg-teal-600 text-white shadow-xs">
+                #{activeItem.ticketNumber}
+              </span>
+              <span className="font-black text-slate-900 dark:text-white text-lg">
+                {activePatient.nameEn}
+              </span>
+              <span className="text-slate-300 dark:text-slate-700 text-sm">|</span>
+              <span className="font-mono text-slate-600 dark:text-slate-300 font-semibold text-xs">
+                ID: {activePatient.healthId}
+              </span>
+              <span className="text-slate-300 dark:text-slate-700 text-sm">|</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium text-xs">
+                Age: {activePatient.age !== "—" ? `${activePatient.age} yrs` : "—"}
+              </span>
+              <span className="text-slate-300 dark:text-slate-700 text-sm">|</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-md font-black text-xs ${
+                  activePatient.sex === "M"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                    : activePatient.sex === "F"
+                    ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                Sex: {activePatient.sex}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {isUrgent ? (
+                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-100 text-rose-700 animate-pulse">
+                  Urgent Case
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                  Standard OPD
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Spacious Unified Body with Generous Vertical Gaps */}
+          <div className="p-6 sm:p-8 space-y-8">
+            {/* 1. Acuity Stratification */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                  1. Clinical Acuity Stratification (MoH / SATS)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Select triage urgency level to prioritize the doctor consultation queue.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAcuity("routine")}
+                  className={`p-4 rounded-xl border text-left transition flex items-start gap-3.5 ${
+                    acuity === "routine"
+                      ? "border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100 ring-2 ring-emerald-400/40 font-bold shadow-xs"
+                      : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-bold">Routine (Green)</div>
+                    <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      Standard walk-in. Patient is stable for standard OPD queue.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAcuity("priority")}
+                  className={`p-4 rounded-xl border text-left transition flex items-start gap-3.5 ${
+                    acuity === "priority"
+                      ? "border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100 ring-2 ring-amber-400/40 font-bold shadow-xs"
+                      : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-bold">Urgent (Yellow)</div>
+                    <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      Acute pain, fever, or distress. Accelerated medical review.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAcuity("emergency")}
+                  className={`p-4 rounded-xl border text-left transition flex items-start gap-3.5 ${
+                    acuity === "emergency"
+                      ? "border-rose-500 bg-rose-50/80 dark:bg-rose-950/40 text-rose-950 dark:text-rose-100 ring-2 ring-rose-400/40 font-bold shadow-xs"
+                      : "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  <span className="w-3.5 h-3.5 rounded-full bg-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-bold">Emergency (Red)</div>
+                    <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                      Immediate resuscitation. Urgent doctor intervention needed.
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Vital Signs Measurements */}
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    2. Vital Signs Measurements
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Enter patient clinical measurements for the medical chart.
+                  </p>
+                </div>
+
+                {calculatedBmi && (
+                  <span className="text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-3 py-1 rounded-xl border border-teal-200 dark:border-teal-800 shadow-xs">
+                    Calculated BMI: <strong>{calculatedBmi.val}</strong> kg/m² ({calculatedBmi.cat})
+                  </span>
+                )}
+              </div>
+
+              {/* 4 columns x 2 rows for comfortable vertical space and readability */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+                {/* BP Systolic */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1.5">
+                    <Activity size={13} className="text-blue-500" /> BP Systolic
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={vitals.bpSystolic}
+                      onChange={(e) => setVitals({ ...vitals, bpSystolic: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">mmHg</span>
+                  </div>
+                </div>
+
+                {/* BP Diastolic */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1.5">
+                    <Activity size={13} className="text-blue-500" /> BP Diastolic
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={vitals.bpDiastolic}
+                      onChange={(e) => setVitals({ ...vitals, bpDiastolic: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">mmHg</span>
+                  </div>
+                </div>
+
+                {/* Heart Rate */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1.5">
+                    <Heart size={13} className="text-rose-500" /> Heart Rate (Pulse)
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={vitals.heartRate}
+                      onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">bpm</span>
+                  </div>
+                </div>
+
+                {/* Temperature */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1.5">
+                    <Thermometer size={13} className="text-amber-500" /> Temperature
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={vitals.temperature}
+                      onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">°C</span>
+                  </div>
+                </div>
+
+                {/* SpO2 */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold flex items-center gap-1.5 mb-1.5">
+                    <Wind size={13} className="text-teal-500" /> Oxygen Sat (SpO2)
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={vitals.spo2}
+                      onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">%</span>
+                  </div>
+                </div>
+
+                {/* Respiratory Rate */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold mb-1.5">Respiratory Rate</div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={vitals.respiratoryRate}
+                      onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">/min</span>
+                  </div>
+                </div>
+
+                {/* Weight */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold mb-1.5">Weight</div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={vitals.weight}
+                      onChange={(e) => setVitals({ ...vitals, weight: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">kg</span>
+                  </div>
+                </div>
+
+                {/* Height */}
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                  <div className="text-xs text-slate-500 font-semibold mb-1.5">Height</div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={vitals.height}
+                      onChange={(e) => setVitals({ ...vitals, height: e.target.value })}
+                      className="w-full text-lg font-black bg-transparent focus:outline-hidden font-mono"
+                    />
+                    <span className="text-xs font-bold text-slate-400">cm</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Chief Complaint & Routing */}
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Complaint & Notes (7 cols) */}
+              <div className="lg:col-span-7 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    3. Chief Complaint & Triage Presentation
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Tap key symptoms or enter nurse clinical notes.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    "Acute Fever",
+                    "Severe Headache",
+                    "Chest Pain",
+                    "Shortness of Breath",
+                    "Abdominal Pain",
+                    "Vomiting / Diarrhea",
+                    "Trauma / Injury",
+                    "Persistent Cough",
+                  ].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => {
+                        setChiefComplaint(chip);
+                        setTriageNote((prev) => (prev ? `${prev}, ${chip}` : chip));
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+                        chiefComplaint === chip
+                          ? "bg-teal-600 text-white border-teal-600 font-bold shadow-xs"
+                          : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                      }`}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  rows={3}
+                  placeholder="Clinical observation notes (e.g. patient alert and oriented, mild dehydration, pain score 5/10)..."
+                  value={triageNote}
+                  onChange={(e) => setTriageNote(e.target.value)}
+                  className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:border-teal-500 leading-relaxed"
+                />
+              </div>
+
+              {/* Destination Routing (5 cols) */}
+              <div className="lg:col-span-5 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    4. Route to Department / Doctor
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Direct patient to the appropriate outpatient service clinic.
+                  </p>
+                </div>
+
+                <div className="pt-1">
+                  <select
+                    value={targetDepartment}
+                    onChange={(e) => setTargetDepartment(e.target.value)}
+                    className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:border-teal-500 font-semibold"
+                  >
+                    <option value="General OPD">General OPD (Next Available Physician)</option>
+                    <option value="Internal Medicine">Internal Medicine Specialist</option>
+                    <option value="Pediatrics Clinic">Pediatrics & Child Health</option>
+                    <option value="Maternal & Child Health (MCH)">Maternal & Child Health (MCH)</option>
+                    <option value="Emergency & Trauma">Emergency & Resuscitation Bay</option>
+                  </select>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    Patient will immediately be added to the queue of the selected department.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Unified Card Footer: Actions */}
+          <div className="px-6 py-4.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleCloseTriage}
+              className="px-5 py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition cursor-pointer"
+            >
+              Cancel & Return
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSaveTriage}
+              disabled={recordVitals.isPending || updateTicketStatus.isPending}
+              className="px-6 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+            >
+              <CheckCircle2 size={16} />
+              <span>
+                {recordVitals.isPending || updateTicketStatus.isPending
+                  ? "Recording & Routing…"
+                  : "Record Vitals & Send to Doctor Queue"}
+              </span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
+      </PageShell>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // VIEW 2: FULL PATIENT TRIAGE QUEUE BOARD (Default View)
+  // -------------------------------------------------------------
   return (
     <PageShell
-      title="Triage & Acuity Intake Station"
-      subtitle="Outpatient Acuity Stratification (MoH / SATS Standards) & Vital Signs Capture"
+      title="Triage Station"
+      subtitle="Outpatient Acuity Stratification & Vitals Intake"
       action={
         <div className="flex items-center gap-2">
           <Link
             href={"/nova/nurse" as any}
-            className="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 transition flex items-center gap-1.5"
+            className="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 transition flex items-center gap-1.5 shadow-xs"
           >
             <Bed size={13} className="text-emerald-600" />
-            Switch to Inpatient Ward Care
+            <span>Inpatient Care</span>
           </Link>
           <button
             onClick={() => refetchQueue()}
@@ -181,508 +609,225 @@ export default function TriageStationPage() {
         </div>
       }
     >
-      {/* Top Clinical Triage Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Awaiting Triage</span>
-            <Users size={16} className="text-teal-600" />
+      {/* Minimized Triage Status Strip */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 mb-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs divide-x divide-slate-100 dark:divide-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse" />
+            <span className="text-slate-500 font-medium">Awaiting:</span>
+            <span className="font-black text-slate-900 dark:text-white text-sm">
+              {isQueueLoading ? "…" : waitingCount}
+            </span>
           </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            {isQueueLoading ? "…" : waitingCount}
+
+          <div className="pl-4 sm:pl-6 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+            <span className="text-slate-500 font-medium">Urgent:</span>
+            <span className="font-black text-rose-600 text-sm">
+              {isQueueLoading ? "…" : urgentCount}
+            </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">Checked-in at front reception</p>
+
+          <div className="pl-4 sm:pl-6 flex items-center gap-2 hidden md:flex">
+            <Activity size={13} className="text-blue-500" />
+            <span className="text-slate-500 font-medium">Scale:</span>
+            <span className="font-bold text-slate-700 dark:text-slate-200">MoH / SATS</span>
+          </div>
+
+          <div className="pl-4 sm:pl-6 flex items-center gap-2 hidden lg:flex">
+            <Clock size={13} className="text-amber-500" />
+            <span className="text-slate-500 font-medium">Avg:</span>
+            <span className="font-bold text-slate-700 dark:text-slate-200">3.2 min</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-rose-600 text-xs font-bold uppercase tracking-wider">
-            <span>Urgent / Resus</span>
-            <ShieldAlert size={16} className="text-rose-600" />
-          </div>
-          <div className="text-2xl font-black text-rose-600 mt-1">
-            {isQueueLoading ? "…" : urgentCount}
-          </div>
-          <p className="text-[11px] text-rose-700/80 mt-0.5">High priority medical queue</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Acuity Standard</span>
-            <Activity size={16} className="text-blue-600" />
-          </div>
-          <div className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-2">
-            MoH Ethiopia / SATS
-          </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">3-tier triage clinical scale</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Avg Triage Time</span>
-            <Clock size={16} className="text-amber-600" />
-          </div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-            3.2 min
-          </div>
-          <p className="text-[11px] text-emerald-600 font-semibold mt-0.5">Optimal clinical throughput</p>
+        <div className="text-xs text-slate-400 font-medium">
+          Desk 1 • Reception Intake
         </div>
       </div>
 
       {/* Success Banner */}
       {successMessage && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 mb-4 animate-in fade-in">
-          <CheckCircle2 size={16} className="text-emerald-600" />
-          {successMessage}
+        <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 mb-3 animate-in fade-in">
+          <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+          <span>{successMessage}</span>
         </div>
       )}
 
-      {/* Main Two-Column Triage Console */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Live Waiting Queue (5 cols) */}
-        <div className="lg:col-span-5 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search ticket #, name, or health ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-hidden focus:border-teal-500"
-              />
-            </div>
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[11px]">
-              <button
-                onClick={() => setFilterPriority("all")}
-                className={`px-2 py-1 rounded font-medium ${
-                  filterPriority === "all" ? "bg-white dark:bg-slate-700 shadow-xs font-bold" : "text-slate-500"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilterPriority("urgent")}
-                className={`px-2 py-1 rounded font-medium ${
-                  filterPriority === "urgent" ? "bg-rose-500 text-white font-bold" : "text-slate-500"
-                }`}
-              >
-                Urgent
-              </button>
-            </div>
+      {/* Main Full-Width Patient Triage Queue Table */}
+      <div className="space-y-3">
+        {/* Search & Filter Toolbar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search ticket #, name, or health ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-hidden focus:border-teal-500 shadow-xs"
+            />
           </div>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs divide-y divide-slate-100 dark:divide-slate-800 max-h-[580px] overflow-y-auto">
-            {filteredQueue.length === 0 ? (
-              <div className="py-12 text-center text-xs text-slate-400">
-                <Users size={24} className="mx-auto text-slate-300 mb-2" />
-                No patients waiting in queue for triage right now.
-              </div>
-            ) : (
-              filteredQueue.map((item: any) => {
-                const itemPatient = getPatientInfo(item);
-                const isSelected = item.visitId === (activeItem?.visitId || "");
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => setSelectedVisitId(item.visitId)}
-                    className={`p-3.5 transition cursor-pointer flex items-center justify-between ${
-                      isSelected
-                        ? "bg-teal-50/80 dark:bg-teal-950/40 border-l-4 border-l-teal-600"
-                        : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-mono font-black text-xs ${
-                          item.status === "urgent"
-                            ? "bg-rose-100 text-rose-700 border border-rose-200"
-                            : ((item as any).tier === "vip" || (item.ticketNumber || "").startsWith("V"))
-                            ? "bg-amber-100 text-amber-800 border border-amber-300"
-                            : "bg-teal-100 text-teal-800 border border-teal-200"
-                        }`}
-                      >
-                        #{item.ticketNumber}
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                          <span>{itemPatient.nameEn}</span>
-                          {((item as any).tier === "vip" || (item.ticketNumber || "").startsWith("V")) && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5">
-                              ⭐ VIP
-                            </span>
-                          )}
-                          {itemPatient.cbhiStatus && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-cyan-100 text-cyan-800">
-                              CBHI
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                          <span>{itemPatient.healthId}</span>
-                          <span>•</span>
-                          <span>{itemPatient.gender}</span>
-                          <span>•</span>
-                          <span>{itemPatient.age !== "—" ? `${itemPatient.age}y` : "—"}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      {item.status === "urgent" ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-700 animate-pulse">
-                          Emergency
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          {item.waitMinutes ? `${item.waitMinutes}m wait` : "Waiting"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
+          <div className="flex items-center gap-1.5 self-start sm:self-auto bg-slate-100 dark:bg-slate-800 p-1 rounded-lg text-xs">
+            <button
+              onClick={() => setFilterPriority("all")}
+              className={`px-3 py-1 rounded-md font-semibold transition ${
+                filterPriority === "all"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              All Waiting ({waitingCount})
+            </button>
+            <button
+              onClick={() => setFilterPriority("urgent")}
+              className={`px-3 py-1 rounded-md font-semibold transition ${
+                filterPriority === "urgent"
+                  ? "bg-rose-600 text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-rose-600"
+              }`}
+            >
+              Urgent ({urgentCount})
+            </button>
+            <button
+              onClick={() => setFilterPriority("waiting")}
+              className={`px-3 py-1 rounded-md font-semibold transition ${
+                filterPriority === "waiting"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              Routine
+            </button>
           </div>
         </div>
 
-        {/* Right Column: Active Patient Triage Console (7 cols) */}
-        <div className="lg:col-span-7">
-          {!activeItem ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-12 text-center text-slate-400">
-              <Stethoscope size={36} className="mx-auto text-slate-300 mb-3" />
-              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">No Patient Selected for Triage</h4>
-              <p className="text-xs text-slate-500 mt-1">
-                Select a waiting patient from the queue on the left to measure vital signs and assign acuity.
-              </p>
-            </div>
-          ) : (
-            (() => {
-              const activePatient = getPatientInfo(activeItem);
-              return (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
-              {/* Patient Banner */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-teal-700 dark:text-teal-400 tracking-wider">
-                    Active Intake Patient • Ticket #{activeItem.ticketNumber}
-                  </div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
-                    {activePatient.nameEn}
-                  </h3>
-                  <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                    <span>ID: {activePatient.healthId}</span>
-                    <span>•</span>
-                    <span>Gender: {activePatient.gender}</span>
-                    <span>•</span>
-                    <span>Age: {activePatient.age !== "—" ? `${activePatient.age} years` : "—"}</span>
-                    {activePatient.phone && (
-                      <>
-                        <span>•</span>
-                        <span>Tel: {activePatient.phone}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-                    OPD Walk-in
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5 space-y-5">
-                {/* 1. Acuity Stratification (MoH Standard) */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Acuity Stratification Level
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setAcuity("routine")}
-                      className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
-                        acuity === "routine"
-                          ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-400/50"
-                          : "border-slate-200 dark:border-slate-800 hover:border-slate-300 text-slate-600 dark:text-slate-400"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                          Green (Routine)
-                        </span>
-                      </div>
-                      <p className="text-[10px] leading-tight opacity-80">
-                        Stable walk-in. Standard outpatient doctor queue.
+        {/* Patient Table with Sex (M / F) column */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th className="py-2.5 px-4">Ticket & Patient</th>
+                  <th className="py-2.5 px-4">Health ID</th>
+                  <th className="py-2.5 px-4">Age</th>
+                  <th className="py-2.5 px-4 text-center">Sex</th>
+                  <th className="py-2.5 px-4">Wait Time</th>
+                  <th className="py-2.5 px-4">Priority</th>
+                  <th className="py-2.5 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredQueue.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                      <Users size={28} className="mx-auto text-slate-300 dark:text-slate-600 mb-1.5" />
+                      <p className="font-semibold text-slate-600 dark:text-slate-300">
+                        No patients awaiting triage right now
                       </p>
-                    </button>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredQueue.map((item: any) => {
+                    const patient = getPatientInfo(item);
+                    const isUrgent = item.status === "urgent";
+                    const isVip = (item as any).tier === "vip" || (item.ticketNumber || "").startsWith("V");
 
-                    <button
-                      type="button"
-                      onClick={() => setAcuity("priority")}
-                      className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
-                        acuity === "priority"
-                          ? "border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 ring-2 ring-amber-400/50"
-                          : "border-slate-200 dark:border-slate-800 hover:border-slate-300 text-slate-600 dark:text-slate-400"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                          Yellow (Urgent)
-                        </span>
-                      </div>
-                      <p className="text-[10px] leading-tight opacity-80">
-                        Acute pain, high fever, or distress. Accelerated queue.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setAcuity("emergency")}
-                      className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
-                        acuity === "emergency"
-                          ? "border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-950 dark:text-rose-200 ring-2 ring-rose-400/50"
-                          : "border-slate-200 dark:border-slate-800 hover:border-slate-300 text-slate-600 dark:text-slate-400"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-xs flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                          Red (Emergency)
-                        </span>
-                      </div>
-                      <p className="text-[10px] leading-tight opacity-80">
-                        Immediate resuscitation. Bypasses queue to doctor.
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Vital Signs Entry Matrix */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                      Vital Signs Measurement
-                    </label>
-                    {calculatedBmi && (
-                      <span className="text-xs font-bold text-teal-700 dark:text-teal-400">
-                        Calculated BMI: <span className="font-mono">{calculatedBmi}</span> kg/m²
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {/* BP Systolic */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 mb-1">
-                        <Activity size={12} className="text-blue-500" /> BP Systolic
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={vitals.bpSystolic}
-                          onChange={(e) => setVitals({ ...vitals, bpSystolic: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">mmHg</span>
-                      </div>
-                    </div>
-
-                    {/* BP Diastolic */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 mb-1">
-                        <Activity size={12} className="text-blue-500" /> BP Diastolic
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={vitals.bpDiastolic}
-                          onChange={(e) => setVitals({ ...vitals, bpDiastolic: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">mmHg</span>
-                      </div>
-                    </div>
-
-                    {/* Heart Rate */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 mb-1">
-                        <Heart size={12} className="text-rose-500" /> Heart Rate
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={vitals.heartRate}
-                          onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">bpm</span>
-                      </div>
-                    </div>
-
-                    {/* Temperature */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 mb-1">
-                        <Thermometer size={12} className="text-amber-500" /> Temperature
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="text"
-                          value={vitals.temperature}
-                          onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">°C</span>
-                      </div>
-                    </div>
-
-                    {/* SpO2 */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 mb-1">
-                        <Wind size={12} className="text-teal-500" /> Oxygen Sat (SpO2)
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={vitals.spo2}
-                          onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">%</span>
-                      </div>
-                    </div>
-
-                    {/* Weight */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold mb-1">Weight</div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={vitals.weight}
-                          onChange={(e) => setVitals({ ...vitals, weight: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">kg</span>
-                      </div>
-                    </div>
-
-                    {/* Height */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold mb-1">Height</div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={vitals.height}
-                          onChange={(e) => setVitals({ ...vitals, height: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">cm</span>
-                      </div>
-                    </div>
-
-                    {/* Respiratory Rate */}
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="text-[10px] text-slate-500 font-semibold mb-1">Resp. Rate</div>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={vitals.respiratoryRate}
-                          onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })}
-                          className="w-full text-base font-black bg-transparent focus:outline-hidden font-mono"
-                        />
-                        <span className="text-[10px] text-slate-400">/min</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Chief Complaint Chips & Clinical Triage Notes */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Chief Complaint & Triage Presentation
-                  </label>
-                  <div className="flex flex-wrap gap-1.5 mb-2.5">
-                    {[
-                      "Acute High Fever",
-                      "Severe Headache",
-                      "Chest Pain",
-                      "Shortness of Breath",
-                      "Abdominal Pain",
-                      "Vomiting / Diarrhea",
-                      "Trauma / Laceration",
-                      "Pediatric Illness",
-                      "Hypertension Followup",
-                    ].map((chip) => (
-                      <button
-                        key={chip}
-                        type="button"
-                        onClick={() => {
-                          setChiefComplaint(chip);
-                          setTriageNote((prev) => (prev ? `${prev}, ${chip}` : chip));
-                        }}
-                        className={`text-[11px] px-2.5 py-1 rounded-lg border transition ${
-                          chiefComplaint === chip
-                            ? "bg-teal-600 text-white border-teal-600 font-bold"
-                            : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
-                        }`}
+                    return (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition"
                       >
-                        {chip}
-                      </button>
-                    ))}
-                  </div>
+                        {/* Ticket & Name */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-lg font-mono font-black text-xs ${
+                                isUrgent
+                                  ? "bg-rose-100 text-rose-800 border border-rose-200"
+                                  : isVip
+                                  ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                  : "bg-teal-100 text-teal-800 border border-teal-200"
+                              }`}
+                            >
+                              #{item.ticketNumber}
+                            </span>
+                            <div>
+                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <span>{patient.nameEn}</span>
+                                {isVip && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                    ⭐ VIP
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
 
-                  <textarea
-                    rows={2}
-                    placeholder="Enter nurse triage observations (e.g. alert and oriented, mild dehydration, pain score 6/10)..."
-                    value={triageNote}
-                    onChange={(e) => setTriageNote(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-hidden focus:border-teal-500"
-                  />
-                </div>
+                        {/* Health ID */}
+                        <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300 font-medium">
+                          {patient.healthId}
+                        </td>
 
-                {/* 4. Destination Clinic Department */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Assign to Doctor / Department
-                  </label>
-                  <select
-                    value={targetDepartment}
-                    onChange={(e) => setTargetDepartment(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-hidden focus:border-teal-500 font-medium"
-                  >
-                    <option value="General OPD">General OPD (Next Available Physician)</option>
-                    <option value="Internal Medicine">Internal Medicine Specialist</option>
-                    <option value="Pediatrics Clinic">Pediatrics & Child Health</option>
-                    <option value="Maternal & Child Health (MCH)">Maternal & Child Health (MCH / Antenatal)</option>
-                    <option value="Emergency & Trauma">Emergency & Resuscitation Bay</option>
-                  </select>
-                </div>
+                        {/* Age */}
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-semibold">
+                          {patient.age !== "—" ? `${patient.age}y` : "—"}
+                        </td>
 
-                {/* 5. Submit Action */}
-                <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
-                  <div className="text-[11px] text-slate-500">
-                    Routing to: <strong className="text-slate-800 dark:text-slate-200">{targetDepartment}</strong>
-                  </div>
+                        {/* Sex: M or F badge */}
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`inline-flex items-center justify-center w-6 h-6 rounded-md font-black text-xs ${
+                              patient.sex === "M"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                                : patient.sex === "F"
+                                ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                            }`}
+                          >
+                            {patient.sex}
+                          </span>
+                        </td>
 
-                  <button
-                    type="button"
-                    onClick={handleSaveTriage}
-                    disabled={recordVitals.isPending || updateTicketStatus.isPending}
-                    className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-2"
-                  >
-                    <CheckCircle2 size={15} />
-                    {recordVitals.isPending || updateTicketStatus.isPending
-                      ? "Recording & Routing…"
-                      : "Record Vitals & Send to Doctor Queue"}
-                  </button>
-                </div>
-              </div>
-            </div>
-            );
-            })()
-          )}
+                        {/* Wait Time */}
+                        <td className="py-3 px-4 text-slate-500">
+                          {item.waitMinutes ? `${item.waitMinutes} min` : "< 1 min"}
+                        </td>
+
+                        {/* Priority Status */}
+                        <td className="py-3 px-4">
+                          {isUrgent ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-300 animate-pulse">
+                              <ShieldAlert size={10} /> Urgent
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              Routine
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Action Button */}
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenTriage(item)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-xs shadow-xs transition hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                          >
+                            <Stethoscope size={13} />
+                            <span>Triage</span>
+                            <ArrowRight size={12} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </PageShell>

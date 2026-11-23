@@ -305,11 +305,21 @@ export function Card({
 }
 
 // Form input
-export function FormField({ label, children }: { label: string; children: ReactNode }) {
+export function FormField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-wide">{label}</label>
+      <div className="flex items-center justify-between">
+        <label className={`text-xs font-medium uppercase tracking-wide ${error ? "text-red-600 dark:text-red-400 font-semibold" : "text-slate-600 dark:text-slate-300"}`}>
+          {label}
+        </label>
+      </div>
       {children}
+      {error && (
+        <span className="text-[11px] font-semibold text-red-600 dark:text-red-400 flex items-center gap-1 mt-0.5 animate-in fade-in duration-150">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+          {error}
+        </span>
+      )}
     </div>
   );
 }

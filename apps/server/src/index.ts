@@ -13,7 +13,7 @@ app.use(
   cors({
     origin: env.CORS_ORIGIN,
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-tenant-id"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-tenant-id", "x-user-role"],
     credentials: true,
   }),
 );

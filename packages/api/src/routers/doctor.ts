@@ -34,6 +34,7 @@ export interface DoctorPresenceItem {
   activePatientName?: string;
   waitingCount: number;
   completedTodayCount: number;
+  avgConsultMinutes: number;
   estimatedWaitMinutes: number;
   lastActiveAt: string;
 }
@@ -177,6 +178,67 @@ export const doctorRouter = router({
     const beingSeenTickets = todayTickets.filter((t) => t.status === "being-seen");
     const doneTickets = todayTickets.filter((t) => t.status === "done");
 
+    // 1. Calculate empirical average consultation duration from real completed tickets
+    const recentCompletedTickets = await prisma.oPDTicket.findMany({
+      where: {
+        tenantId,
+        status: "done",
+      },
+      take: 50,
+      orderBy: { completedAt: "desc" },
+      select: {
+        department: true,
+        calledAt: true,
+        completedAt: true,
+        waitMinutes: true,
+      },
+    });
+
+    const durationsByDept: Record<string, number[]> = {};
+    const allDurations: number[] = [];
+
+    recentCompletedTickets.forEach((t) => {
+      let durationMins: number | null = null;
+      if (t.calledAt && t.completedAt) {
+        const ms = t.completedAt.getTime() - t.calledAt.getTime();
+        durationMins = Math.round(ms / 60000);
+      } else if (t.waitMinutes != null && t.waitMinutes > 0 && t.waitMinutes <= 60) {
+        durationMins = t.waitMinutes;
+      }
+
+      if (durationMins && durationMins >= 3 && durationMins <= 60) {
+        allDurations.push(durationMins);
+        const deptKey = (t.department || "General OPD").toLowerCase().trim();
+        if (!durationsByDept[deptKey]) durationsByDept[deptKey] = [];
+        durationsByDept[deptKey]!.push(durationMins);
+      }
+    });
+
+    // Clinical standard benchmarks (minutes) if brand-new installation without history
+    const CLINICAL_BENCHMARKS: Record<string, number> = {
+      "general opd": 12,
+      "internal medicine": 15,
+      "pediatrics": 10,
+      "general surgery": 18,
+      "ob/gyn": 14,
+      "chronic disease": 16,
+      "radiology & imaging": 8,
+    };
+
+    const getRealAvgForDept = (dept: string): number => {
+      const key = dept.toLowerCase().trim();
+      const list = durationsByDept[key];
+      if (list && list.length > 0) {
+        const sum = list.reduce((a, b) => a + b, 0);
+        return Math.round(sum / list.length);
+      }
+      if (allDurations.length >= 3) {
+        const sum = allDurations.reduce((a, b) => a + b, 0);
+        return Math.round(sum / allDurations.length);
+      }
+      return CLINICAL_BENCHMARKS[key] ?? 12;
+    };
+
     // Build roster list
     const roster: DoctorPresenceItem[] = [];
 
@@ -191,6 +253,8 @@ export const doctorRouter = router({
       const completedCount = Math.floor(doneTickets.length / Math.max(dbDoctors.length, 1)) + (idx === 0 ? 2 : 1);
 
       const defaultTemplate = DEFAULT_DOCTORS_ROSTER[idx % DEFAULT_DOCTORS_ROSTER.length]!;
+      const docDept = d.department || defaultTemplate.department;
+      const realAvgMins = getRealAvgForDept(docDept);
 
       const item: DoctorPresenceItem = {
         id: d.id,
@@ -199,7 +263,7 @@ export const doctorRouter = router({
         email: d.user?.email || defaultTemplate.email,
         phone: d.phone || defaultTemplate.phone,
         licenseNumber: d.licenseNumber || defaultTemplate.licenseNumber,
-        department: d.department || defaultTemplate.department,
+        department: docDept,
         title: d.title || defaultTemplate.title,
         roomNumber: cached.roomNumber || defaultTemplate.roomNumber,
         status: cached.status || defaultTemplate.defaultStatus,
@@ -217,7 +281,8 @@ export const doctorRouter = router({
             : undefined,
         waitingCount,
         completedTodayCount: completedCount,
-        estimatedWaitMinutes: waitingCount * 15,
+        avgConsultMinutes: realAvgMins,
+        estimatedWaitMinutes: waitingCount * realAvgMins,
         lastActiveAt: cached.lastActiveAt || new Date().toISOString(),
       };
 
@@ -233,6 +298,7 @@ export const doctorRouter = router({
           const cached = cache[syntheticId] || {};
           const waitingCount = Math.max(0, 3 - i);
           const completedCount = 5 + i * 2;
+          const realAvgMins = getRealAvgForDept(t.department);
 
           roster.push({
             id: syntheticId,
@@ -255,7 +321,8 @@ export const doctorRouter = router({
               (cached.status || t.defaultStatus) === "in-consultation" ? "Tigist Worku" : undefined,
             waitingCount,
             completedTodayCount: completedCount,
-            estimatedWaitMinutes: waitingCount * 15,
+            avgConsultMinutes: realAvgMins,
+            estimatedWaitMinutes: waitingCount * realAvgMins,
             lastActiveAt: cached.lastActiveAt || new Date().toISOString(),
           });
         }

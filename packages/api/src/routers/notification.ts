@@ -1,6 +1,6 @@
 import prisma from "@my-better-t-app/db";
 import { z } from "zod";
-import { publicProcedure, router, tenantProcedure } from "../index";
+import { publicProcedure, router } from "../index";
 
 /**
  * Enterprise Notification Broadcaster

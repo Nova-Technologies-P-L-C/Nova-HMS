@@ -1,37 +1,157 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
-import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary } from "@/components/nova/nova-ui";
-import { CheckCircle, History, Pill, FileText, FlaskConical, ArrowRight, Stethoscope, Bed, ShieldAlert } from "lucide-react";
+import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, StatusBadge } from "@/components/nova/nova-ui";
+import {
+  CheckCircle,
+  History,
+  Pill,
+  FileText,
+  FlaskConical,
+  ArrowRight,
+  Stethoscope,
+  Bed,
+  ShieldAlert,
+  Clock,
+  Activity,
+  Heart,
+  Thermometer,
+  Wind,
+  Weight,
+  AlertTriangle,
+  Sparkles,
+  ChevronRight,
+  Search,
+  X,
+  Plus,
+  Calendar,
+} from "lucide-react";
 import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
 import { useNovaRole } from "@/components/nova/nova-role-context";
 import { toast } from "sonner";
+
+// Common clinical ICD-10 quick diagnosis presets
+const COMMON_DIAGNOSES = [
+  { icd: "J06.9", name: "Acute Upper Respiratory Infection" },
+  { icd: "J02.9", name: "Acute Pharyngitis / Tonsillitis" },
+  { icd: "J18.9", name: "Community-Acquired Pneumonia" },
+  { icd: "I10", name: "Essential Primary Hypertension" },
+  { icd: "E11.9", name: "Type 2 Diabetes Mellitus" },
+  { icd: "K29.7", name: "Gastritis / Dyspepsia" },
+  { icd: "A09", name: "Infectious Gastroenteritis" },
+  { icd: "N39.0", name: "Urinary Tract Infection" },
+  { icd: "B54", name: "Unspecified Malaria" },
+  { icd: "A01.0", name: "Typhoid Fever" },
+  { icd: "M54.5", name: "Low Back Pain" },
+];
+
+// Common Review of Systems (ROS) chips
+const ROS_SYMPTOMS = [
+  "Fever",
+  "Cough",
+  "Dyspnea",
+  "Chest Pain",
+  "Headache",
+  "Vomiting",
+  "Diarrhea",
+  "Abdominal Pain",
+  "Fatigue",
+  "Dysuria",
+  "Skin Rash",
+];
+
+// Quick Follow-up intervals
+const FOLLOW_UP_OPTIONS = [
+  "Return in 3 days",
+  "Return in 1 week",
+  "Return in 2 weeks",
+  "Return in 1 month",
+  "PRN (If symptoms worsen)",
+];
+
+function calculateAge(dobString?: string) {
+  if (!dobString) return "—";
+  const birth = new Date(dobString);
+  if (isNaN(birth.getTime())) return dobString;
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  if (
+    now.getMonth() < birth.getMonth() ||
+    (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
+  ) {
+    years--;
+  }
+  return `${years} yrs`;
+}
 
 function ConsultationContent() {
   const router = useRouter();
   const params = useSearchParams();
   const { role } = useNovaRole();
-  const visitId = params.get("visitId") ?? "";
+  const urlVisitId = params.get("visitId") ?? "";
+
+  const [activeVisitId, setActiveVisitId] = useState<string>(urlVisitId);
+
+  // Sync internal state when URL changes externally
+  useEffect(() => {
+    if (urlVisitId && urlVisitId !== activeVisitId) {
+      setActiveVisitId(urlVisitId);
+    }
+  }, [urlVisitId]);
 
   const isDoctor = role === "Doctor";
-  const isAdmin = role === "Organizational Admin" || role === "Branch Admin" || role === "Hospital Admin" || role === "Nova Admin";
+  const isAdmin =
+    role === "Organizational Admin" ||
+    role === "Branch Admin" ||
+    role === "Hospital Admin" ||
+    role === "Nova Admin";
 
-  const { data: visit } = useQuery({
-    ...trpc.visit.get.queryOptions({ visitId }),
-    enabled: !!visitId && (isDoctor || isAdmin),
+  // 1. Fetch active doctor queue visits
+  const { data: queue = [], isLoading: isQueueLoading } = useQuery({
+    ...trpc.visit.queue.queryOptions(),
+    enabled: isDoctor || isAdmin,
   });
 
-  const [complaint, setComplaint] = useState("Patient presents with sore throat, mild fever for 3 days.");
+  // 2. Fetch specific visit detail
+  const { data: visit, isLoading: isVisitLoading } = useQuery({
+    ...trpc.visit.get.queryOptions({ visitId: activeVisitId }),
+    enabled: !!activeVisitId && (isDoctor || isAdmin),
+  });
+
+  // Structured Consultation Form State
+  // Subjective (S)
+  const [complaint, setComplaint] = useState("");
+  const [duration, setDuration] = useState("3 days");
+  const [severity, setSeverity] = useState<"Mild" | "Moderate" | "Severe">("Moderate");
+  const [hpi, setHpi] = useState("");
+  const [selectedRos, setSelectedRos] = useState<string[]>([]);
+
+  // Objective (O)
+  const [generalExam, setGeneralExam] = useState("Alert, oriented, in no acute distress.");
+  const [heent, setHeent] = useState("Normocephalic, throat normal, no congestion.");
+  const [chest, setChest] = useState("Bilateral clear breath sounds, no wheeze/creps.");
+  const [cvs, setCvs] = useState("S1, S2 audible, regular rate, no murmurs.");
+  const [abdomen, setAbdomen] = useState("Soft, non-tender, non-distended.");
+  const [otherExam, setOtherExam] = useState("");
+
+  // Assessment (A)
   const [icd, setIcd] = useState("J06.9");
   const [diagnosis, setDiagnosis] = useState("Acute upper respiratory infection");
-  const [notes, setNotes] = useState("Throat erythematous, no exudate. Lungs clear.");
+  const [secondaryDiagnoses, setSecondaryDiagnoses] = useState("");
+  const [clinicalAssessment, setClinicalAssessment] = useState("");
+
+  // Plan (P)
+  const [patientAdvice, setPatientAdvice] = useState("Adequate fluid intake, warm fluids, adequate rest.");
+  const [followUp, setFollowUp] = useState("Return in 3 days");
   const [planRx, setPlanRx] = useState(true);
   const [planLab, setPlanLab] = useState(false);
   const [planRefer, setPlanRefer] = useState(false);
   const [planAdmit, setPlanAdmit] = useState(false);
+
   const [saved, setSaved] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
 
@@ -40,10 +160,19 @@ function ConsultationContent() {
     if (!visit) return;
     const latestNote = visit.notes?.[0];
     const latestDiag = visit.diagnoses?.[0];
+
     if (latestNote) {
       if (latestNote.chiefComplaint) setComplaint(latestNote.chiefComplaint);
-      if (latestNote.examination) setNotes(latestNote.examination);
+      if (latestNote.history) setHpi(latestNote.history);
+      if (latestNote.examination) setOtherExam(latestNote.examination);
+      if (latestNote.assessment) setClinicalAssessment(latestNote.assessment);
+      if (latestNote.plan) setPatientAdvice(latestNote.plan);
+    } else {
+      // Clean start for fresh visit
+      setComplaint("");
+      setHpi("");
     }
+
     if (latestDiag) {
       if (latestDiag.icdCode) setIcd(latestDiag.icdCode);
       if (latestDiag.description) setDiagnosis(latestDiag.description);
@@ -60,40 +189,114 @@ function ConsultationContent() {
     },
   });
 
+  const toggleRos = (item: string) => {
+    setSelectedRos((prev) =>
+      prev.includes(item) ? prev.filter((s) => s !== item) : [...prev, item]
+    );
+  };
+
+  const handleSelectPresetDiagnosis = (preset: { icd: string; name: string }) => {
+    setIcd(preset.icd);
+    setDiagnosis(preset.name);
+  };
+
+  // Compile structured clinical note strings
+  const compileHistoryString = () => {
+    const parts: string[] = [];
+    if (hpi.trim()) parts.push(hpi.trim());
+    if (duration) parts.push(`Duration: ${duration}`);
+    if (severity) parts.push(`Severity: ${severity}`);
+    if (selectedRos.length > 0) parts.push(`Review of Systems: ${selectedRos.join(", ")}`);
+    return parts.join("\n");
+  };
+
+  const compileExamString = () => {
+    const parts = [
+      `General: ${generalExam}`,
+      `HEENT: ${heent}`,
+      `Chest: ${chest}`,
+      `CVS: ${cvs}`,
+      `Abdomen: ${abdomen}`,
+    ];
+    if (otherExam.trim()) parts.push(`Other Exam: ${otherExam.trim()}`);
+    return parts.join("\n");
+  };
+
+  const compilePlanString = () => {
+    const parts = [
+      patientAdvice.trim(),
+      followUp ? `Follow-up: ${followUp}` : "",
+      planAdmit ? "[Action: Inpatient Admission Required]" : "",
+      planRefer ? "[Action: External Specialist Referral Required]" : "",
+    ].filter(Boolean);
+    return parts.join("\n");
+  };
+
   const handleSaveAndTransfer = async () => {
-    if (!visitId) return;
+    if (!activeVisitId) return;
     try {
-      await addNote.mutateAsync({ visitId, noteType: "consultation", chiefComplaint: complaint, examination: notes, assessment: diagnosis, plan: "" });
-      await addDiagnosis.mutateAsync({ visitId, icdCode: icd, description: diagnosis, notes });
-      await transferToBilling.mutateAsync({ visitId });
+      const fullHistory = compileHistoryString();
+      const fullExam = compileExamString();
+      const fullPlan = compilePlanString();
+      const fullAssessment = [diagnosis, secondaryDiagnoses ? `Secondary: ${secondaryDiagnoses}` : "", clinicalAssessment]
+        .filter(Boolean)
+        .join(" | ");
+
+      await addNote.mutateAsync({
+        visitId: activeVisitId,
+        noteType: "consultation",
+        chiefComplaint: complaint || "General consultation",
+        history: fullHistory,
+        examination: fullExam,
+        assessment: fullAssessment,
+        plan: fullPlan,
+      });
+
+      await addDiagnosis.mutateAsync({
+        visitId: activeVisitId,
+        icdCode: icd || "Z00.0",
+        description: diagnosis || "General examination",
+        notes: fullAssessment,
+      });
+
+      await transferToBilling.mutateAsync({ visitId: activeVisitId });
       setSaved(true);
+      toast.success("Consultation completed and transferred to billing");
     } catch {
       toast.error("Failed to complete consultation and transfer to billing");
     }
   };
 
   const handleSaveDraft = async () => {
-    if (!visitId) return;
+    if (!activeVisitId) return;
     try {
       setSavingDraft(true);
+      const fullHistory = compileHistoryString();
+      const fullExam = compileExamString();
+      const fullPlan = compilePlanString();
+      const fullAssessment = [diagnosis, secondaryDiagnoses ? `Secondary: ${secondaryDiagnoses}` : "", clinicalAssessment]
+        .filter(Boolean)
+        .join(" | ");
+
       await addNote.mutateAsync({
-        visitId,
+        visitId: activeVisitId,
         noteType: "consultation",
         chiefComplaint: complaint,
-        examination: notes,
-        assessment: diagnosis,
-        plan: "",
+        history: fullHistory,
+        examination: fullExam,
+        assessment: fullAssessment,
+        plan: fullPlan,
       });
+
       await addDiagnosis.mutateAsync({
-        visitId,
-        icdCode: icd,
+        visitId: activeVisitId,
+        icdCode: icd || "Z00.0",
         description: diagnosis,
-        notes,
+        notes: fullAssessment,
       });
-      queryClient.invalidateQueries({ queryKey: trpc.visit.get.queryKey({ visitId }) });
-      toast.success("Consultation draft saved", {
-        description: "Notes and diagnosis saved to record. Patient remains in your consultation queue.",
-      });
+
+      queryClient.invalidateQueries({ queryKey: trpc.visit.get.queryKey({ visitId: activeVisitId }) });
+      toast.success("Consultation draft saved");
     } catch {
       toast.error("Failed to save draft");
     } finally {
@@ -105,16 +308,21 @@ function ConsultationContent() {
     setIcd(d.icdCode);
     setDiagnosis(d.description);
     if (d.notes) {
-      setNotes((prev) => (prev ? `${prev}\n[History Note]: ${d.notes}` : d.notes || ""));
+      setClinicalAssessment((prev) => (prev ? `${prev}\n[History]: ${d.notes}` : d.notes || ""));
     }
   };
 
   const handleSelectPrescription = (med: { drug: string; dose: string; freq: string; days: number }) => {
     router.push(
-      `/nova/doctor/prescription?visitId=${visitId}&drug=${encodeURIComponent(med.drug)}&dose=${encodeURIComponent(
+      `/nova/doctor/prescription?visitId=${activeVisitId}&drug=${encodeURIComponent(med.drug)}&dose=${encodeURIComponent(
         med.dose
       )}&freq=${encodeURIComponent(med.freq)}&days=${med.days}`
     );
+  };
+
+  const handleSelectQueueVisit = (vId: string) => {
+    setActiveVisitId(vId);
+    window.history.pushState(null, "", `/nova/doctor/consultation?visitId=${vId}`);
   };
 
   const isLoading = addNote.isPending || addDiagnosis.isPending || transferToBilling.isPending;
@@ -122,10 +330,7 @@ function ConsultationContent() {
   // Strict Clinical Role Boundary: Consultation is strictly reserved for Doctors
   if (!isDoctor && !isAdmin) {
     return (
-      <PageShell
-        title="Consultation Encounter"
-        subtitle="Clinical Access Governance"
-      >
+      <PageShell title="Consultation Encounter" subtitle="Clinical Access Governance">
         <Card className="max-w-xl mx-auto p-8 my-8 text-center border-amber-200 dark:border-amber-900/60 bg-amber-50/50 dark:bg-amber-950/20 shadow-xs">
           <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-300 dark:border-amber-700">
             <Stethoscope size={32} />
@@ -140,369 +345,932 @@ function ConsultationContent() {
 
           <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-left text-xs space-y-2 mb-6 shadow-xs">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-500 dark:text-slate-400 font-medium">Your Current Role:</span>
+              <span className="text-slate-500 dark:text-slate-400 font-medium">Your Role:</span>
               <span className="font-bold text-slate-800 dark:text-slate-200 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">{role}</span>
             </div>
-            <p className="text-slate-600 dark:text-slate-300">
-              {role === "Ward Nurse" || role === "Nurse" ? (
-                <>For inpatient bedside charting, scheduled Medication Administration (MAR), and nurse shift handovers, please access <strong>Shift Nursing Notes</strong>.</>
-              ) : role === "Triage Nurse" ? (
-                <>For emergency and OPD front intake, vitals, and acuity tagging, please access the <strong>Triage Intake Station</strong>.</>
-              ) : (
-                <>Please access your assigned department workstation from the navigation sidebar.</>
-              )}
-            </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {role === "Ward Nurse" || role === "Nurse" ? (
-              <>
-                <Link
-                  href="/nova/nurse/notes"
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-xs"
-                >
-                  <FileText size={16} /> Open Shift Nursing Notes →
-                </Link>
-                <Link
-                  href="/nova/nurse"
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700"
-                >
-                  <Bed size={16} /> Inpatient Bed Census
-                </Link>
-              </>
-            ) : role === "Triage Nurse" ? (
-              <Link
-                href={"/nova/triage" as any}
-                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-xs"
-              >
-                Go to Triage Station →
-              </Link>
-            ) : (
-              <button
-                onClick={() => router.back()}
-                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-700"
-              >
-                ← Return to Previous Page
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => router.back()}
+            className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-200"
+          >
+            ← Return to Previous Page
+          </button>
         </Card>
       </PageShell>
     );
   }
 
+  // Completed State View
   if (saved && visit) {
     return (
       <PageShell title="Consultation Encounter">
-        <Card className="p-8 max-w-lg mx-auto">
+        <Card className="p-8 max-w-lg mx-auto border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
             <CheckCircle size={32} />
           </div>
-          <h2 className="font-bold text-slate-800 text-lg mb-1 text-center">Consultation Completed</h2>
-          <p className="text-sm text-center text-emerald-700 font-semibold mb-2">
-            ✓ Transferred to Billing Role for Final Settlement
+          <h2 className="font-bold text-slate-900 dark:text-slate-100 text-lg mb-1 text-center">Consultation Completed</h2>
+          <p className="text-sm text-center text-emerald-700 dark:text-emerald-400 font-semibold mb-2">
+            ✓ Transferred to Billing Settlement Queue
           </p>
           <p className="text-slate-500 text-center text-xs mb-5">
-            {visit.patient.nameEn} · {icd} — {diagnosis}. All diagnostic tests and medications have been accrued to the patient's visit bill.
+            {visit.patient.nameEn} · {icd} — {diagnosis}. Diagnostic orders and prescriptions recorded.
           </p>
           <div className="space-y-2">
-            <Link href={`/nova/billing`} className="flex items-center justify-between w-full px-4 py-3 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 shadow-sm">
-              <span>💳 Open in Billing & Settle Now</span><span>→</span>
+            <Link
+              href="/nova/billing"
+              className="flex items-center justify-between w-full px-4 py-2.5 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 shadow-xs"
+            >
+              <span>Open in Billing & Settle</span>
+              <ArrowRight size={13} />
             </Link>
             {planRx && (
-              <Link href={`/nova/doctor/prescription?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 hover:bg-teal-100">
-                <span>✍ Prescribe Medications</span><span>→</span>
+              <Link
+                href={`/nova/doctor/prescription?visitId=${activeVisitId}`}
+                className="flex items-center justify-between w-full px-4 py-2 bg-teal-50 border border-teal-200 rounded-lg text-xs font-medium text-teal-700 hover:bg-teal-100"
+              >
+                <span>Write Prescription</span>
+                <ArrowRight size={13} />
               </Link>
             )}
             {planLab && (
-              <Link href={`/nova/doctor/lab-order?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 hover:bg-blue-100">
-                <span>🔬 Order Lab Tests</span><span>→</span>
+              <Link
+                href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                className="flex items-center justify-between w-full px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100"
+              >
+                <span>Order Lab Tests</span>
+                <ArrowRight size={13} />
               </Link>
             )}
-            {planRefer && (
-              <Link href={`/nova/doctor/referral?visitId=${visitId}`} className="flex items-center justify-between w-full px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700 hover:bg-purple-100">
-                <span>↗ Create Referral</span><span>→</span>
-              </Link>
-            )}
-            <button onClick={() => router.push("/nova/doctor")} className={`w-full ${btnSecondary} mt-2`}>Back to Doctor Queue</button>
+            <button
+              onClick={() => router.push("/nova/doctor")}
+              className={`w-full ${btnSecondary} text-xs mt-2`}
+            >
+              Back to Doctor Queue
+            </button>
           </div>
         </Card>
       </PageShell>
     );
   }
 
+  const patient = visit?.patient;
+  const latestVitals = visit?.vitals?.[0];
+
   return (
     <PageShell
-      title="Consultation"
-      subtitle={visit ? `${visit.patient.nameEn} · ${visit.patient.healthId}` : "Loading…"}
+      title="Consultation Encounter"
+      subtitle={
+        patient
+          ? `${patient.nameEn} · ${patient.healthId} · Doctor Examination Room`
+          : "Direct Clinical Examination, SOAP Charting & Diagnostic Orders"
+      }
+      action={
+        <div className="flex items-center gap-2">
+          {activeVisitId && (
+            <button
+              onClick={handleSaveDraft}
+              disabled={isLoading || savingDraft}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition"
+            >
+              {savingDraft ? "Saving…" : "Save Draft"}
+            </button>
+          )}
+
+          {activeVisitId && (
+            <button
+              onClick={handleSaveAndTransfer}
+              disabled={isLoading}
+              className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-md shadow-xs transition"
+            >
+              {isLoading ? "Finalizing…" : "Complete & Transfer to Billing →"}
+            </button>
+          )}
+
+          <Link
+            href="/nova/doctor"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition"
+          >
+            <Clock size={13} className="text-slate-500" /> Doctor Queue
+          </Link>
+        </div>
+      }
     >
-      <div className="flex items-center gap-2 mb-5 text-xs text-slate-500">
-        <span className="px-2 py-1 bg-slate-200 rounded">1 Register</span>
-        <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-slate-200 rounded">2 Triage</span>
-        <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-slate-200 rounded">3 Queue</span>
-        <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-teal-600 text-white rounded font-medium">4 Consultation</span>
-        <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-slate-100 rounded">5 Treatment</span>
-      </div>
-
-      {!visitId && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm mb-4">
-          No visit selected. <Link href="/nova/doctor" className="underline">Go to doctor queue →</Link>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 space-y-5">
-          {/* Verified Lab Results if tests were ordered for this visit */}
-          {visit && visit.labOrders && visit.labOrders.length > 0 && (
-            <Card className="p-5 border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-xs">
-              <div className="flex items-center justify-between mb-3 border-b border-emerald-100 dark:border-emerald-900/40 pb-2">
-                <div className="flex items-center gap-2">
-                  <FlaskConical className="text-emerald-600 dark:text-emerald-400" size={18} />
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                    Verified Laboratory Test Findings ({visit.labOrders.length})
-                  </h3>
-                </div>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
-                  {visit.labOrders.filter((l) => l.status === "completed").length}/{visit.labOrders.length} Completed
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {visit.labOrders.map((order) => {
-                  let parsedResults: any[] = [];
-                  if (order.result?.resultsJson) {
-                    try {
-                      parsedResults = JSON.parse(order.result.resultsJson);
-                    } catch {}
-                  }
-
-                  return (
-                    <div
-                      key={order.id}
-                      className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xs"
-                    >
-                      <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-100">
-                          {order.testName}
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                            order.status === "completed"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200"
-                              : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200"
-                          }`}
-                        >
-                          {order.status === "completed" ? "✓ Verified & Approved" : "Processing in Lab"}
-                        </span>
-                      </div>
-
-                      {parsedResults.length > 0 ? (
-                        <div className="overflow-x-auto mt-2">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="text-left text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                                <th className="pb-1 font-semibold">Parameter</th>
-                                <th className="pb-1 font-semibold">Observed Value</th>
-                                <th className="pb-1 font-semibold">Ref Range</th>
-                                <th className="pb-1 font-semibold">Flag</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                              {parsedResults.map((r, i) => (
-                                <tr key={i} className="text-slate-700 dark:text-slate-200">
-                                  <td className="py-1 font-medium">{r.name}</td>
-                                  <td className="py-1 font-bold text-teal-700 dark:text-teal-300">
-                                    {r.value} {r.unit}
-                                  </td>
-                                  <td className="py-1 text-slate-400">{r.refRange || "—"}</td>
-                                  <td className="py-1">
-                                    <span
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                        r.flag === "critical"
-                                          ? "bg-red-500 text-white animate-pulse"
-                                          : r.flag === "high" || r.flag === "low"
-                                          ? "bg-amber-500 text-white"
-                                          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
-                                      }`}
-                                    >
-                                      {r.flag}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : order.result?.interpretation ? (
-                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                          <strong>Findings:</strong> {order.result.interpretation}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-slate-400 italic mt-1">
-                          Specimen has been received by laboratory technician. Result pending.
-                        </p>
-                      )}
-
-                      {order.result?.interpretation && parsedResults.length > 0 && (
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                          <strong>Technician Interpretation:</strong> {order.result.interpretation}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          )}
-
-          <Card className="p-5">
-            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Chief complaint</h3>
-            <textarea className={`${inputCls} resize-none h-20`} value={complaint} onChange={(e) => setComplaint(e.target.value)} />
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4">Diagnosis</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="ICD-10 code">
-                <input className={inputCls} value={icd} onChange={(e) => setIcd(e.target.value)} placeholder="J06.9" />
-              </FormField>
-              <FormField label="Diagnosis description">
-                <input className={inputCls} value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)} />
-              </FormField>
-            </div>
-            <div className="mt-3">
-              <FormField label="Clinical notes">
-                <textarea className={`${inputCls} resize-none h-24`} value={notes} onChange={(e) => setNotes(e.target.value)} />
-              </FormField>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-3">Treatment plan</h3>
-            <div className="space-y-2">
-              {[
-                { label: "Write prescription", val: planRx, set: setPlanRx },
-                { label: "Order lab test", val: planLab, set: setPlanLab },
-                { label: "Admit to inpatient ward", val: planAdmit, set: setPlanAdmit },
-                { label: "Create referral", val: planRefer, set: setPlanRefer },
-              ].map((item) => (
-                <label key={item.label} className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={item.val} onChange={(e) => item.set(e.target.checked)} className="accent-teal-600 w-4 h-4" />
-                  <span className="text-sm text-slate-700 dark:text-slate-300">{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </Card>
-
-          <div className="flex gap-2">
-            <button onClick={handleSaveAndTransfer} disabled={!visitId || isLoading} className={`${btnPrimary} ${(!visitId || isLoading) ? "opacity-50 cursor-not-allowed" : ""}`}>
-              {isLoading ? "Saving & Transferring…" : "✓ Complete & Transfer to Billing →"}
-            </button>
-            <button onClick={handleSaveDraft} disabled={!visitId || isLoading || savingDraft} className={btnSecondary}>
-              {savingDraft ? "Saving draft…" : "Save draft"}
-            </button>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 1: TOP OPD QUEUE STRIP (Fast Switching) */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 mb-4 shadow-xs">
+        <div className="flex items-center justify-between gap-3 mb-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-600" />
+            </span>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              Waiting Queue ({queue.length})
+            </span>
           </div>
-        </div>
 
-        <div className="space-y-4">
-          {visit && (
-            <Card className="p-4 bg-slate-50 dark:bg-slate-800/60">
-              <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Patient</p>
-              <p className="font-semibold text-slate-800 dark:text-slate-100">{visit.patient.nameEn}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{visit.patient.healthId} · {visit.patient.sex === "M" ? "Male" : "Female"}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">DOB: {visit.patient.dob}</p>
-              {visit.patient.cbhiStatus && <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">✓ CBHI</p>}
-            </Card>
-          )}
-          {visit && visit.vitals.length > 0 && (
-            <Card className="p-4">
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-2">Latest vitals</p>
-              {(() => {
-                const v = visit.vitals[0];
-                return (
-                  <div className="text-xs text-slate-600 space-y-1">
-                    {v.bpSystolic && <p>BP: {v.bpSystolic}/{v.bpDiastolic} mmHg</p>}
-                    {v.heartRate && <p>HR: {v.heartRate} bpm</p>}
-                    {v.temperature && <p>Temp: {v.temperature}°C</p>}
-                    {v.spo2 && <p>SpO₂: {v.spo2}%</p>}
-                    {v.weight && <p>Weight: {v.weight} kg</p>}
-                  </div>
-                );
-              })()}
-            </Card>
-          )}
-          <Card className="p-4 space-y-2">
-            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 font-semibold">Clinical Actions</p>
-            <Link
-              href={`/nova/doctor/prescription?visitId=${visitId}`}
-              className="flex items-center justify-between w-full px-3 py-2 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded text-xs font-semibold hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors"
-            >
-              <span className="flex items-center gap-1.5"><Pill size={14} /> Prescribe Medications</span>
-              <ArrowRight size={13} />
-            </Link>
-            <Link
-              href={`/nova/doctor/lab-order?visitId=${visitId}`}
-              className="flex items-center justify-between w-full px-3 py-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded text-xs font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-            >
-              <span className="flex items-center gap-1.5"><FlaskConical size={14} /> Order Lab Tests</span>
-              <ArrowRight size={13} />
-            </Link>
-            <Link
-              href={`/nova/ward/admissions?tab=admit&patientId=${visit?.patientId ?? ""}&visitId=${visitId}`}
-              className="flex items-center justify-between w-full px-3 py-2 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 rounded text-xs font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
-            >
-              <span className="flex items-center gap-1.5"><Bed size={14} /> Admit to Inpatient Ward</span>
-              <ArrowRight size={13} />
-            </Link>
-            <Link
-              href={`/nova/doctor/emr?visitId=${visitId}`}
-              className="flex items-center justify-between w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-            >
-              <span className="flex items-center gap-1.5"><FileText size={14} /> View Full EMR</span>
-              <ArrowRight size={13} />
-            </Link>
-          </Card>
-        </div>
-      </div>
-
-      {/* Patient Longitudinal History: Previous Prescriptions, Diagnoses, Notes, Labs */}
-      <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">
-                Patient Medical History & Previous Treatments
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Longitudinal records across all visits · Previous prescriptions, nursing notes, diagnoses & lab reports for{" "}
-              <strong>{visit?.patient?.nameEn || "patient"}</strong>
-            </p>
-          </div>
-          <span className="text-xs px-2.5 py-1 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 font-semibold rounded-full">
-            💡 1-Click Re-prescribe & Auto-fill Diagnosis
+          <span className="text-[11px] text-slate-400">
+            Click any waiting patient to consult
           </span>
         </div>
 
-        <PatientHistoryViewer
-          visitId={visitId}
-          onSelectDiagnosis={handleSelectDiagnosis}
-          onSelectPrescription={handleSelectPrescription}
-          showAllergyAdder={true}
-        />
+        {queue.length === 0 ? (
+          <p className="text-xs text-slate-400 px-1 py-1">
+            No patients currently waiting in the OPD queue.
+          </p>
+        ) : (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {queue.map((ticket) => {
+              const isSelected = ticket.visitId === activeVisitId;
+              const p = ticket.visit.patient;
+              return (
+                <button
+                  key={ticket.id}
+                  onClick={() => handleSelectQueueVisit(ticket.visitId)}
+                  className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition border cursor-pointer ${
+                    isSelected
+                      ? "bg-teal-600 text-white border-teal-600 shadow-xs ring-2 ring-teal-300 dark:ring-teal-700 font-semibold"
+                      : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-400 hover:bg-teal-50/40"
+                  }`}
+                >
+                  <span
+                    className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      isSelected
+                        ? "bg-teal-700 text-white"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    }`}
+                  >
+                    #{ticket.ticketNumber}
+                  </span>
+                  <span className="truncate max-w-[120px]">{p.nameEn}</span>
+                  <span
+                    className={`text-[9px] font-bold px-1 rounded ${
+                      p.sex === "M"
+                        ? "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300"
+                        : "bg-pink-100 dark:bg-pink-900/60 text-pink-700 dark:text-pink-300"
+                    }`}
+                  >
+                    {p.sex}
+                  </span>
+                  <span className="text-[10px] opacity-80">{calculateAge(p.dob)}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 2: PATIENT HEADER & VITALS BIOMETRICS STRIP */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {patient ? (
+        <>
+          <Card className="p-4 mb-4 border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-full bg-teal-50 dark:bg-teal-950/70 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 font-bold text-sm flex items-center justify-center shrink-0">
+                  {patient.nameEn.slice(0, 2).toUpperCase()}
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      {patient.nameEn}
+                    </h2>
+                    {patient.nameAm && (
+                      <span className="text-xs text-slate-400">({patient.nameAm})</span>
+                    )}
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        patient.sex === "M"
+                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                          : "bg-pink-50 text-pink-700 border border-pink-200"
+                      }`}
+                    >
+                      {patient.sex === "M" ? "M" : "F"}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {calculateAge(patient.dob)}
+                    </span>
+                    {visit?.ticket && (
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                        Ticket #{visit.ticket.ticketNumber}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
+                    <span>
+                      Health ID:{" "}
+                      <strong className="text-slate-800 dark:text-slate-200 font-mono">
+                        {patient.healthId}
+                      </strong>
+                    </span>
+                    <span>·</span>
+                    <span>Phone: {patient.phone || "—"}</span>
+                    <span>·</span>
+                    <span>Kebele: {(patient as any).kebele || "—"}</span>
+                    <span>·</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[10px] ${
+                        patient.cbhiStatus
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {patient.cbhiStatus ? "✓ CBHI Member" : "Private Pay"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Navigation actions */}
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/nova/doctor/prescription?visitId=${activeVisitId}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 rounded-md text-xs font-semibold transition"
+                >
+                  <Pill size={13} /> Prescribe
+                </Link>
+                <Link
+                  href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-md text-xs font-semibold transition"
+                >
+                  <FlaskConical size={13} /> Order Lab
+                </Link>
+                <Link
+                  href={`/nova/doctor/emr?visitId=${activeVisitId}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-md text-xs font-semibold transition"
+                >
+                  <FileText size={13} /> Patient EMR
+                </Link>
+              </div>
+            </div>
+          </Card>
+
+          {/* Vitals Biometric Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+              <div className="flex items-center justify-between text-slate-400 mb-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider">Blood Pressure</span>
+                <Activity size={13} className="text-teal-600" />
+              </div>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                {latestVitals?.bpSystolic && latestVitals?.bpDiastolic
+                  ? `${latestVitals.bpSystolic}/${latestVitals.bpDiastolic} mmHg`
+                  : "-- / -- mmHg"}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {latestVitals ? "Recorded at Triage" : "Not measured"}
+              </p>
+            </div>
+
+            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+              <div className="flex items-center justify-between text-slate-400 mb-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider">Heart Rate</span>
+                <Heart size={13} className="text-red-500" />
+              </div>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                {latestVitals?.heartRate ? `${latestVitals.heartRate} bpm` : "-- bpm"}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {latestVitals?.heartRate ? "Pulse rate" : "Not measured"}
+              </p>
+            </div>
+
+            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+              <div className="flex items-center justify-between text-slate-400 mb-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider">Temperature</span>
+                <Thermometer size={13} className="text-amber-500" />
+              </div>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                {latestVitals?.temperature ? `${latestVitals.temperature} °C` : "--.- °C"}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {latestVitals?.temperature ? "Body temp" : "Not measured"}
+              </p>
+            </div>
+
+            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+              <div className="flex items-center justify-between text-slate-400 mb-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider">Oxygen SpO2</span>
+                <Wind size={13} className="text-blue-500" />
+              </div>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                {latestVitals?.spo2 ? `${latestVitals.spo2} %` : "-- %"}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {latestVitals?.spo2 ? "Pulse oximetry" : "Not measured"}
+              </p>
+            </div>
+
+            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs">
+              <div className="flex items-center justify-between text-slate-400 mb-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider">Weight / BMI</span>
+                <Weight size={13} className="text-purple-500" />
+              </div>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                {latestVitals?.weight ? `${latestVitals.weight} kg` : "-- kg"}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {latestVitals?.weight ? "Anthropometry" : "Not measured"}
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Standby Selection Card when no visit is selected */
+        <Card className="p-4 mb-4 border-slate-200 dark:border-slate-800 shadow-xs">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full border border-dashed border-teal-500 bg-teal-50 dark:bg-teal-950/40 text-teal-600 flex items-center justify-center shrink-0">
+                <Stethoscope size={18} className="animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  Select a Patient to Consult
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Pick any patient from the waiting queue above to begin clinical examination.
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded">
+              Awaiting Patient Call
+            </span>
+          </div>
+        </Card>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 3: STRUCTURED CLINICAL CONSULTATION WORKSPACE (SOAP) */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {activeVisitId ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* LEFT 2 COLUMNS: Main SOAP Documentation */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* 1. SUBJECTIVE: Chief Complaint, HPI & Review of Systems */}
+            <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center">
+                    S
+                  </span>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">
+                    Subjective (Complaints & Clinical History)
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400">Severity:</span>
+                  {(["Mild", "Moderate", "Severe"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSeverity(s)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                        severity === s
+                          ? s === "Severe"
+                            ? "bg-red-600 text-white"
+                            : s === "Moderate"
+                            ? "bg-amber-600 text-white"
+                            : "bg-teal-600 text-white"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                      Chief Complaint
+                    </label>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      placeholder="e.g. Sore throat, productive cough, fever"
+                      value={complaint}
+                      onChange={(e) => setComplaint(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                      Symptom Duration
+                    </label>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      placeholder="e.g. 3 days, 1 week"
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Review of Systems (ROS) Quick Symptom Tags */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Review of Systems (Quick Tagging)
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ROS_SYMPTOMS.map((sym) => {
+                      const isChecked = selectedRos.includes(sym);
+                      return (
+                        <button
+                          key={sym}
+                          type="button"
+                          onClick={() => toggleRos(sym)}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
+                            isChecked
+                              ? "bg-teal-600 text-white shadow-2xs"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                          }`}
+                        >
+                          {isChecked ? "✓ " : "+ "}
+                          {sym}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    History of Present Illness (HPI)
+                  </label>
+                  <textarea
+                    className={`${inputCls} resize-none h-16`}
+                    placeholder="Onset, character, radiation, relieving and aggravating factors..."
+                    value={hpi}
+                    onChange={(e) => setHpi(e.target.value)}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* 2. OBJECTIVE: Physical Examination & Organ Systems */}
+            <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center">
+                    O
+                  </span>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">
+                    Objective (Physical Examination)
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGeneralExam("Alert, oriented, in no acute distress.");
+                    setHeent("Normocephalic, throat normal, no congestion.");
+                    setChest("Bilateral clear breath sounds, no wheeze/creps.");
+                    setCvs("S1, S2 audible, regular rate, no murmurs.");
+                    setAbdomen("Soft, non-tender, non-distended.");
+                  }}
+                  className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold hover:underline"
+                >
+                  Reset Standard Normal
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                      General Appearance
+                    </label>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      value={generalExam}
+                      onChange={(e) => setGeneralExam(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                      HEENT (Head, Eyes, Throat)
+                    </label>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      value={heent}
+                      onChange={(e) => setHeent(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                      Respiratory / Chest
+                    </label>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      value={chest}
+                      onChange={(e) => setChest(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                      Cardiovascular
+                    </label>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      value={cvs}
+                      onChange={(e) => setCvs(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                      Abdomen
+                    </label>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      value={abdomen}
+                      onChange={(e) => setAbdomen(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Other Clinical Examination Findings
+                  </label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="Musculoskeletal, skin, neurological findings..."
+                    value={otherExam}
+                    onChange={(e) => setOtherExam(e.target.value)}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* 3. ASSESSMENT: Primary Diagnosis & Differential ICD Codes */}
+            <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center">
+                  A
+                </span>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">
+                  Assessment (Clinical Diagnoses)
+                </h3>
+              </div>
+
+              {/* Quick Common Diagnosis Chips */}
+              <div className="mb-3">
+                <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">
+                  Quick Diagnostic Presets:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {COMMON_DIAGNOSES.map((item) => (
+                    <button
+                      key={item.icd}
+                      type="button"
+                      onClick={() => handleSelectPresetDiagnosis(item)}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer border ${
+                        icd === item.icd
+                          ? "bg-teal-600 text-white border-teal-600 font-bold shadow-2xs"
+                          : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-400"
+                      }`}
+                    >
+                      <span className="font-mono text-[10px] opacity-80 mr-1">{item.icd}</span>
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    ICD-10 Code
+                  </label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. J06.9"
+                    value={icd}
+                    onChange={(e) => setIcd(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Primary Diagnosis Description
+                  </label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. Acute upper respiratory infection"
+                    value={diagnosis}
+                    onChange={(e) => setDiagnosis(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Secondary Diagnoses / Chronic Conditions
+                  </label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. Known Essential HTN, T2DM"
+                    value={secondaryDiagnoses}
+                    onChange={(e) => setSecondaryDiagnoses(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Clinical Impression / Remarks
+                  </label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. Viral etiology favored, monitor temp"
+                    value={clinicalAssessment}
+                    onChange={(e) => setClinicalAssessment(e.target.value)}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* 4. PLAN: Treatment Orders, Instructions & Follow-up */}
+            <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center">
+                  P
+                </span>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">
+                  Plan & Treatment Orders
+                </h3>
+              </div>
+
+              {/* Treatment Action Checkboxes */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                {[
+                  { label: "Prescription", val: planRx, set: setPlanRx, icon: Pill },
+                  { label: "Order Lab", val: planLab, set: setPlanLab, icon: FlaskConical },
+                  { label: "Admit to Ward", val: planAdmit, set: setPlanAdmit, icon: Bed },
+                  { label: "Referral", val: planRefer, set: setPlanRefer, icon: ArrowRight },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <label
+                      key={item.label}
+                      className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition ${
+                        item.val
+                          ? "bg-teal-50 dark:bg-teal-950/40 border-teal-300 dark:border-teal-700 text-teal-800 dark:text-teal-200"
+                          : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.val}
+                        onChange={(e) => item.set(e.target.checked)}
+                        className="accent-teal-600 rounded"
+                      />
+                      <Icon size={14} className={item.val ? "text-teal-600" : "text-slate-400"} />
+                      <span>{item.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Patient Education & Lifestyle Advice
+                  </label>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    value={patientAdvice}
+                    onChange={(e) => setPatientAdvice(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
+                    Follow-up Instructions
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {FOLLOW_UP_OPTIONS.map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setFollowUp(opt)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition border ${
+                          followUp === opt
+                            ? "bg-slate-800 text-white border-slate-800"
+                            : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    className={inputCls}
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* Bottom Actions Bar */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={handleSaveAndTransfer}
+                disabled={!activeVisitId || isLoading}
+                className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg shadow-xs transition disabled:opacity-50"
+              >
+                {isLoading ? "Finalizing…" : "✓ Complete & Transfer to Billing →"}
+              </button>
+
+              <button
+                onClick={handleSaveDraft}
+                disabled={!activeVisitId || isLoading || savingDraft}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition disabled:opacity-50"
+              >
+                {savingDraft ? "Saving…" : "Save Draft"}
+              </button>
+            </div>
+          </div>
+
+          {/* RIGHT 1 COLUMN: Verified Lab Results & Clinical Navigation */}
+          <div className="space-y-4">
+            {/* Verified Lab Findings */}
+            {visit && visit.labOrders && visit.labOrders.length > 0 ? (
+              <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs">
+                <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5">
+                    <FlaskConical className="text-teal-600" size={15} />
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                      Lab Results ({visit.labOrders.length})
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                    {visit.labOrders.filter((l) => l.status === "completed").length} Ready
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {visit.labOrders.map((order) => {
+                    let parsedResults: any[] = [];
+                    if (order.result?.resultsJson) {
+                      try {
+                        parsedResults = JSON.parse(order.result.resultsJson);
+                      } catch {}
+                    }
+
+                    return (
+                      <div
+                        key={order.id}
+                        className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200 dark:border-slate-700 text-xs"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            {order.testName}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                              order.status === "completed"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {order.status === "completed" ? "Ready" : "In Lab"}
+                          </span>
+                        </div>
+
+                        {parsedResults.length > 0 ? (
+                          <div className="space-y-1 mt-1 text-[11px]">
+                            {parsedResults.map((r, i) => (
+                              <div key={i} className="flex items-center justify-between">
+                                <span className="text-slate-600 dark:text-slate-400">{r.name}</span>
+                                <span className="font-bold text-teal-700 dark:text-teal-300">
+                                  {r.value} {r.unit}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : order.result?.interpretation ? (
+                          <p className="text-[11px] text-slate-600 mt-1">
+                            {order.result.interpretation}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-slate-400 italic">Processing in lab…</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ) : null}
+
+            {/* Quick Treatment Jump Links */}
+            <Card className="p-4 space-y-2 border-slate-200 dark:border-slate-800 shadow-xs">
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-2">
+                Clinical Order Station
+              </p>
+
+              <Link
+                href={`/nova/doctor/prescription?visitId=${activeVisitId}`}
+                className="flex items-center justify-between w-full px-3 py-2 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded text-xs font-semibold hover:bg-teal-100 transition"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Pill size={13} /> Prescribe Medications
+                </span>
+                <ChevronRight size={13} />
+              </Link>
+
+              <Link
+                href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                className="flex items-center justify-between w-full px-3 py-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded text-xs font-semibold hover:bg-blue-100 transition"
+              >
+                <span className="flex items-center gap-1.5">
+                  <FlaskConical size={13} /> Order Lab Investigations
+                </span>
+                <ChevronRight size={13} />
+              </Link>
+
+              <Link
+                href={`/nova/ward/admissions?tab=admit&patientId=${visit?.patientId ?? ""}&visitId=${activeVisitId}`}
+                className="flex items-center justify-between w-full px-3 py-2 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 rounded text-xs font-semibold hover:bg-purple-100 transition"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Bed size={13} /> Admit to Inpatient Ward
+                </span>
+                <ChevronRight size={13} />
+              </Link>
+
+              <Link
+                href={`/nova/doctor/emr?visitId=${activeVisitId}`}
+                className="flex items-center justify-between w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold hover:bg-slate-200 transition"
+              >
+                <span className="flex items-center gap-1.5">
+                  <FileText size={13} /> Full Medical History (EMR)
+                </span>
+                <ChevronRight size={13} />
+              </Link>
+            </Card>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 4: PATIENT LONGITUDINAL MEDICAL HISTORY (Bottom Drawer) */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      {activeVisitId && (
+        <div className="mt-8 pt-5 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-teal-600" />
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                Patient Medical History & Past Encounters
+              </h3>
+            </div>
+            <span className="text-[11px] px-2 py-0.5 bg-teal-50 border border-teal-200 text-teal-700 font-semibold rounded">
+              1-Click Re-prescribe & Auto-fill Diagnosis
+            </span>
+          </div>
+
+          <PatientHistoryViewer
+            visitId={activeVisitId}
+            onSelectDiagnosis={handleSelectDiagnosis}
+            onSelectPrescription={handleSelectPrescription}
+            showAllergyAdder={true}
+          />
+        </div>
+      )}
     </PageShell>
   );
 }
 
 export default function ConsultationPage() {
   return (
-    <Suspense fallback={<PageShell title="Consultation"><p className="p-4 text-slate-400">Loading…</p></PageShell>}>
+    <Suspense
+      fallback={
+        <PageShell title="Consultation">
+          <p className="p-4 text-slate-400 text-xs">Loading consultation room…</p>
+        </PageShell>
+      }
+    >
       <ConsultationContent />
     </Suspense>
   );

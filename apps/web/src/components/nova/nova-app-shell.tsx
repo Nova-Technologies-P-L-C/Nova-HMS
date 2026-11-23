@@ -37,7 +37,22 @@ export default function NovaAppShell({ children }: { children: React.ReactNode }
       return;
     }
 
-    const tenantId = sessionStorage.getItem("nova_tenant_id");
+    let tenantId = sessionStorage.getItem("nova_tenant_id");
+    if (!tenantId) {
+      // Check localStorage to support new tabs in the same browser inheriting the active workspace
+      const localTenantId = localStorage.getItem("nova_tenant_id");
+      if (localTenantId) {
+        tenantId = localTenantId;
+        sessionStorage.setItem("nova_tenant_id", localTenantId);
+        const localSlug = localStorage.getItem("nova_tenant_slug");
+        if (localSlug) sessionStorage.setItem("nova_tenant_slug", localSlug);
+        const localRole = localStorage.getItem("nova_user_role");
+        if (localRole) sessionStorage.setItem("nova_user_role", localRole);
+        const localName = localStorage.getItem("nova_user_name");
+        if (localName) sessionStorage.setItem("nova_user_name", localName);
+      }
+    }
+
     if (!tenantId) {
       router.replace("/nova/login");
       return;

@@ -17,16 +17,20 @@ import {
   Crown,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronDown,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
 import { useNovaTheme } from "./nova-theme-context";
 import { useNovaSidebar } from "./nova-sidebar-context";
 import { type Role } from "@/lib/nova-mock-data";
 import { ModeToggle } from "@/components/mode-toggle";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import NotificationPopover from "./notification-popover";
+import { toast } from "sonner";
 
 const ROLE_CONFIG: Record<
   Role,
@@ -97,12 +101,76 @@ const ROLE_CONFIG: Record<
   },
 };
 
+const ROLE_DASHBOARDS: Record<Role, string> = {
+  Doctor: "/nova/doctor",
+  Receptionist: "/nova/reception/register",
+  "Triage Nurse": "/nova/triage",
+  "Lab Technician": "/nova/lab",
+  Pharmacist: "/nova/pharmacy",
+  "Billing Officer": "/nova/billing",
+  Accountant: "/nova/billing",
+  "Ward Nurse": "/nova/nurse",
+  Nurse: "/nova/nurse",
+  "Ward Manager": "/nova/ward",
+  "Branch Admin": "/nova/branch-admin",
+  "Hospital Admin": "/nova/branch-admin",
+  "Organizational Admin": "/nova/org-admin",
+  "Referral Coordinator": "/nova/referral",
+  "Nova Admin": "/nova/nova-admin",
+};
+
+const ROLE_GROUPS: { group: string; roles: Role[] }[] = [
+  {
+    group: "Clinical & Outpatient",
+    roles: ["Doctor", "Triage Nurse", "Receptionist"],
+  },
+  {
+    group: "Diagnostics & Pharmacy",
+    roles: ["Lab Technician", "Pharmacist"],
+  },
+  {
+    group: "Inpatient Ward & Nursing",
+    roles: ["Ward Nurse", "Ward Manager"],
+  },
+  {
+    group: "Billing, Finance & Admin",
+    roles: ["Billing Officer", "Accountant", "Branch Admin", "Organizational Admin"],
+  },
+];
+
 export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
-  const { role, lang, setLang, userName, userInitials, hospitalName } = useNovaRole();
+  const { role, setRole, lang, setLang, userName, userInitials, hospitalName } = useNovaRole();
   const { theme } = useNovaTheme();
   const { isCollapsed, toggleCollapsed, toggleMobile } = useNovaSidebar();
   const [showOffline, setShowOffline] = useState(offline);
+  const [isRoleOpen, setIsRoleOpen] = useState(false);
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target as Node)) {
+        setIsRoleOpen(false);
+      }
+    }
+    if (isRoleOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isRoleOpen]);
+
+  const handleSelectRole = (newRole: Role) => {
+    setRole(newRole);
+    // Isolate per-tab in sessionStorage
+    sessionStorage.setItem("nova_user_role", newRole);
+    setIsRoleOpen(false);
+    toast.success(`Switched active station to: ${newRole}`, {
+      description: "Tab-isolated role activated. Work freely across multiple tabs.",
+    });
+    const targetRoute = ROLE_DASHBOARDS[newRole] ?? "/nova/branch-admin";
+    router.push(targetRoute as any);
+  };
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -110,6 +178,10 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
     sessionStorage.removeItem("nova_tenant_slug");
     sessionStorage.removeItem("nova_user_role");
     sessionStorage.removeItem("nova_user_name");
+    localStorage.removeItem("nova_tenant_id");
+    localStorage.removeItem("nova_tenant_slug");
+    localStorage.removeItem("nova_user_role");
+    localStorage.removeItem("nova_user_name");
     router.push("/nova/login");
   };
 
@@ -165,15 +237,76 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
 
           {/* Assigned Role Badge & Light/Dark Mode toggle */}
           <div className="flex items-center gap-1.5 pl-0.5">
-            {/* Read-only official assigned role badge */}
-            <div
-              className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border select-none ${
-                ROLE_CONFIG[role]?.badge ?? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
-              }`}
-              title={`Assigned Station Role: ${role}`}
-            >
-              <CurrentRoleIcon size={13} className="shrink-0" />
-              <span>Role: {role}</span>
+            {/* Interactive Per-Tab Role Switcher Dropdown */}
+            <div className="relative" ref={roleDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsRoleOpen((prev) => !prev)}
+                className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border transition-all cursor-pointer shadow-2xs hover:shadow-xs ${
+                  ROLE_CONFIG[role]?.badge ?? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
+                }`}
+                title="Switch Station Role (Isolated to this browser tab)"
+                aria-expanded={isRoleOpen}
+              >
+                <CurrentRoleIcon size={13} className="shrink-0" />
+                <span>Role: {role}</span>
+                <ChevronDown
+                  size={12}
+                  className={`shrink-0 transition-transform duration-200 ${isRoleOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isRoleOpen && (
+                <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+                      <Sparkles size={14} className="text-teal-600 dark:text-teal-400" />
+                      <span>Switch Active Station (Per-Tab)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Open multiple tabs to work as Doctor, Lab, Pharmacy & Cashier simultaneously.
+                    </p>
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto p-1.5 space-y-2">
+                    {ROLE_GROUPS.map((grp) => (
+                      <div key={grp.group} className="space-y-0.5">
+                        <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          {grp.group}
+                        </div>
+                        {grp.roles.map((r) => {
+                          const Icon = ROLE_CONFIG[r]?.icon ?? ShieldCheck;
+                          const isSelected = role === r;
+                          return (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => handleSelectRole(r)}
+                              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left ${
+                                isSelected
+                                  ? "bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 font-semibold"
+                                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Icon
+                                  size={14}
+                                  className={isSelected ? "text-teal-600 dark:text-teal-400" : "text-slate-400"}
+                                />
+                                <span>{r}</span>
+                              </div>
+                              {isSelected && (
+                                <Check size={14} className="text-teal-600 dark:text-teal-400 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Light / Dark Mode Toggle right next to the role */}

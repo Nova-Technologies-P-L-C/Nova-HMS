@@ -10,7 +10,7 @@ const ROLE_DASHBOARDS: Record<string, string> = {
   "Ward Nurse": "/nova/nurse",
   Doctor: "/nova/doctor",
   Nurse: "/nova/nurse",
-  Receptionist: "/nova/reception/queue",
+  Receptionist: "/nova/reception/register",
   "Lab Technician": "/nova/lab",
   Pharmacist: "/nova/pharmacy",
   "Billing Officer": "/nova/billing",
@@ -71,11 +71,17 @@ export default function NovaLoginPage() {
         return;
       }
 
-      // 3. Persist for tRPC x-tenant-id header + UI (sessionStorage = per-tab, multi-role safe)
+      // 3. Persist for tRPC x-tenant-id header + UI
+      // Save to both sessionStorage (isolated per-tab) and localStorage (multi-tab cross-window fallback)
       sessionStorage.setItem("nova_tenant_id", tenant.id);
       sessionStorage.setItem("nova_tenant_slug", workspace);
       sessionStorage.setItem("nova_user_role", tenant.role);
       sessionStorage.setItem("nova_user_name", res.data?.user?.name ?? "");
+
+      localStorage.setItem("nova_tenant_id", tenant.id);
+      localStorage.setItem("nova_tenant_slug", workspace);
+      localStorage.setItem("nova_user_role", tenant.role);
+      localStorage.setItem("nova_user_name", res.data?.user?.name ?? "");
 
       // Hard redirect so context re-initializes with new user data
       const dashboard = ROLE_DASHBOARDS[tenant.role] ?? "/nova/hospital-admin";
