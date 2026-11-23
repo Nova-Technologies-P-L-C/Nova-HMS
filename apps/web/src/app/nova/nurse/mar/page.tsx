@@ -33,9 +33,9 @@ import {
 import { toast } from "sonner";
 
 const SCHEDULE_SLOTS = [
-  { time: "08:00", label: "Morning Round", range: "06:00 - 11:59" },
-  { time: "14:00", label: "Afternoon Round", range: "12:00 - 17:59" },
-  { time: "20:00", label: "Night Round", range: "18:00 - 05:59" },
+  { time: "08:00", label: "Morning", range: "8:00 AM" },
+  { time: "14:00", label: "Afternoon", range: "2:00 PM" },
+  { time: "20:00", label: "Night", range: "8:00 PM" },
 ];
 
 function getCurrentShiftSlot(): string {
@@ -155,10 +155,10 @@ function MARContent() {
     trpc.prescription.dispense.mutationOptions({
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: trpc.visit.get.queryKey() });
-        toast.success("Medication dispensed from pharmacy inventory");
+        toast.success("Medicine dispensed from stock");
       },
       onError: (err) => {
-        toast.error(err.message || "Could not sync with pharmacy stock");
+        toast.error(err.message || "Could not update pharmacy stock");
       },
     })
   );
@@ -223,7 +223,7 @@ function MARContent() {
     };
     saveRecords(updated);
 
-    toast.success(`Marked ${medicineName} (${time}) as Given`);
+    toast.success(`Gave ${medicineName} (${time})`);
 
     // Deduct stock if not already dispensed
     dispense.mutate({ prescriptionId: rxId });
@@ -243,7 +243,7 @@ function MARContent() {
 
   const handleConfirmNonAdmin = () => {
     if (!reasonModal) return;
-    const finalReason = selectedReason === "Other" ? customReason : selectedReason || "Clinically indicated";
+    const finalReason = selectedReason === "Other" ? customReason : selectedReason || "Held by nurse";
 
     const entry: DoseEntry = {
       status: reasonModal.actionType,
@@ -262,9 +262,9 @@ function MARContent() {
     saveRecords(updated);
 
     toast.info(
-      `${reasonModal.medicineName} (${reasonModal.timeSlot}) marked as ${
+      `${reasonModal.medicineName} (${reasonModal.timeSlot}): ${
         reasonModal.actionType === "held" ? "Held" : "Refused"
-      }: ${finalReason}`
+      }`
     );
     setReasonModal(null);
   };
@@ -274,7 +274,7 @@ function MARContent() {
     delete patientRecord[timeSlot];
     const updated = { ...records, [lineId]: patientRecord };
     saveRecords(updated);
-    toast.info("Dose status reset to pending");
+    toast.info("Dose reset to pending");
   };
 
   // KPI counts
@@ -288,8 +288,8 @@ function MARContent() {
 
   return (
     <PageShell
-      title="Medication Administration Record (MAR)"
-      subtitle="Scheduled drug rounds, bedside dose tracking, administration safety, and pharmacy stock verification"
+      title="Give Medicines"
+      subtitle="Patient medicine schedule, daily doses, and bedside rounds"
       action={
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -299,7 +299,7 @@ function MARContent() {
             }}
             disabled={isAdmissionsRefetching}
             className="p-2 text-xs font-medium rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors shadow-xs"
-            title="Refresh patient orders"
+            title="Refresh medicine list"
           >
             <RefreshCw size={14} className={isAdmissionsRefetching ? "animate-spin text-teal-600" : ""} />
           </button>
@@ -317,19 +317,19 @@ function MARContent() {
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors flex items-center gap-1.5 shadow-xs"
           >
             <FileText size={14} className="text-blue-600" />
-            <span>Shift Notes</span>
+            <span>Nurse Notes</span>
           </Link>
         </div>
       }
     >
       <div className="space-y-4 pb-12 w-full max-w-[1700px] mx-auto">
-        {/* ── 1. PRO TOP KPI METRICS ── */}
+        {/* ── 1. KPI SUMMARY CARDS ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Admitted Inpatients
+                  Inpatients
                 </p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -344,7 +344,7 @@ function MARContent() {
             </div>
             <p className="mt-2 text-[11px] text-teal-700 dark:text-teal-400 font-medium flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Ward round ready</span>
+              <span>Admitted now</span>
             </p>
           </div>
 
@@ -352,13 +352,13 @@ function MARContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Active Drug Orders
+                  Medicines
                 </p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-bold text-slate-900 dark:text-white">
                     {totalPrescribedLines}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium">for current patient</span>
+                  <span className="text-xs text-slate-400 font-medium">for this patient</span>
                 </div>
               </div>
               <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -366,7 +366,7 @@ function MARContent() {
               </div>
             </div>
             <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-              Prescribed by medical doctor
+              Ordered by doctor
             </p>
           </div>
 
@@ -374,13 +374,13 @@ function MARContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Doses Given Today
+                  Given Today
                 </p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                     {totalGivenToday}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium">administered</span>
+                  <span className="text-xs text-slate-400 font-medium">doses given</span>
                 </div>
               </div>
               <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
@@ -388,7 +388,7 @@ function MARContent() {
               </div>
             </div>
             <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-              Verified & recorded
+              Completed
             </p>
           </div>
 
@@ -396,7 +396,7 @@ function MARContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Held / Skipped Doses
+                  Held / Skipped
                 </p>
                 <div className="flex items-baseline gap-2 mt-1">
                   <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
@@ -410,7 +410,7 @@ function MARContent() {
               </div>
             </div>
             <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-              Documented with clinical reason
+              With note
             </p>
           </div>
         </div>
@@ -425,7 +425,7 @@ function MARContent() {
                   onClick={handlePrevPatient}
                   disabled={currentPatientIndex <= 0}
                   className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                  title="Previous Inpatient Bed"
+                  title="Previous Bed"
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -436,7 +436,7 @@ function MARContent() {
                   onClick={handleNextPatient}
                   disabled={currentPatientIndex >= filteredAdmissions.length - 1}
                   className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                  title="Next Inpatient Bed"
+                  title="Next Bed"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -451,7 +451,7 @@ function MARContent() {
                 >
                   {admissions.map((a) => (
                     <option key={a.id} value={a.patientId}>
-                      Bed {a.bed?.room} ({a.bed?.ward}) — {a.patient?.nameEn} [ID: {a.patient?.healthId}] · Day {a.daysElapsed || 1}
+                      Bed {a.bed?.room} ({a.bed?.ward}) — {a.patient?.nameEn} · Day {a.daysElapsed || 1}
                     </option>
                   ))}
                 </select>
@@ -461,14 +461,14 @@ function MARContent() {
             {/* Right: Search + Ward Filters */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* Search input */}
-              <div className="relative w-52 sm:w-64">
+              <div className="relative w-48 sm:w-60">
                 <Search
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                 />
                 <input
                   type="text"
-                  placeholder="Filter by name, bed, MRN..."
+                  placeholder="Search patient or bed..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={`${inputCls} pl-8.5 pr-7 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80`}
@@ -505,7 +505,7 @@ function MARContent() {
             </div>
           </div>
 
-          {/* Horizontal Bed Chips Strip (Quick Bed Switching) */}
+          {/* Horizontal Bed Chips Strip */}
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 pl-1">
               Beds:
@@ -523,7 +523,7 @@ function MARContent() {
                   }`}
                 >
                   <span className="font-mono">Bed {a.bed?.room}</span>
-                  <span className="opacity-75 font-normal truncate max-w-[120px]">
+                  <span className="opacity-80 font-normal truncate max-w-[120px]">
                     {a.patient?.nameEn}
                   </span>
                   <span
@@ -541,7 +541,7 @@ function MARContent() {
           </div>
         </div>
 
-        {/* ── 3. FULL-PAGE BEDSIDE PATIENT SAFETY & VITALS BANNER ── */}
+        {/* ── 3. FULL-PAGE BEDSIDE PATIENT SAFETY & VITALS BAR ── */}
         {!selectedAdmission ? (
           <Card className="p-16 text-center">
             <Pill size={36} className="text-slate-300 mx-auto mb-3" />
@@ -549,7 +549,7 @@ function MARContent() {
               No admitted patients found
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Please admit a patient to a ward bed first.
+              Admit a patient to a bed to start their medicine schedule.
             </p>
           </Card>
         ) : (
@@ -570,13 +570,13 @@ function MARContent() {
                       Bed {selectedAdmission.bed?.room} · {selectedAdmission.bed?.ward}
                     </span>
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                      Day {selectedAdmission.daysElapsed || 1} Admitted
+                      Day {selectedAdmission.daysElapsed || 1}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
                     <span className="font-mono font-medium text-slate-600 dark:text-slate-300">
-                      MRN / Health ID: {selectedAdmission.patient?.healthId || "—"}
+                      ID: {selectedAdmission.patient?.healthId || "—"}
                     </span>
                     <span>•</span>
                     <span>
@@ -588,9 +588,7 @@ function MARContent() {
                       · {calculateAge(selectedAdmission.patient?.dob)}
                     </span>
                     <span>•</span>
-                    <span>Assigned Nurse: <strong>{selectedAdmission.assignedNurseName || "On duty"}</strong></span>
-                    <span>•</span>
-                    <span>Admitted on {new Date(selectedAdmission.admittedAt).toLocaleDateString()}</span>
+                    <span>Nurse: <strong>{selectedAdmission.assignedNurseName || "On duty"}</strong></span>
                   </div>
                 </div>
 
@@ -601,14 +599,14 @@ function MARContent() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-xs"
                   >
                     <Activity size={13} className="text-teal-600" />
-                    <span>Bedside Vitals</span>
+                    <span>Vitals</span>
                   </Link>
                   <Link
                     href={`/nova/nurse/notes?admissionId=${selectedAdmission.id}&patientId=${selectedAdmission.patientId}`}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-xs"
                   >
                     <FileText size={13} className="text-blue-600" />
-                    <span>Nurse Shift Note</span>
+                    <span>Notes</span>
                   </Link>
                 </div>
               </div>
@@ -617,7 +615,7 @@ function MARContent() {
               <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Current Vitals:
+                    Vitals:
                   </span>
                   {latestVital ? (
                     <>
@@ -629,12 +627,12 @@ function MARContent() {
                               : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                           }`}
                         >
-                          BP: {latestVital.bpSystolic}/{latestVital.bpDiastolic} mmHg
+                          BP: {latestVital.bpSystolic}/{latestVital.bpDiastolic}
                         </span>
                       )}
                       {latestVital.heartRate && (
                         <span className="px-2 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-semibold text-[11px] text-slate-700 dark:text-slate-200">
-                          Pulse: {latestVital.heartRate} bpm
+                          Pulse: {latestVital.heartRate}
                         </span>
                       )}
                       {latestVital.temperature && (
@@ -662,28 +660,28 @@ function MARContent() {
                     </>
                   ) : (
                     <span className="text-amber-600 dark:text-amber-400 text-xs italic">
-                      No vitals recorded today — verify patient stability before administering IV / oral medications.
+                      No vitals recorded today
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-md">
                   <ShieldAlert size={13} className="text-teal-600" />
-                  <span>Verify 5 Rights: Right Patient, Right Drug, Right Dose, Right Route, Right Time</span>
+                  <span>Check patient name, bed, and dose before giving</span>
                 </div>
               </div>
             </div>
 
-            {/* ── 4. FULL-WIDTH MEDICATION ADMINISTRATION SCHEDULE (MAR) TABLE ── */}
+            {/* ── 4. FULL-WIDTH MEDICINE SCHEDULE TABLE ── */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden w-full">
               <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2.5">
                   <Pill size={18} className="text-teal-600" />
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
-                    Daily Medication Administration Schedule
+                    Medicine Schedule
                   </h3>
                   <span className="text-xs text-slate-400">
-                    ({totalPrescribedLines} active prescribed drugs for this patient)
+                    ({totalPrescribedLines} medicines)
                   </span>
                 </div>
 
@@ -691,14 +689,14 @@ function MARContent() {
                 <div className="flex items-center gap-2 text-xs">
                   <span className="flex items-center gap-1.5 font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 px-3 py-1 rounded-lg border border-teal-200 dark:border-teal-800">
                     <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-                    Current Shift Window: {currentSlot === "08:00" ? "Morning Round (08:00)" : currentSlot === "14:00" ? "Afternoon Round (14:00)" : "Night Round (20:00)"}
+                    Due Now: {currentSlot === "08:00" ? "Morning (8:00 AM)" : currentSlot === "14:00" ? "Afternoon (2:00 PM)" : "Night (8:00 PM)"}
                   </span>
                 </div>
               </div>
 
               {isVisitLoading ? (
                 <div className="p-16 text-center text-slate-400 text-sm">
-                  Loading doctor's prescription orders…
+                  Loading medicines…
                 </div>
               ) : prescriptions.length === 0 || totalPrescribedLines === 0 ? (
                 <div className="p-16 text-center space-y-3">
@@ -706,10 +704,10 @@ function MARContent() {
                     <Pill size={26} />
                   </div>
                   <p className="font-bold text-slate-700 dark:text-slate-300 text-base">
-                    No active medication orders found for this patient
+                    No medicines ordered for this patient
                   </p>
                   <p className="text-xs text-slate-400 max-w-md mx-auto">
-                    When the attending physician or medical officer enters prescriptions for this admission, they will automatically appear here on the 24-hour administration schedule.
+                    Doctor has not prescribed medicines for this visit yet.
                   </p>
                 </div>
               ) : (
@@ -717,8 +715,8 @@ function MARContent() {
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                        <th className="py-3.5 px-5 min-w-[280px] w-1/3">Prescribed Medicine & Instructions</th>
-                        <th className="py-3.5 px-4 text-center min-w-[150px]">Payment & Stock</th>
+                        <th className="py-3.5 px-5 min-w-[280px] w-1/3">Medicine & Dose</th>
+                        <th className="py-3.5 px-4 text-center min-w-[140px]">Payment</th>
                         {SCHEDULE_SLOTS.map((slot) => {
                           const isCurrent = slot.time === currentSlot;
                           return (
@@ -731,9 +729,9 @@ function MARContent() {
                               }`}
                             >
                               <div className="space-y-0.5">
-                                <span className="text-base font-bold block">{slot.time}</span>
+                                <span className="text-base font-bold block">{slot.range}</span>
                                 <span className="text-[11px] font-normal opacity-85 block">
-                                  {slot.label}
+                                  {slot.label} Round
                                 </span>
                                 {isCurrent && (
                                   <span className="inline-block mt-0.5 text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-600 text-white font-bold">
@@ -773,14 +771,14 @@ function MARContent() {
                                     {line.durationDays > 0 && (
                                       <>
                                         <span>•</span>
-                                        <span>{line.durationDays} days duration</span>
+                                        <span>{line.durationDays} days</span>
                                       </>
                                     )}
                                   </div>
                                 </div>
                               </td>
 
-                              {/* Cashier / Payment / Stock Clearance */}
+                              {/* Payment status */}
                               <td className="py-4 px-4 text-center align-middle">
                                 <div className="space-y-1">
                                   <span
@@ -790,11 +788,11 @@ function MARContent() {
                                         : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
                                     }`}
                                   >
-                                    {isPaid ? "Paid & Cleared" : "Pre-payment Pending"}
+                                    {isPaid ? "Paid" : "Unpaid"}
                                   </span>
                                   {rx.status === "dispensed" && (
                                     <span className="block text-[11px] text-teal-600 dark:text-teal-400 font-medium">
-                                      Stock Dispensed
+                                      From Pharmacy
                                     </span>
                                   )}
                                 </div>
@@ -825,7 +823,7 @@ function MARContent() {
                                         ) : record.status === "held" ? (
                                           <div
                                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 text-white font-semibold text-xs shadow-xs cursor-help"
-                                            title={`Held: ${record.reason || "Clinically indicated"}`}
+                                            title={`Held: ${record.reason || "Held by nurse"}`}
                                           >
                                             <AlertCircle size={12} />
                                             <span>Held</span>
@@ -854,7 +852,7 @@ function MARContent() {
                                           onClick={() => handleResetDose(line.id, slot.time)}
                                           className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline block mx-auto"
                                         >
-                                          Change Dose
+                                          Change
                                         </button>
                                       </div>
                                     ) : (
@@ -921,20 +919,20 @@ function MARContent() {
                 <div className="flex items-center gap-5 flex-wrap">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <strong>Given:</strong> Dose successfully swallowed or administered via IV
+                    <strong>Given:</strong> Dose given to patient
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <strong>Held:</strong> Temporarily paused (e.g. fasting, low BP, nausea)
+                    <strong>Held:</strong> Paused for medical reason
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                    <strong>Refused:</strong> Patient declined medication
+                    <strong>Refused:</strong> Patient declined
                   </span>
                 </div>
 
                 <div className="text-[11px] text-slate-400">
-                  Daily Ward Rounds: 08:00 (Morning) · 14:00 (Afternoon) · 20:00 (Night)
+                  Rounds: 8:00 AM · 2:00 PM · 8:00 PM
                 </div>
               </div>
             </div>
@@ -953,7 +951,7 @@ function MARContent() {
                     <XCircle size={18} className="text-rose-500" />
                   )}
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                    {reasonModal.actionType === "held" ? "Hold Medication Dose" : "Patient Refused Dose"}
+                    {reasonModal.actionType === "held" ? "Hold Medicine" : "Patient Refused"}
                   </h3>
                 </div>
                 <button
@@ -966,11 +964,11 @@ function MARContent() {
 
               <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
                 <p>
-                  <span className="text-slate-500">Medication:</span>{" "}
+                  <span className="text-slate-500">Medicine:</span>{" "}
                   <strong>{reasonModal.medicineName}</strong>
                 </p>
                 <p>
-                  <span className="text-slate-500">Scheduled Time:</span>{" "}
+                  <span className="text-slate-500">Scheduled:</span>{" "}
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {reasonModal.timeSlot} Round
                   </span>
@@ -979,23 +977,23 @@ function MARContent() {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  Select Reason:
+                  Reason:
                 </label>
                 <div className="space-y-1.5 text-xs">
                   {(reasonModal.actionType === "held"
                     ? [
-                        "Patient fasting (NPO) for procedure / surgery",
-                        "Low Blood Pressure / Unstable vital signs",
-                        "Patient actively nauseated or vomiting",
-                        "Awaiting laboratory test result",
-                        "Doctor instructed to hold dose",
+                        "Patient fasting (NPO) for surgery / lab",
+                        "Low Blood Pressure / unstable vitals",
+                        "Patient vomiting / nauseated",
+                        "Waiting for doctor orders",
+                        "Waiting for lab results",
                         "Other",
                       ]
                     : [
-                        "Patient states feeling better / does not want dose",
-                        "Patient reports unpleasant side effects",
-                        "Patient asleep / family requested no disturbance",
-                        "Patient requested to speak with doctor first",
+                        "Patient says feeling better / refuses dose",
+                        "Patient reports bad side effects",
+                        "Patient is asleep",
+                        "Patient wants to ask doctor first",
                         "Other",
                       ]
                   ).map((reason) => (
@@ -1024,7 +1022,7 @@ function MARContent() {
                   <div className="mt-2.5">
                     <input
                       type="text"
-                      placeholder="Specify custom reason..."
+                      placeholder="Type reason here..."
                       value={customReason}
                       onChange={(e) => setCustomReason(e.target.value)}
                       className={`${inputCls} text-xs py-1.5`}
@@ -1046,7 +1044,7 @@ function MARContent() {
                       : "bg-rose-600 hover:bg-rose-700"
                   } disabled:opacity-50`}
                 >
-                  Confirm {reasonModal.actionType === "held" ? "Hold" : "Refusal"}
+                  Confirm
                 </button>
               </div>
             </div>
@@ -1061,9 +1059,9 @@ export default function MARPage() {
   return (
     <Suspense
       fallback={
-        <PageShell title="Medication Administration Record (MAR)">
+        <PageShell title="Give Medicines">
           <div className="p-12 text-center text-slate-400 text-sm">
-            Loading Medication Administration Schedule…
+            Loading medicine schedule…
           </div>
         </PageShell>
       }

@@ -283,7 +283,7 @@ export default function NurseDashboard() {
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors flex items-center gap-1.5 shadow-xs"
           >
             <Pill size={14} className="text-teal-600" />
-            <span>Medication Plan (MAR)</span>
+            <span>Give Medicines</span>
           </Link>
 
           <Link
@@ -401,7 +401,7 @@ export default function NurseDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Duty Staff & MAR
+                  Duty Staff & Medicines
                 </p>
                 <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">
                   {nurses.length} Nurses on Roster

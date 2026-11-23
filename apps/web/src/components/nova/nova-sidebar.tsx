@@ -68,14 +68,14 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
   ],
   "Ward Nurse": [
     { label: "Inpatient Bed Census", href: "/nova/nurse", icon: <Bed size={16} /> },
-    { label: "MAR Drug Schedule", href: "/nova/nurse/mar", icon: <Pill size={16} /> },
+    { label: "Give Medicines", href: "/nova/nurse/mar", icon: <Pill size={16} /> },
     { label: "Shift Nursing Notes", href: "/nova/nurse/notes", icon: <FileText size={16} /> },
     { label: "Bedside Vitals", href: "/nova/nurse/vitals", icon: <Activity size={16} /> },
   ],
   "Nurse": [
     { label: "Inpatient Beds", href: "/nova/nurse", icon: <Bed size={16} /> },
     { label: "Triage Station", href: "/nova/triage", icon: <Activity size={16} /> },
-    { label: "MAR Drug Schedule", href: "/nova/nurse/mar", icon: <Pill size={16} /> },
+    { label: "Give Medicines", href: "/nova/nurse/mar", icon: <Pill size={16} /> },
     { label: "Nursing Notes", href: "/nova/nurse/notes", icon: <FileText size={16} /> },
   ],
   "Lab Technician": [
