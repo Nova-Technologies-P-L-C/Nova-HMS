@@ -109,8 +109,8 @@ function VitalsContent() {
 
   return (
     <PageShell
-      title="Nurse Triage — Vitals Entry"
-      subtitle="Step 2 of patient journey · Rapid vitals recording & triage assessment"
+      title="Record Vitals"
+      subtitle="Record blood pressure, pulse, temperature, and oxygen"
       action={
         <Link
           href={"/nova/triage" as any}
@@ -125,7 +125,7 @@ function VitalsContent() {
         <span className="text-slate-300">→</span>
         <span className="px-2 py-1 bg-slate-200 rounded">2 Queue</span>
         <span className="text-slate-300">→</span>
-        <span className="px-2 py-1 bg-teal-600 text-white rounded font-medium">3 Triage</span>
+        <span className="px-2 py-1 bg-teal-600 text-white rounded font-medium">3 Vitals</span>
         <span className="text-slate-300">→</span>
         <span className="px-2 py-1 bg-slate-100 rounded">4 Doctor</span>
         <span className="text-slate-300">→</span>
@@ -136,7 +136,7 @@ function VitalsContent() {
       <Card className="p-4 mb-5 border-slate-200">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-3">
-            <p className="text-sm font-semibold text-slate-800">Select patient to triage</p>
+            <p className="text-sm font-semibold text-slate-800">Select patient</p>
             <div className="flex items-center gap-1.5 text-xs">
               <span className="text-slate-400">Filter:</span>
               <select

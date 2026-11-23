@@ -68,7 +68,7 @@ export default function NurseDashboard() {
         qc.invalidateQueries({ queryKey: trpc.ward.admissions.queryKey() });
         qc.invalidateQueries({ queryKey: trpc.ward.beds.queryKey() });
         setDischargeTarget(null);
-        toast.success("Patient discharged successfully");
+        toast.success("Patient discharged");
       },
       onError: (err) => {
         toast.error(err.message || "Failed to discharge patient");
@@ -115,8 +115,8 @@ export default function NurseDashboard() {
 
   return (
     <PageShell
-      title="Ward Dashboard"
-      subtitle="Manage admitted patients, vitals, medications, and nursing notes"
+      title="Ward Patients"
+      subtitle="Admitted patients, vitals, medicines, and bedside care"
       action={
         <div className="flex items-center gap-2">
           <Link
@@ -124,7 +124,7 @@ export default function NurseDashboard() {
             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors flex items-center gap-1.5 shadow-xs"
           >
             <Bed size={14} className="text-teal-600" />
-            <span>Bed Board</span>
+            <span>Bed Map</span>
           </Link>
           <Link
             href="/nova/ward/admissions"
@@ -137,7 +137,7 @@ export default function NurseDashboard() {
       }
     >
       <div className="space-y-4 pb-12 w-full max-w-[1600px] mx-auto">
-        {/* ── 1. COMPACT STATUS BAR (REPLACES 3 BLOATED KPI CARDS) ── */}
+        {/* ── 1. COMPACT STATUS BAR ── */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 px-4 shadow-xs grid grid-cols-2 sm:grid-cols-4 gap-3 items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
@@ -159,7 +159,7 @@ export default function NurseDashboard() {
             </div>
             <div>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Available Beds
+                Free Beds
               </span>
               <span className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 {availableBeds} <span className="text-xs text-slate-400 font-normal">/ {totalBeds}</span>
@@ -173,7 +173,7 @@ export default function NurseDashboard() {
             </div>
             <div>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Bed Occupancy
+                Beds Used
               </span>
               <span className="text-lg font-bold text-slate-800 dark:text-slate-100">
                 {occupancyRate}%
@@ -187,10 +187,10 @@ export default function NurseDashboard() {
             </div>
             <div>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                MAR Administrations
+                Give Medicines
               </span>
               <Link href="/nova/nurse/mar" className="text-xs font-semibold text-teal-600 hover:underline">
-                View Medication Schedule →
+                Open Medicine Plan →
               </Link>
             </div>
           </div>
@@ -206,7 +206,7 @@ export default function NurseDashboard() {
             />
             <input
               type="text"
-              placeholder="Search by patient name, MRN, bed, or ward..."
+              placeholder="Search by patient name, ID, bed, or ward..."
               className={`${inputCls} pl-9 pr-8 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/80`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -239,7 +239,7 @@ export default function NurseDashboard() {
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
-                  <span>{ward}</span>
+                  <span>{ward === "All" ? "All Wards" : ward}</span>
                   <span
                     className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                       isActive
@@ -255,7 +255,7 @@ export default function NurseDashboard() {
           </div>
         </div>
 
-        {/* ── 3. ADMITTED PATIENTS TABLE (CLEAR, NICE & SPACIOUS) ── */}
+        {/* ── 3. ADMITTED PATIENTS TABLE ── */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -266,14 +266,14 @@ export default function NurseDashboard() {
             </div>
             {admissions.length > 0 && (
               <span className="text-xs text-slate-400">
-                Active Ward Census
+                Currently Admitted
               </span>
             )}
           </div>
 
           {isAdmissionsLoading ? (
             <div className="p-8 text-center text-slate-400 text-sm">
-              Loading admitted patients…
+              Loading patients…
             </div>
           ) : filteredAdmissions.length === 0 ? (
             <div className="p-12 text-center space-y-3">
@@ -282,11 +282,11 @@ export default function NurseDashboard() {
               </div>
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 {searchQuery || selectedWard !== "All"
-                  ? "No admitted patients match your filter"
-                  : "No patients currently admitted"}
+                  ? "No patients match your search"
+                  : "No patients currently in beds"}
               </p>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                When patients are admitted from OPD or Emergency, their bedside records will appear here.
+                When patients are admitted to a bed, they will appear here.
               </p>
               <Link
                 href="/nova/ward/admissions"
@@ -300,11 +300,11 @@ export default function NurseDashboard() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                    <th className="py-3 px-4">Bed / Room</th>
+                    <th className="py-3 px-4">Bed</th>
                     <th className="py-3 px-4">Patient</th>
                     <th className="py-3 px-4">Stay</th>
                     <th className="py-3 px-4">Latest Vitals</th>
-                    <th className="py-3 px-4">Duty Nurse</th>
+                    <th className="py-3 px-4">Nurse</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -368,7 +368,7 @@ export default function NurseDashboard() {
                               <Clock size={11} className="text-slate-400" /> Day {a.daysElapsed || 1}
                             </span>
                             <span className="text-[10px] text-slate-400 block mt-0.5">
-                              Since {new Date(a.admittedAt).toLocaleDateString()}
+                              Admitted {new Date(a.admittedAt).toLocaleDateString()}
                             </span>
                           </div>
                         </td>
@@ -394,13 +394,13 @@ export default function NurseDashboard() {
                               )}
                               {latestVital.spo2 && (
                                 <span className="px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium text-slate-700 dark:text-slate-300">
-                                  SpO2: {latestVital.spo2}%
+                                  Oxygen: {latestVital.spo2}%
                                 </span>
                               )}
                             </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded border border-amber-200/60">
-                              <Thermometer size={11} /> Check vitals
+                              <Thermometer size={11} /> No vitals yet
                             </span>
                           )}
                         </td>
@@ -409,7 +409,7 @@ export default function NurseDashboard() {
                         <td className="py-3.5 px-4 align-middle">
                           <span className="text-xs text-slate-700 dark:text-slate-300 flex items-center gap-1">
                             <UserCheck size={12} className="text-slate-400" />
-                            {a.assignedNurseName || "On Duty Nurse"}
+                            {a.assignedNurseName || "Nurse on duty"}
                           </span>
                         </td>
 
@@ -419,7 +419,7 @@ export default function NurseDashboard() {
                             <Link
                               href={`/nova/nurse/vitals?visitId=${a.visitId || ""}`}
                               className="px-2.5 py-1 text-xs font-medium rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 hover:bg-teal-100 transition-colors flex items-center gap-1"
-                              title="Record or review vitals"
+                              title="Check or record vitals"
                             >
                               <Activity size={12} /> Vitals
                             </Link>
@@ -427,23 +427,23 @@ export default function NurseDashboard() {
                             <Link
                               href={`/nova/nurse/mar?patientId=${a.patientId}`}
                               className="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors flex items-center gap-1"
-                              title="Medication Administration Record"
+                              title="Give medicines"
                             >
-                              <Pill size={12} /> MAR
+                              <Pill size={12} /> Meds
                             </Link>
 
                             <Link
                               href={`/nova/nurse/notes?admissionId=${a.id}&patientId=${a.patientId}`}
                               className="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors flex items-center gap-1"
-                              title="Bedside nursing notes"
+                              title="Bedside notes"
                             >
-                              <FileText size={12} /> Note
+                              <FileText size={12} /> Notes
                             </Link>
 
                             <button
                               onClick={() => setDischargeTarget(a)}
                               className="px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 border border-transparent hover:border-red-200 dark:hover:border-red-900 transition-colors flex items-center gap-1"
-                              title="Discharge patient from ward"
+                              title="Discharge patient"
                             >
                               <LogOut size={12} /> Discharge
                             </button>
@@ -466,7 +466,7 @@ export default function NurseDashboard() {
                 <div className="flex items-center gap-2">
                   <LogOut size={18} className="text-red-500" />
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                    Discharge Inpatient
+                    Discharge Patient
                   </h3>
                 </div>
                 <button
@@ -485,13 +485,13 @@ export default function NurseDashboard() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Bed & Ward:</span>
+                  <span className="text-slate-500">Bed:</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
                     Bed {dischargeTarget.bed?.room} ({dischargeTarget.bed?.ward})
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Stay Duration:</span>
+                  <span className="text-slate-500">Days Admitted:</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {dischargeTarget.daysElapsed || 1} day(s)
                   </span>
@@ -500,17 +500,17 @@ export default function NurseDashboard() {
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  Discharge Condition:
+                  Patient Condition:
                 </label>
                 <select
                   value={dischargeCondition}
                   onChange={(e) => setDischargeCondition(e.target.value)}
                   className={`${inputCls} text-xs py-2`}
                 >
-                  <option value="Recovered / Improved">Recovered / Improved</option>
-                  <option value="Stable for Home Care">Stable for Home Care</option>
-                  <option value="Transferred to Higher Center">Transferred to Higher Center</option>
-                  <option value="Discharged against Medical Advice (DAMA)">Discharged against Medical Advice (DAMA)</option>
+                  <option value="Recovered / Improved">Improved / Recovered</option>
+                  <option value="Stable for Home Care">Ready to go home</option>
+                  <option value="Transferred to Higher Center">Transferred to hospital</option>
+                  <option value="Discharged against Medical Advice (DAMA)">Left against medical advice</option>
                   <option value="Deceased">Deceased</option>
                 </select>
               </div>
@@ -527,7 +527,7 @@ export default function NurseDashboard() {
                   disabled={dischargeMutation.isPending}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  {dischargeMutation.isPending ? "Discharging…" : "Confirm Discharge & Free Bed"}
+                  {dischargeMutation.isPending ? "Discharging…" : "Discharge Patient"}
                 </button>
               </div>
             </div>

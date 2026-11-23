@@ -166,8 +166,8 @@ export default function NursingNotesPage() {
 
   return (
     <PageShell
-      title="Nursing Clinical Notes & Observations"
-      subtitle="Shift rounds, vital observations, IV therapy & care documentation"
+      title="Nurse Notes"
+      subtitle="Write and view bedside notes for patients"
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Clear Patient Selector */}
@@ -211,7 +211,7 @@ export default function NursingNotesPage() {
               <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search patient name, MRN, bed…"
+                placeholder="Search patient name, ID, or bed…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className={`${inputCls} pl-8 text-xs`}
@@ -285,10 +285,10 @@ export default function NursingNotesPage() {
             <Card className="p-16 text-center border-dashed border-2 border-slate-200">
               <ClipboardList size={40} className="text-slate-300 mx-auto mb-3" />
               <h3 className="font-bold text-slate-700 text-base mb-1">
-                Select a Patient to Document Nursing Care
+                Select a Patient to Write a Note
               </h3>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Click on any admitted ward patient or OPD triage patient from the left column to view their past notes and write new shift observations.
+                Click a patient on the left to see past notes or write a new one.
               </p>
             </Card>
           ) : (
@@ -304,14 +304,14 @@ export default function NursingNotesPage() {
                       {selectedItem.patient.nameEn}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      MRN: <span className="font-mono font-medium">{selectedItem.patient.healthId}</span> · {selectedItem.badge} · Duty Nurse: <strong>{selectedItem.assignedNurseName}</strong>
+                      ID: <span className="font-mono font-medium">{selectedItem.patient.healthId}</span> · {selectedItem.badge} · Nurse: <strong>{selectedItem.assignedNurseName}</strong>
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800">
-                    Active Patient Record
+                    Active Patient
                   </span>
                 </div>
               </Card>
@@ -320,8 +320,8 @@ export default function NursingNotesPage() {
               <Card className="p-5 shadow-sm space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 border-slate-100">
                   <div>
-                    <h4 className="font-bold text-slate-800 text-sm">Write Nursing Note</h4>
-                    <p className="text-[11px] text-slate-400">Document clinical status, care administered, and response</p>
+                    <h4 className="font-bold text-slate-800 text-sm">Write Note</h4>
+                    <p className="text-[11px] text-slate-400">Write details about how the patient is doing</p>
                   </div>
 
                   {/* Note Category */}
@@ -332,12 +332,12 @@ export default function NursingNotesPage() {
                       value={noteCategory}
                       onChange={(e) => setNoteCategory(e.target.value)}
                     >
-                      <option value="Shift Round">Shift Routine Round</option>
-                      <option value="Vitals Observation">Vitals Observation</option>
-                      <option value="IV Care">IV Therapy & Infusion</option>
-                      <option value="Wound Care">Wound Care & Dressing</option>
-                      <option value="Medication">Medication Administration</option>
-                      <option value="Doctor Orders">Doctor Orders Follow-up</option>
+                      <option value="Shift Round">Shift Round</option>
+                      <option value="Vitals Observation">Vitals Check</option>
+                      <option value="IV Care">IV Therapy</option>
+                      <option value="Wound Care">Wound Care</option>
+                      <option value="Medication">Medicine Given</option>
+                      <option value="Doctor Orders">Doctor Orders</option>
                     </select>
                   </div>
                 </div>
@@ -346,7 +346,7 @@ export default function NursingNotesPage() {
                 <div>
                   <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 mb-2">
                     <Sparkles size={12} className="text-teal-600" />
-                    <span>1-Click Nursing Templates (Click to Auto-fill):</span>
+                    <span>Quick templates:</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {NOTE_TEMPLATES.map((tmpl, idx) => (
