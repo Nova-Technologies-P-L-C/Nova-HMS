@@ -27,17 +27,100 @@ interface RoleOption {
   demoEmail: string;
   gradient: string;
   icon: any;
+  hasSpecialties?: boolean;
 }
+
+export interface DoctorSpecialty {
+  id: string;
+  name: string;
+  email: string;
+  deptName: string;
+  code: string;
+  room: string;
+  badgeColor: string;
+  gradient: string;
+  description: string;
+}
+
+export const DOCTOR_SPECIALTIES: DoctorSpecialty[] = [
+  {
+    id: "general_opd",
+    name: "Dr. Tigist Alemu",
+    email: "tigist@dmrh.gov.et",
+    deptName: "General OPD & Internal Medicine",
+    code: "OPD",
+    room: "Room 102/104 — General OPD",
+    badgeColor: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800",
+    gradient: "from-teal-500 to-cyan-500",
+    description: "General consultations, chronic disease & adult medicine",
+  },
+  {
+    id: "pediatrics",
+    name: "Dr. Abebe Girma",
+    email: "abebe.girma@dmrh.gov.et",
+    deptName: "Pediatrics & Child Health",
+    code: "PED",
+    room: "Room 205 — Pediatrics Suite",
+    badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800",
+    gradient: "from-emerald-500 to-teal-500",
+    description: "Child health, MUAC nutrition, immunization & growth",
+  },
+  {
+    id: "ob_gyn",
+    name: "Dr. Bethlehem Tadesse",
+    email: "bethlehem@dmrh.gov.et",
+    deptName: "OB/GYN & Maternal Health",
+    code: "OB/GYN",
+    room: "Room 208 — Women's Health Clinic",
+    badgeColor: "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:border-pink-800",
+    gradient: "from-pink-500 to-rose-500",
+    description: "Antenatal care (ANC), fetal heart rate & maternity",
+  },
+  {
+    id: "surgery",
+    name: "Dr. Mulatu Bekele",
+    email: "mulatu@dmrh.gov.et",
+    deptName: "General Surgery & Minor OR",
+    code: "SURG",
+    room: "Room 110 — Surgical Consult",
+    badgeColor: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800",
+    gradient: "from-purple-500 to-indigo-600",
+    description: "Pre-op evaluation, ASA scores, NPO fasting & minor OR",
+  },
+  {
+    id: "dental",
+    name: "Dr. Dawit Haile",
+    email: "dental@dmrh.gov.et",
+    deptName: "Dental Clinic & Oral Surgery",
+    code: "DENT",
+    room: "Room 105 — Dental Suite",
+    badgeColor: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/50 dark:text-cyan-300 dark:border-cyan-800",
+    gradient: "from-cyan-500 to-blue-500",
+    description: "FDI tooth chart, dental caries & oral procedures",
+  },
+  {
+    id: "ophthalmology",
+    name: "Dr. Hana Alemu",
+    email: "eye@dmrh.gov.et",
+    deptName: "Ophthalmology / Eye Clinic",
+    code: "EYE",
+    room: "Room 106 — Eye Clinic",
+    badgeColor: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800",
+    gradient: "from-blue-500 to-indigo-500",
+    description: "Visual acuity OD/OS, IOP tonometry & slit lamp",
+  },
+];
 
 const ROLES: RoleOption[] = [
   {
     id: "doctor",
     code: "Dr",
     title: "Doctor / Physician",
-    description: "Consultations, orders, EMR",
+    description: "6 Clinical Specialties",
     demoEmail: "tigist@dmrh.gov.et",
     gradient: "from-teal-500 to-cyan-500",
     icon: Stethoscope,
+    hasSpecialties: true,
   },
   {
     id: "ward_nurse",
@@ -106,6 +189,8 @@ const ROLE_DASHBOARDS: Record<string, string> = {
 
 export default function NovaLoginPage() {
   const [selectedRole, setSelectedRole] = useState<RoleOption | null>(null);
+  const [isSelectingDoctorSpecialty, setIsSelectingDoctorSpecialty] = useState(false);
+  const [selectedDoctorSpecialty, setSelectedDoctorSpecialty] = useState<DoctorSpecialty>(DOCTOR_SPECIALTIES[0]!);
   const [workspace, setWorkspace] = useState("dmrh");
   const [email, setEmail] = useState("admin@dmrh.gov.et");
   const [password, setPassword] = useState("password123");
@@ -115,8 +200,21 @@ export default function NovaLoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleSelectRole = (role: RoleOption) => {
+    if (role.id === "doctor") {
+      setIsSelectingDoctorSpecialty(true);
+      return;
+    }
     setSelectedRole(role);
     setEmail(role.demoEmail);
+    setPassword("password123");
+    setError("");
+  };
+
+  const handleSelectSpecialtyDoctor = (spec: DoctorSpecialty) => {
+    setSelectedDoctorSpecialty(spec);
+    setIsSelectingDoctorSpecialty(false);
+    setSelectedRole(ROLES[0]!);
+    setEmail(spec.email);
     setPassword("password123");
     setError("");
   };
@@ -153,18 +251,24 @@ export default function NovaLoginPage() {
         return;
       }
 
+      // Target department for doctor
+      const targetDept =
+        selectedRole?.id === "doctor"
+          ? selectedDoctorSpecialty.deptName
+          : (tenant as any).department || "General OPD & Internal Medicine";
+
       // 3. Persist session keys for tenant isolation and tRPC header resolution
       sessionStorage.setItem("nova_tenant_id", tenant.id);
       sessionStorage.setItem("nova_tenant_slug", workspace);
       sessionStorage.setItem("nova_user_role", tenant.role);
       sessionStorage.setItem("nova_user_name", res.data?.user?.name ?? "");
-      sessionStorage.setItem("nova_doctor_department", (tenant as any).department || "General OPD");
+      sessionStorage.setItem("nova_doctor_department", targetDept);
 
       localStorage.setItem("nova_tenant_id", tenant.id);
       localStorage.setItem("nova_tenant_slug", workspace);
       localStorage.setItem("nova_user_role", tenant.role);
       localStorage.setItem("nova_user_name", res.data?.user?.name ?? "");
-      localStorage.setItem("nova_doctor_department", (tenant as any).department || "General OPD");
+      localStorage.setItem("nova_doctor_department", targetDept);
 
       // 4. Hard redirect to target role dashboard
       const dashboard = ROLE_DASHBOARDS[tenant.role] ?? "/nova/branch-admin";
@@ -236,55 +340,119 @@ export default function NovaLoginPage() {
               </p>
             </div>
 
-            {/* ─── STAGE 1: ROLE SELECTION GRID ─────────────────── */}
+            {/* ─── STAGE 1: ROLE & SPECIALTY SELECTION ─────────────────── */}
             {!selectedRole ? (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="text-center pb-1">
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                    Select Your Role
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Choose your duty role to load your workspace
-                  </p>
-                </div>
+              isSelectingDoctorSpecialty ? (
+                /* Doctor Specialty Grid */
+                <div className="space-y-3.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <Stethoscope size={16} className="text-teal-600 dark:text-teal-400" />
+                        <span>Select Doctor & Department</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Choose your clinical specialty to load your specific workspace
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsSelectingDoctorSpecialty(false)}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <ArrowLeft size={13} />
+                      <span>Back</span>
+                    </button>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {ROLES.map((role) => {
-                    const IconComponent = role.icon;
-                    return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    {DOCTOR_SPECIALTIES.map((spec) => (
                       <button
-                        key={role.id}
+                        key={spec.id}
                         type="button"
-                        onClick={() => handleSelectRole(role)}
-                        className="group flex flex-col items-center justify-center p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-850/60 hover:bg-white dark:hover:bg-slate-800 hover:border-teal-500 hover:shadow-md hover:scale-[1.02] transition-all text-center focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        onClick={() => handleSelectSpecialtyDoctor(spec)}
+                        className="group flex flex-col items-start p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-850/70 hover:border-teal-500 hover:shadow-md hover:scale-[1.01] transition-all text-left focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                       >
-                        <div
-                          className={`mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r ${role.gradient} text-white font-bold text-sm shadow-sm group-hover:scale-105 transition-transform`}
-                        >
-                          <IconComponent size={18} />
+                        <div className="flex items-center justify-between w-full mb-1">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${spec.badgeColor}`}>
+                            {spec.code}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                            {spec.room.split("—")[0]?.trim()}
+                          </span>
                         </div>
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                          {role.title}
+                        <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                          {spec.name}
                         </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5 truncate max-w-full">
-                          {role.code} · {role.description}
+                        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                          {spec.deptName}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1 line-clamp-1">
+                          {spec.description}
+                        </span>
+                        <span className="text-[9px] font-mono text-teal-600 dark:text-teal-400/85 mt-1 truncate w-full">
+                          {spec.email}
                         </span>
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
+              ) : (
+                /* Standard Roles Grid */
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="text-center pb-1">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                      Select Your Role
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Choose your duty role to load your workspace
+                    </p>
+                  </div>
 
-                {/* Quick 1-Click Admin Button */}
-                <div className="pt-2 text-center">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectRole(ROLES[5])}
-                    className="text-xs text-teal-600 dark:text-teal-400 hover:underline font-semibold"
-                  >
-                    Quick Sign-in as Clinic Admin →
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    {ROLES.map((role) => {
+                      const IconComponent = role.icon;
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => handleSelectRole(role)}
+                          className="group flex flex-col items-center justify-center p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-850/60 hover:bg-white dark:hover:bg-slate-800 hover:border-teal-500 hover:shadow-md hover:scale-[1.02] transition-all text-center focus:outline-hidden focus:ring-2 focus:ring-teal-500 relative"
+                        >
+                          {role.hasSpecialties && (
+                            <span className="absolute top-2 right-2 flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                            </span>
+                          )}
+                          <div
+                            className={`mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r ${role.gradient} text-white font-bold text-sm shadow-sm group-hover:scale-105 transition-transform`}
+                          >
+                            <IconComponent size={18} />
+                          </div>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                            {role.title}
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5 truncate max-w-full">
+                            {role.code} · {role.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Quick 1-Click Admin Button */}
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectRole(ROLES[5]!)}
+                      className="text-xs text-teal-600 dark:text-teal-400 hover:underline font-semibold"
+                    >
+                      Quick Sign-in as Clinic Admin →
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
               /* ─── STAGE 2: CREDENTIALS INPUT FORM ─────────────── */
               <div className="space-y-4 animate-in fade-in duration-200">
@@ -310,6 +478,7 @@ export default function NovaLoginPage() {
                     type="button"
                     onClick={() => {
                       setSelectedRole(null);
+                      setIsSelectingDoctorSpecialty(false);
                       setError("");
                     }}
                     className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
@@ -318,6 +487,57 @@ export default function NovaLoginPage() {
                     <span>Change</span>
                   </button>
                 </div>
+
+                {/* Specific Doctor Details & Fast Switcher (if Doctor role) */}
+                {selectedRole.id === "doctor" && (
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${selectedDoctorSpecialty.badgeColor}`}>
+                          {selectedDoctorSpecialty.code}
+                        </span>
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 dark:text-white block leading-tight">
+                            {selectedDoctorSpecialty.name}
+                          </span>
+                          <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium">
+                            {selectedDoctorSpecialty.deptName}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 text-right">
+                        {selectedDoctorSpecialty.room.split("—")[0]?.trim()}
+                      </span>
+                    </div>
+
+                    {/* Quick switch chips for all 6 specialties */}
+                    <div className="pt-1.5 border-t border-slate-200 dark:border-slate-800">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                        Select Doctor Specialty:
+                      </span>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {DOCTOR_SPECIALTIES.map((spec) => {
+                          const isCurrent = spec.id === selectedDoctorSpecialty.id;
+                          return (
+                            <button
+                              key={spec.id}
+                              type="button"
+                              onClick={() => handleSelectSpecialtyDoctor(spec)}
+                              className={`px-2 py-1.5 rounded-lg text-[10px] font-semibold border transition-all truncate text-left ${
+                                isCurrent
+                                  ? "bg-teal-600 text-white border-teal-600 shadow-xs font-bold"
+                                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-400"
+                              }`}
+                              title={`${spec.name} (${spec.deptName})`}
+                            >
+                              <span className="block truncate font-bold">{spec.code} · {spec.name.replace("Dr. ", "")}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Error Banner */}
                 {error && (
