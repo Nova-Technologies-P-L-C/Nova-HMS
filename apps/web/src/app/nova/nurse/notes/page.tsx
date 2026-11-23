@@ -266,11 +266,7 @@ export default function NursingNotesPage() {
                         <UserCheck size={11} className="text-teal-600" />
                         <span>Nurse: <strong>{item.assignedNurseName}</strong></span>
                       </span>
-                      {item.patient.cbhiStatus && (
-                        <span className="text-teal-700 font-bold flex items-center gap-0.5">
-                          <ShieldCheck size={10} /> CBHI
-                        </span>
-                      )}
+
                     </div>
                   </button>
                 );

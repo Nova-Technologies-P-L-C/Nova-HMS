@@ -175,11 +175,7 @@ function VitalsContent() {
                   <strong className="font-mono text-teal-700">{q.ticketNumber}</strong>
                   <span className="ml-2 font-medium text-slate-800">{q.visit.patient.nameEn}</span>
                   <span className="ml-2 text-xs text-slate-400 font-mono">{q.visit.patient.healthId}</span>
-                  {q.visit.patient.cbhiStatus && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800">
-                      CBHI
-                    </span>
-                  )}
+
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
