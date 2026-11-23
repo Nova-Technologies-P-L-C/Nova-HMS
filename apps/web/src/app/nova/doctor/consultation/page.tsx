@@ -573,14 +573,8 @@ function ConsultationContent() {
                     <span>·</span>
                     <span>Kebele: {(patient as any).kebele || "—"}</span>
                     <span>·</span>
-                    <span
-                      className={`px-1.5 py-0.2 rounded text-[10px] ${
-                        patient.cbhiStatus
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {patient.cbhiStatus ? "✓ CBHI Member" : "Private Pay"}
+                    <span className="px-1.5 py-0.2 rounded text-[10px] bg-teal-50 text-teal-700 border border-teal-200 font-medium">
+                      Standard
                     </span>
                   </div>
                 </div>

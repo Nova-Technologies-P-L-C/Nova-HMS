@@ -24,9 +24,7 @@ export const prescriptionRouter = router({
       });
 
       let linePaymentStatus = "unpaid";
-      if (visit.patient.cbhiStatus) {
-        linePaymentStatus = "cbhi_covered";
-      } else if (visit.type === "emergency") {
+      if (visit.type === "emergency") {
         linePaymentStatus = "emergency_exempt";
       }
 

@@ -118,7 +118,7 @@ export default function PatientRegistrationPage() {
       errs.portalPin = "PIN must be exactly 4 digits";
     }
 
-    if (!form.cbhiStatus && !isEmergency && (paymentMethod === "telebirr" || paymentMethod === "cbe_birr") && !paymentReference.trim()) {
+    if (!isEmergency && (paymentMethod === "telebirr" || paymentMethod === "cbe_birr") && !paymentReference.trim()) {
       errs.paymentReference = "Reference ID required for mobile settlement";
     }
 
@@ -190,7 +190,6 @@ export default function PatientRegistrationPage() {
       form.maritalStatus && form.maritalStatus !== "Single" ? `[${form.maritalStatus}]` : "",
       form.occupation ? `[Occupation: ${form.occupation}]` : "",
       form.emergencyName ? `[Emerg: ${form.emergencyName} (${form.emergencyRelation}) ${form.emergencyPhone}]` : "",
-      form.cbhiId ? `[CBHI ID: ${form.cbhiId}]` : "",
     ].filter(Boolean).join(", ");
 
     const patient = await registerMutation.mutateAsync({
@@ -201,7 +200,7 @@ export default function PatientRegistrationPage() {
       phone: form.phone.trim(),
       email: form.email.trim(),
       kebele: addressDetails || form.kebele || "General",
-      cbhiStatus: form.cbhiStatus,
+      cbhiStatus: false,
       portalPin: form.portalPin,
     });
     const assignedPin = (patient as any).portalPin || form.portalPin || "1234";
@@ -211,7 +210,7 @@ export default function PatientRegistrationPage() {
       type: isEmergency ? "emergency" : "opd",
       tier: isEmergency ? "emergency" : isVip ? "vip" : "standard",
       isEmergency,
-      paymentMethod: form.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
+      paymentMethod: isEmergency ? "unpaid" : paymentMethod,
       paymentReference,
     });
     await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
@@ -227,7 +226,7 @@ export default function PatientRegistrationPage() {
         phone: form.phone,
         healthId: patient.healthId,
         kebele: form.kebele,
-        cbhi: form.cbhiStatus,
+        cbhi: false,
         portalPin: assignedPin,
         visits: 1,
         lastVisit: "Today",
@@ -243,7 +242,7 @@ export default function PatientRegistrationPage() {
       dob: form.dob,
       phone: form.phone,
       kebele: form.kebele,
-      cbhiStatus: form.cbhiStatus,
+      cbhiStatus: false,
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
       feeAmount: ticket.feeAmount,
@@ -260,7 +259,7 @@ export default function PatientRegistrationPage() {
       type: isEmergency ? "emergency" : "opd",
       tier: isEmergency ? "emergency" : isVip ? "vip" : "standard",
       isEmergency,
-      paymentMethod: patient.cbhiStatus ? "unpaid" : (isEmergency ? "unpaid" : paymentMethod),
+      paymentMethod: isEmergency ? "unpaid" : paymentMethod,
       paymentReference,
     });
     await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
@@ -272,7 +271,7 @@ export default function PatientRegistrationPage() {
       dob: patient.dob,
       phone: patient.phone || "",
       kebele: patient.kebele || "",
-      cbhiStatus: patient.cbhiStatus,
+      cbhiStatus: false,
       receiptNumber,
       paymentStatus: ticket.paymentStatus,
       feeAmount: ticket.feeAmount,
@@ -313,7 +312,7 @@ export default function PatientRegistrationPage() {
               patientId: dbPatient.id,
               type: "opd",
               isEmergency: false,
-              paymentMethod: dbPatient.cbhiStatus ? "unpaid" : "cash",
+              paymentMethod: "cash",
             });
             await queryClient.invalidateQueries({ queryKey: trpc.visit.queue.queryKey() });
             setKioskCheckInSuccess({
@@ -321,7 +320,7 @@ export default function PatientRegistrationPage() {
               nameAm: dbPatient.nameAm ?? undefined,
               healthId: dbPatient.healthId,
               ticket: ticket.ticketNumber,
-              cbhi: dbPatient.cbhiStatus,
+              cbhi: false,
               dept: "Triage Station (Nursing Intake)",
               receiptNumber,
             });
@@ -331,7 +330,7 @@ export default function PatientRegistrationPage() {
               nameAm: matched.nameAm,
               healthId: matched.healthId,
               ticket: fallbackTicket,
-              cbhi: matched.cbhi,
+              cbhi: false,
               dept: "Triage Station (Nursing Intake)",
             });
           }
@@ -341,7 +340,7 @@ export default function PatientRegistrationPage() {
             nameAm: matched.nameAm,
             healthId: matched.healthId,
             ticket: fallbackTicket,
-            cbhi: matched.cbhi,
+            cbhi: false,
             dept: "Triage Station (Nursing Intake)",
           });
         }
@@ -440,13 +439,7 @@ export default function PatientRegistrationPage() {
                     <span className="text-[11px] uppercase font-bold text-slate-400 tracking-wider">
                       Patient
                     </span>
-                    {submitted.cbhiStatus ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
-                        🛡️ CBHI Member
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 font-medium">Standard Patient</span>
-                    )}
+                    <span className="text-[10px] text-slate-400 font-medium">Standard Patient</span>
                   </div>
 
                   <div className="mt-1">
@@ -481,11 +474,6 @@ export default function PatientRegistrationPage() {
                     {submitted.paymentStatus === "paid" && (
                       <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded font-semibold text-[11px]">
                         ✓ Paid (ETB {submitted.feeAmount})
-                      </span>
-                    )}
-                    {submitted.paymentStatus === "cbhi_covered" && (
-                      <span className="px-2 py-0.5 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 rounded font-semibold text-[11px]">
-                        🛡️ 100% CBHI Covered
                       </span>
                     )}
                     {submitted.paymentStatus === "emergency_unpaid" && (
@@ -717,10 +705,7 @@ export default function PatientRegistrationPage() {
                               <span>{p.phone}</span>
                             </>
                           )}
-                          <span>•</span>
-                          <span className={p.cbhiStatus ? "text-emerald-600 font-semibold" : "text-slate-500"}>
-                            {p.cbhiStatus ? "✓ CBHI Member" : "Self-pay"}
-                          </span>
+
                           {p.kebele && (
                             <>
                               <span>•</span>
@@ -809,27 +794,19 @@ export default function PatientRegistrationPage() {
                     </div>
                   )}
 
-                  {/* Coverage & Settlement Strip */}
+                  {/* Tariff & Settlement Strip */}
                   <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Coverage &amp; Settlement
+                        Tariff &amp; Settlement
                       </span>
                       <span className="text-xs font-semibold px-2 py-0.5 bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 rounded border border-teal-200/60 dark:border-teal-800/60">
-                        {selectedPatient?.cbhiStatus ? "0 ETB (CBHI 100%)" : isEmergency ? "Emergency Deferred" : `Tariff: ETB ${cardFeeAmount}`}
+                        {isEmergency ? "Emergency Deferred" : `Tariff: ETB ${cardFeeAmount}`}
                       </span>
                     </div>
 
                     {/* Fast Toggle Chips */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                      <div className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs ${
-                        selectedPatient?.cbhiStatus
-                          ? "bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-900 dark:text-teal-200 font-semibold"
-                          : "border-slate-200 dark:border-slate-700 text-slate-500"
-                      }`}>
-                        <span>{selectedPatient?.cbhiStatus ? "🛡️ CBHI Covered (100%)" : "🛡️ Self-Pay (No CBHI)"}</span>
-                      </div>
-
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer select-none transition ${
                         isEmergency
                           ? "bg-red-50 dark:bg-red-950/40 border-red-500 text-red-900 dark:text-red-200 font-semibold"
@@ -864,7 +841,7 @@ export default function PatientRegistrationPage() {
                     </div>
 
                     {/* Payment Method Selector */}
-                    {!selectedPatient?.cbhiStatus && !isEmergency && (
+                    {!isEmergency && (
                       <div className="space-y-2 pt-1">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                           {(["cash", "telebirr", "cbe_birr", "unpaid"] as const).map((m) => (
@@ -908,7 +885,7 @@ export default function PatientRegistrationPage() {
                     >
                       {isLoading
                         ? "Processing…"
-                        : `Check In & Issue Ticket ${isEmergency ? "(Emergency)" : selectedPatient?.cbhiStatus ? "(CBHI Free)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(ETB ${cardFeeAmount})`}`}
+                        : `Check In & Issue Ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(ETB ${cardFeeAmount})`}`}
                     </button>
                     <button
                       type="button"
@@ -1154,36 +1131,22 @@ export default function PatientRegistrationPage() {
               </div>
             </div>
 
-            {/* 4. Coverage, Tariffs & Settlement */}
+            {/* 4. Registration Tariff & Settlement */}
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <CreditCard size={16} className="text-teal-600" />
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
-                    4. Coverage, Tariffs & Settlement
+                    4. Registration Tariff & Settlement
                   </h3>
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-0.5 bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 rounded-lg border border-teal-200/60 dark:border-teal-800/60">
-                  {form.cbhiStatus ? "0 ETB (CBHI 100%)" : isEmergency ? "Emergency Deferred" : `Tariff: ETB ${cardFeeAmount}`}
+                  {isEmergency ? "Emergency Deferred" : `Tariff: ETB ${cardFeeAmount}`}
                 </span>
               </div>
 
               {/* Toggles */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className={`flex items-center gap-2 p-3 rounded-xl border text-xs cursor-pointer select-none transition ${
-                  form.cbhiStatus
-                    ? "bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-900 dark:text-teal-200 font-semibold"
-                    : "border-slate-200 dark:border-slate-700 hover:border-slate-300 text-slate-700 dark:text-slate-300"
-                }`}>
-                  <input
-                    type="checkbox"
-                    className="accent-teal-600 rounded"
-                    checked={form.cbhiStatus}
-                    onChange={(e) => setForm((p) => ({ ...p, cbhiStatus: e.target.checked }))}
-                  />
-                  <span>🛡️ CBHI Member</span>
-                </label>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className={`flex items-center gap-2 p-3 rounded-xl border text-xs cursor-pointer select-none transition ${
                   isEmergency
                     ? "bg-red-50 dark:bg-red-950/40 border-red-500 text-red-900 dark:text-red-200 font-semibold"
@@ -1217,22 +1180,8 @@ export default function PatientRegistrationPage() {
                 </label>
               </div>
 
-              {/* CBHI Details if enabled */}
-              {form.cbhiStatus && (
-                <div className="p-3.5 bg-teal-50/50 dark:bg-teal-950/30 rounded-xl border border-teal-200/60 dark:border-teal-800/60">
-                  <FormField label="CBHI Household Card / ID Number">
-                    <input
-                      className={inputCls}
-                      value={form.cbhiId}
-                      onChange={(e) => setForm((p) => ({ ...p, cbhiId: e.target.value }))}
-                      placeholder="e.g. CBHI-AA-BOLE-00124"
-                    />
-                  </FormField>
-                </div>
-              )}
-
               {/* Payment Method Selector */}
-              {!form.cbhiStatus && !isEmergency && (
+              {!isEmergency && (
                 <div className="space-y-2 pt-1">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
                     Payment Collection Method:
@@ -1338,7 +1287,7 @@ export default function PatientRegistrationPage() {
               >
                 {isLoading
                   ? "Registering…"
-                  : `Register & Issue Ticket ${isEmergency ? "(Emergency)" : form.cbhiStatus ? "(CBHI Free)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
+                  : `Register & Issue Ticket ${isEmergency ? "(Emergency)" : paymentMethod === "unpaid" ? "(Pay at Cashier)" : `(Collect ETB ${cardFeeAmount})`}`}
               </button>
               <button
                 type="button"

@@ -162,7 +162,7 @@ export default function PatientQRCode({
                 <div class="title">Ethiora HMS · DMRH</div>
                 <div class="subtitle">Debre Markos Referral Hospital</div>
               </div>
-              ${patient.cbhi ? '<div class="cbhi-badge">CBHI VERIFIED</div>' : ""}
+
             </div>
             <div class="body">
               <div class="info">
@@ -289,12 +289,7 @@ export function PatientIDCardVisual({
           </div>
         </div>
 
-        {patient.cbhi && (
-          <div className="flex items-center gap-1 bg-emerald-500/20 border border-emerald-400/40 px-2 py-0.5 rounded-full text-emerald-300 text-[10px] font-bold tracking-wider">
-            <ShieldCheck size={11} />
-            <span>CBHI ENROLLED</span>
-          </div>
-        )}
+
       </div>
 
       {/* Patient Name & Amharic Name */}

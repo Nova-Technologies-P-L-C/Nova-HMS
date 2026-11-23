@@ -83,10 +83,10 @@ export const PERMISSION_CATALOG = [
     name: "Billing, Cashier & Tariffs",
     icon: "💳",
     color: "emerald",
-    description: "POS payment collection, receipt issuing, CBHI claims, and pricing",
+    description: "POS payment collection, receipt issuing, billing, and pricing",
     permissions: [
       { key: "billing.view", label: "View Patient Invoices", desc: "Inspect tariff items, unbilled charges, and payment status" },
-      { key: "billing.collect", label: "Cashier Collection & Receipts", desc: "Accept cash, card, telebirr, or CBHI copays and issue receipts" },
+      { key: "billing.collect", label: "Cashier Collection & Receipts", desc: "Accept cash, card, or telebirr payments and issue receipts" },
       { key: "billing.waiver.request", label: "Request Fee Waivers", desc: "Initiate indigent fee waiver requests for destitute patients" },
       { key: "billing.waiver.approve", label: "Approve Fee Waivers", desc: "Authorize full or partial discounts on hospital service charges" },
       { key: "tariff.manage", label: "Configure Service Tariffs", desc: "Set and update service and procedure pricing" },

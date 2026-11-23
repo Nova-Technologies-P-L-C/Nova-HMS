@@ -57,7 +57,6 @@ export default function GlobalSearchPage() {
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    {p.cbhi && <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full border border-teal-200">CBHI</span>}
                     <span className="text-xs text-slate-400">{p.visits} visits</span>
                     <Link href="/nova/doctor/emr" className="text-xs px-3 py-1 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors">Open EMR</Link>
                   </div>

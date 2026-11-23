@@ -141,7 +141,7 @@ export default function PharmacyQueuePage() {
         {shownList.map((rx) => {
           const isSelected = selected === rx.id;
           const isAllPaid = rx.lines.every(
-            (l) => l.paymentStatus === "paid" || l.paymentStatus === "cbhi_covered" || l.paymentStatus === "emergency_exempt"
+            (l) => l.paymentStatus === "paid" || l.paymentStatus === "emergency_exempt"
           );
           const totalCost = rx.lines.reduce((s, l) => s + (l.totalPrice ?? 45), 0);
 
@@ -190,11 +190,7 @@ export default function PharmacyQueuePage() {
                       )}
                     </div>
                   )}
-                  {rx.visit.patient.cbhiStatus && (
-                    <span className="text-xs text-teal-600 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
-                      <ShieldCheck size={11} /> CBHI
-                    </span>
-                  )}
+
                   <StatusBadge status={rx.status} />
                   <span className="text-xs text-slate-400">{new Date(rx.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                 </div>
@@ -232,9 +228,6 @@ export default function PharmacyQueuePage() {
                           <p className="text-xs text-slate-400">Clearance</p>
                           {l.paymentStatus === "paid" && (
                             <span className="text-[11px] text-emerald-700 font-semibold">✓ Paid</span>
-                          )}
-                          {l.paymentStatus === "cbhi_covered" && (
-                            <span className="text-[11px] text-teal-700 font-medium">🛡️ CBHI</span>
                           )}
                           {l.paymentStatus === "emergency_exempt" && (
                             <span className="text-[11px] text-red-700 font-medium">🚨 Emergency</span>

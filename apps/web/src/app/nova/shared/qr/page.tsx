@@ -126,7 +126,7 @@ export default function QRPage() {
               >
                 {PATIENTS.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} ({p.healthId}) — {p.kebele} {p.cbhi ? "[CBHI]" : ""}
+                    {p.name} ({p.healthId}) — {p.kebele}
                   </option>
                 ))}
               </select>
@@ -139,12 +139,6 @@ export default function QRPage() {
                 <div className="flex justify-between">
                   <span className="text-slate-400">Date of Birth:</span>
                   <span className="font-medium">{selectedPatient.dob}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Insurance (CBHI):</span>
-                  <span className={selectedPatient.cbhi ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-slate-400"}>
-                    {selectedPatient.cbhi ? "✓ Verified Enrolled" : "Not enrolled"}
-                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Recorded Visits:</span>
@@ -233,11 +227,6 @@ export default function QRPage() {
                       <h4 className="font-bold text-lg text-slate-900 dark:text-white truncate">
                         {matchedPatient.name}
                       </h4>
-                      {matchedPatient.cbhi && (
-                        <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold rounded-full border border-emerald-300 dark:border-emerald-800">
-                          CBHI Member
-                        </span>
-                      )}
                     </div>
                     {matchedPatient.nameAm && (
                       <p className="text-xs text-teal-600 dark:text-teal-400 font-medium mb-1">
@@ -308,7 +297,7 @@ export default function QRPage() {
                       <CreditCard size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
                       <div>
                         <span>Billing & Invoices</span>
-                        <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-normal">Cashier receipt & CBHI</p>
+                        <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-normal">Cashier receipt & settlement</p>
                       </div>
                     </button>
                   </div>

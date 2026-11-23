@@ -227,7 +227,6 @@ export default function OPDQueueBoardPage() {
               <th className="text-left px-3.5 py-2.5 font-semibold">Ticket</th>
               <th className="text-left px-3.5 py-2.5 font-semibold">Patient</th>
               <th className="text-left px-3.5 py-2.5 font-semibold">Health ID</th>
-              <th className="text-left px-3.5 py-2.5 font-semibold">Coverage</th>
               <th className="text-left px-3.5 py-2.5 font-semibold">Card Fee</th>
             </tr>
           </thead>
@@ -252,23 +251,9 @@ export default function OPDQueueBoardPage() {
                 <td className="px-3.5 py-2.5 font-medium text-slate-800 dark:text-slate-100">{q.visit.patient.nameEn}</td>
                 <td className="px-3.5 py-2.5 text-slate-500 dark:text-slate-400 font-mono text-[11px]">{q.visit.patient.healthId}</td>
                 <td className="px-3.5 py-2.5">
-                  {q.visit.patient.cbhiStatus ? (
-                    <span className="text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200/80 dark:border-teal-800/80 text-[10px]">
-                      🛡️ CBHI
-                    </span>
-                  ) : (
-                    <span className="text-slate-500 text-[11px]">Self-Pay</span>
-                  )}
-                </td>
-                <td className="px-3.5 py-2.5">
                   {q.paymentStatus === "paid" && (
                     <span className="inline-flex items-center gap-1 text-[11px] text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded font-semibold border border-emerald-200 dark:border-emerald-800/60">
                       Paid ({q.feeAmount} ETB)
-                    </span>
-                  )}
-                  {q.paymentStatus === "cbhi_covered" && (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 px-1.5 py-0.5 rounded font-medium border border-teal-200 dark:border-teal-800/60">
-                      CBHI Covered
                     </span>
                   )}
                   {q.paymentStatus === "emergency_exempt" && (
@@ -287,7 +272,7 @@ export default function OPDQueueBoardPage() {
 
             {filteredQueue.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-xs">
+                <td colSpan={4} className="px-4 py-8 text-center text-slate-400 text-xs">
                   {searchQuery ? `No tickets matching "${searchQuery}"` : "No tickets in this view"}
                 </td>
               </tr>

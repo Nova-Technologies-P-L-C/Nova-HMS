@@ -94,14 +94,12 @@ const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.React
     { label: "ROP Alerts", href: "/nova/pharmacy/rop-alerts", icon: <Activity size={16} /> },
   ],
   "Billing Officer": [
-    { label: "Billing & POS Counter", href: "/nova/billing", icon: <CreditCard size={16} /> },
-    { label: "CBHI Claims", href: "/nova/billing/cbhi", icon: <ShieldCheck size={16} /> },
+    { label: "Billing & Cashier", href: "/nova/billing", icon: <CreditCard size={16} /> },
     { label: "Fee Waivers", href: "/nova/billing/waivers", icon: <FileText size={16} /> },
     { label: "Invoices", href: "/nova/billing/invoices", icon: <ClipboardList size={16} /> },
   ],
   "Accountant": [
-    { label: "Billing & POS Counter", href: "/nova/billing", icon: <CreditCard size={16} /> },
-    { label: "CBHI Claims", href: "/nova/billing/cbhi", icon: <ShieldCheck size={16} /> },
+    { label: "Billing & Cashier", href: "/nova/billing", icon: <CreditCard size={16} /> },
     { label: "Fee Waivers", href: "/nova/billing/waivers", icon: <FileText size={16} /> },
     { label: "Invoices", href: "/nova/billing/invoices", icon: <ClipboardList size={16} /> },
   ],

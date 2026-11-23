@@ -48,8 +48,6 @@ export const visitRouter = router({
       if (isEmerg) {
         paymentStatus = "emergency_exempt";
         status = "urgent";
-      } else if (patient.cbhiStatus) {
-        paymentStatus = "cbhi_covered";
       } else if (input.paymentMethod !== "unpaid") {
         paymentStatus = "paid";
       }
@@ -106,7 +104,7 @@ export const visitRouter = router({
           paymentStatus,
           paidAt: paymentStatus === "paid" ? new Date() : undefined,
           receiptNumber,
-          paymentMethod: paymentStatus === "paid" ? input.paymentMethod : (paymentStatus === "cbhi_covered" ? "cbhi" : (paymentStatus === "emergency_exempt" ? "emergency" : "")),
+          paymentMethod: paymentStatus === "paid" ? input.paymentMethod : (paymentStatus === "emergency_exempt" ? "emergency" : ""),
         },
       });
 

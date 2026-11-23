@@ -50,9 +50,7 @@ export const labRouter = router({
       }
 
       let paymentStatus = "unpaid";
-      if (visit.patient.cbhiStatus) {
-        paymentStatus = "cbhi_covered";
-      } else if (visit.type === "emergency" || input.priority === "urgent") {
+      if (visit.type === "emergency" || input.priority === "urgent") {
         paymentStatus = "emergency_exempt";
       }
 

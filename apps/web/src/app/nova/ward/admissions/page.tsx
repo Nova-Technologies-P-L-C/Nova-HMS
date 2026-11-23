@@ -131,11 +131,6 @@ function AdmissionsContent() {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-base text-slate-800 dark:text-slate-100">{a.patient.nameEn}</p>
-                    {a.patient.cbhiStatus && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300">
-                        <ShieldCheck size={11} /> CBHI
-                      </span>
-                    )}
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     MRN: <span className="font-mono font-medium">{a.patient.healthId}</span> · Admitted {new Date(a.admittedAt).toLocaleDateString()} ({a.daysElapsed} {a.daysElapsed === 1 ? "day" : "days"} stayed)
@@ -258,7 +253,6 @@ function AdmissionsContent() {
                     {queuePatients.map((q) => (
                       <option key={q.visitId} value={q.visit.patientId}>
                         {q.visit.patient.nameEn} — {q.visit.patient.healthId} (Ticket: {q.ticketNumber})
-                        {q.visit.patient.cbhiStatus ? " [CBHI Member]" : ""}
                       </option>
                     ))}
                   </select>
@@ -412,9 +406,7 @@ function AdmissionsContent() {
                 </div>
                 <div className="pt-2 flex justify-between items-center text-xs">
                   <span className="text-slate-500">Payment Status:</span>
-                  {selectedAdmissionToDischarge.patient.cbhiStatus ? (
-                    <span className="text-teal-600 font-bold">🛡️ 100% CBHI Covered</span>
-                  ) : selectedAdmissionToDischarge.paymentStatus === "paid" ? (
+                  {selectedAdmissionToDischarge.paymentStatus === "paid" ? (
                     <span className="text-emerald-600 font-bold">✓ Cleared by Cashier</span>
                   ) : (
                     <span className="text-amber-600 font-bold">⚠️ Outstanding — Pending Clearance</span>

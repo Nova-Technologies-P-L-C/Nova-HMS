@@ -327,7 +327,6 @@ export default function QRScanner({ onScan, className = "", autoStart = true }: 
                 </p>
                 <div className="flex items-center justify-between text-[10px] text-slate-400">
                   <span className="font-mono">{p.healthId}</span>
-                  {p.cbhi && <span className="text-emerald-500 font-semibold">CBHI</span>}
                 </div>
               </button>
             ))}

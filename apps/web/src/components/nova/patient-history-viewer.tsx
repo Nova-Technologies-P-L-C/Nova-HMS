@@ -436,11 +436,7 @@ export function PatientHistoryViewer({
                                   ✓ Dispensed
                                 </span>
                               )}
-                              {line.paymentStatus === "cbhi_covered" && (
-                                <span className="text-[10px] px-1.5 py-0.5 bg-teal-50 text-teal-700 rounded font-medium border border-teal-200">
-                                  CBHI
-                                </span>
-                              )}
+
                             </div>
                             <div className="flex items-center gap-3 text-slate-600 mt-0.5">
                               <span><strong>Dose:</strong> {line.dose}</span>

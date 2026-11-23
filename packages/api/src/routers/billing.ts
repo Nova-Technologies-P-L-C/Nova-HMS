@@ -311,7 +311,6 @@ export const billingRouter = router({
         return null;
       }
 
-      const isCbhi = !!visit.patient.cbhiStatus;
       const unbilledItems: Array<{
         id: string;
         type: "card_fee" | "consultation" | "lab" | "drug" | "bed" | "nursing_care";
@@ -339,7 +338,7 @@ export const billingRouter = router({
         where: { tenantId: ctx.tenantId, code: "CONSULT_SPECIALIST", isActive: true },
       });
       if (consultTariff) consultFee = consultTariff.price;
-      const consultStatus = isCbhi ? "cbhi_covered" : (visit.status === "completed" ? "paid" : "unpaid");
+      const consultStatus = visit.status === "completed" ? "paid" : "unpaid";
       unbilledItems.push({
         id: `consult-${visit.id}`,
         type: "consultation",
@@ -355,7 +354,7 @@ export const billingRouter = router({
           type: "lab",
           name: `Lab: ${lo.testName} (${lo.status})`,
           amount: lo.price,
-          paymentStatus: isCbhi ? "cbhi_covered" : lo.paymentStatus,
+          paymentStatus: lo.paymentStatus,
           receiptNumber: lo.receiptNumber,
         });
       }
@@ -368,7 +367,7 @@ export const billingRouter = router({
             type: "drug",
             name: `Rx: ${line.itemName} (${line.dose} × ${line.durationDays}d)`,
             amount: line.totalPrice,
-            paymentStatus: isCbhi ? "cbhi_covered" : line.paymentStatus,
+            paymentStatus: line.paymentStatus,
             receiptNumber: line.receiptNumber,
           });
         }
@@ -397,7 +396,7 @@ export const billingRouter = router({
           type: "bed",
           name: `Inpatient Bed: ${adm.bed?.ward ?? "General Ward"} Bed ${adm.bed?.room ?? "01"} (${days}d @ ETB ${adm.dailyRate}/d)`,
           amount: bedCharge,
-          paymentStatus: isCbhi ? "cbhi_covered" : adm.paymentStatus,
+          paymentStatus: adm.paymentStatus,
           receiptNumber: adm.receiptNumber || undefined,
         });
 
@@ -406,7 +405,7 @@ export const billingRouter = router({
           type: "nursing_care",
           name: `Inpatient Nursing & Staff Care (${days}d @ ETB ${adm.nursingDailyFee}/d)`,
           amount: nursingCharge,
-          paymentStatus: isCbhi ? "cbhi_covered" : adm.paymentStatus,
+          paymentStatus: adm.paymentStatus,
           receiptNumber: adm.receiptNumber || undefined,
         });
       }
@@ -419,9 +418,7 @@ export const billingRouter = router({
         .filter((i) => i.paymentStatus === "paid")
         .reduce((s, i) => s + i.amount, 0);
 
-      const totalCbhi = unbilledItems
-        .filter((i) => i.paymentStatus === "cbhi_covered")
-        .reduce((s, i) => s + i.amount, 0);
+      const totalCbhi = 0;
 
       const grossTotal = unbilledItems.reduce((s, i) => s + i.amount, 0);
 
@@ -474,7 +471,7 @@ export const billingRouter = router({
       }
 
       // 2. Doctor Consultation Fee
-      if (input.payConsultation && !visit.patient.cbhiStatus) {
+      if (input.payConsultation) {
         let consultFee = tenant.specialistFeeAmount ?? 100;
         const consultTariff = await prisma.hospitalServiceTariff.findFirst({
           where: { tenantId: ctx.tenantId, code: "CONSULT_SPECIALIST", isActive: true },
@@ -531,7 +528,7 @@ export const billingRouter = router({
         }
       }
 
-      if (total <= 0 && !visit.patient.cbhiStatus) {
+      if (total <= 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No unpaid items selected for payment" });
       }
 
@@ -546,7 +543,7 @@ export const billingRouter = router({
           visitId: visit.id,
           category: "total_invoice",
           amount: total,
-          paymentMethod: visit.patient.cbhiStatus ? "cbhi" : input.paymentMethod,
+          paymentMethod: input.paymentMethod,
           collectedBy: ctx.userId ?? "Cashier",
           reference: input.reference,
           notes: descriptionList.join(", ") || "Final visit clearance settlement",

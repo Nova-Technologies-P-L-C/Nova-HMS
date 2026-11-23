@@ -21,14 +21,13 @@ export default function InvoicesPage() {
       action={<button className="px-4 py-2 bg-teal-600 text-white text-sm rounded hover:bg-teal-700 transition-colors font-medium">+ New invoice</button>}
     >
       <DataTable
-        columns={["Invoice ID", "Patient", "Date", "Services", "Total (ETB)", "CBHI", "Status", ""]}
+        columns={["Invoice ID", "Patient", "Date", "Services", "Total (ETB)", "Status", ""]}
         rows={invoices.map((inv) => [
           <button onClick={() => setSelected(inv.id === selected ? null : inv.id)} className="font-mono text-xs text-teal-700 hover:underline">{inv.id}</button>,
           <span className="font-medium">{inv.visit.patient.nameEn}</span>,
           new Date(inv.createdAt).toLocaleDateString(),
           <span className="text-xs text-slate-500">{inv.lines.length} items</span>,
           <span className="font-bold">ETB {inv.total}</span>,
-          inv.cbhiClaim ? <span className="text-xs text-teal-600">✓ CBHI</span> : <span className="text-xs text-slate-400">Self-pay</span>,
           <StatusBadge status={inv.status} />,
           <div className="flex gap-2">
             <button className="text-xs text-teal-600 hover:underline">Print</button>
@@ -58,7 +57,6 @@ export default function InvoicesPage() {
               <tr><td className="py-2 font-bold">Total</td><td className="py-2 text-right font-bold">ETB {invoice.total}</td></tr>
             </tbody>
           </table>
-          {invoice.cbhiClaim && <p className="text-xs text-teal-700 bg-teal-50 rounded p-2">CBHI member — claim submitted to insurer</p>}
         </Card>
       )}
     </PageShell>

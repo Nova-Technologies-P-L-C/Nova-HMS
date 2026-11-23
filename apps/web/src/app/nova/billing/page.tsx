@@ -181,7 +181,7 @@ function BillingDashboardContent() {
       title: "Doctor Fee",
       subtitle: "Doctor visit fee",
       amount: 100,
-      paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : consultPaid ? "paid" : "unpaid",
+      paymentStatus: consultPaid ? "paid" : "unpaid",
       rawId: v.id,
     });
 
@@ -194,7 +194,7 @@ function BillingDashboardContent() {
         title: `Lab: ${lab.testName}`,
         subtitle: `Lab test (${lab.status === "completed" ? "Ready" : lab.status === "sample_collected" ? "In Lab" : "Ordered"})`,
         amount: lab.price,
-        paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : (lab.paymentStatus as any),
+        paymentStatus: lab.paymentStatus as any,
         rawId: lab.id,
       });
     }
@@ -209,7 +209,7 @@ function BillingDashboardContent() {
           title: `Medicine: ${line.itemName}`,
           subtitle: "Prescribed medicine",
           amount: line.totalPrice,
-          paymentStatus: v.patient.cbhiStatus ? "cbhi_covered" : (line.paymentStatus as any),
+          paymentStatus: line.paymentStatus as any,
           rawId: line.id,
         });
       }
@@ -526,7 +526,6 @@ function BillingDashboardContent() {
                 <th className="text-left px-3 py-2.5 font-semibold">Ticket</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Patient</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Health ID</th>
-                <th className="text-left px-3.5 py-2.5 font-semibold">Coverage</th>
                 <th className="text-left px-3.5 py-2.5 font-semibold">Orders</th>
                 <th className="text-right px-3.5 py-2.5 font-semibold">Unpaid Total</th>
                 <th className="text-right px-3.5 py-2.5 font-semibold">Details</th>
@@ -580,15 +579,6 @@ function BillingDashboardContent() {
                         {v.patient.healthId}
                       </td>
                       <td className="px-3.5 py-2.5">
-                        {v.patient.cbhiStatus ? (
-                          <span className="text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded border border-teal-200/80 dark:border-teal-800/80 text-[10px]">
-                            🛡️ CBHI
-                          </span>
-                        ) : (
-                          <span className="text-slate-600 dark:text-slate-400 text-[11px]">Self-Pay</span>
-                        )}
-                      </td>
-                      <td className="px-3.5 py-2.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {serviceRows.map((s) => (
                             <span
@@ -596,8 +586,6 @@ function BillingDashboardContent() {
                               className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
                                 s.paymentStatus === "paid"
                                   ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50"
-                                  : s.paymentStatus === "cbhi_covered"
-                                  ? "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800/50"
                                   : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/50"
                               }`}
                             >
@@ -608,9 +596,7 @@ function BillingDashboardContent() {
                         </div>
                       </td>
                       <td className="px-3.5 py-2.5 text-right font-mono font-bold">
-                        {v.patient.cbhiStatus ? (
-                          <span className="text-teal-700 dark:text-teal-300 text-[11px]">0 ETB (CBHI)</span>
-                        ) : totalUnpaid > 0 ? (
+                        {totalUnpaid > 0 ? (
                           <span className="text-amber-700 dark:text-amber-400">ETB {totalUnpaid}</span>
                         ) : (
                           <span className="text-emerald-600 dark:text-emerald-400 text-[11px]">All Paid ✓</span>
@@ -670,18 +656,11 @@ function BillingDashboardContent() {
                               <span className="inline-flex items-center gap-1 text-[10px] text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded font-semibold">
                                 ✓ Paid
                               </span>
-                            ) : s.paymentStatus === "cbhi_covered" ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-950/60 px-1.5 py-0.5 rounded font-semibold">
-                                🛡️ Covered
-                              </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.5 rounded font-semibold">
                                 Unpaid
                               </span>
                             )}
-                          </td>
-                          <td className="px-3.5 py-2 text-slate-600 dark:text-slate-400 text-xs">
-                            <span className="text-[11px] font-mono">Fee: ETB {s.amount}</span>
                           </td>
                           <td className="px-3.5 py-2 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
                             ETB {s.amount}
@@ -703,13 +682,9 @@ function BillingDashboardContent() {
                               >
                                 Collect ETB {s.amount}
                               </button>
-                            ) : s.paymentStatus === "paid" ? (
+                            ) : (
                               <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
                                 Paid ✓
-                              </span>
-                            ) : (
-                              <span className="text-teal-600 dark:text-teal-400 text-[11px] font-medium">
-                                Free (CBHI)
                               </span>
                             )}
                           </td>
@@ -721,7 +696,7 @@ function BillingDashboardContent() {
 
               {filteredQueue.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400 text-xs">
                     {queueSearch
                       ? `No patients matching "${queueSearch}"`
                       : queueTab === "ready"
