@@ -1,6 +1,7 @@
 import prisma from "@my-better-t-app/db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { hashPassword } from "better-auth/crypto";
 import { protectedProcedure, router, tenantProcedure } from "../index";
 import {
   ETHIOPIAN_HMIS_MORBIDITY_CATALOG,
@@ -51,7 +52,12 @@ export const tenantRouter = router({
         where: { userId_tenantId: { userId: ctx.userId!, tenantId: tenant.id } },
       });
 
-      return { ...tenant, role: userRole?.role ?? null };
+      return {
+        ...tenant,
+        role: userRole?.role ?? null,
+        department: userRole?.department ?? "General OPD",
+        title: userRole?.title ?? "",
+      };
     }),
 
   // List all tenants for the current user
@@ -116,6 +122,7 @@ export const tenantRouter = router({
         title: z.string().default(""),
         phone: z.string().default(""),
         licenseNumber: z.string().default(""),
+        password: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -145,6 +152,31 @@ export const tenantRouter = router({
           where: { id: user.id },
           data: { name: input.name },
         });
+      }
+
+      // If initial password is provided, securely hash and store credential
+      if (input.password && input.password.trim().length >= 4) {
+        const passwordHash = await hashPassword(input.password);
+        const existingAcc = await prisma.account.findFirst({
+          where: { userId: user.id, providerId: "credential" },
+        });
+        if (existingAcc) {
+          await prisma.account.update({
+            where: { id: existingAcc.id },
+            data: { password: passwordHash },
+          });
+        } else {
+          await prisma.account.create({
+            data: {
+              id: `acc-${Date.now().toString(36)}`,
+              userId: user.id,
+              issuer: "credential",
+              accountId: user.id,
+              providerId: "credential",
+              password: passwordHash,
+            },
+          });
+        }
       }
 
       const assignment = await prisma.userTenantRole.upsert({
@@ -193,6 +225,7 @@ export const tenantRouter = router({
         title: z.string().optional(),
         phone: z.string().optional(),
         licenseNumber: z.string().optional(),
+        password: z.string().optional(),
         status: z.enum(["active", "suspended", "inactive"]).optional(),
       })
     )
@@ -223,6 +256,31 @@ export const tenantRouter = router({
         });
       }
 
+      // If new password provided, update credentials
+      if (input.password && input.password.trim().length >= 4) {
+        const passwordHash = await hashPassword(input.password);
+        const existingAcc = await prisma.account.findFirst({
+          where: { userId: existing.userId, providerId: "credential" },
+        });
+        if (existingAcc) {
+          await prisma.account.update({
+            where: { id: existingAcc.id },
+            data: { password: passwordHash },
+          });
+        } else {
+          await prisma.account.create({
+            data: {
+              id: `acc-${Date.now().toString(36)}`,
+              userId: existing.userId,
+              issuer: "credential",
+              accountId: existing.userId,
+              providerId: "credential",
+              password: passwordHash,
+            },
+          });
+        }
+      }
+
       const updated = await prisma.userTenantRole.update({
         where: { id: input.id },
         data: {
@@ -239,13 +297,67 @@ export const tenantRouter = router({
         data: {
           tenantId: ctx.tenantId,
           userId: ctx.userId ?? "Branch Admin",
-          action: `Updated staff profile for ${existing.user.name} (Role: ${updatedRole ?? existing.role}, Status: ${input.status ?? existing.status})`,
+          action: `Updated staff profile for ${existing.user.name} (${existing.user.email}) - Dept: ${input.department || existing.department}`,
           entity: "UserTenantRole",
           entityId: updated.id,
         },
       });
 
       return updated;
+    }),
+
+  // Reset or set credentials for any staff member (Branch Admin only)
+  resetStaffPassword: tenantProcedure
+    .input(
+      z.object({
+        staffId: z.string(),
+        newPassword: z.string().min(4, "Password must be at least 4 characters"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isBranchOrHospitalAdmin(ctx.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Branch Admin can manage credentials" });
+      }
+
+      const staffRole = await prisma.userTenantRole.findFirstOrThrow({
+        where: { id: input.staffId, tenantId: ctx.tenantId },
+        include: { user: true },
+      });
+
+      const passwordHash = await hashPassword(input.newPassword);
+      const existingAcc = await prisma.account.findFirst({
+        where: { userId: staffRole.userId, providerId: "credential" },
+      });
+
+      if (existingAcc) {
+        await prisma.account.update({
+          where: { id: existingAcc.id },
+          data: { password: passwordHash },
+        });
+      } else {
+        await prisma.account.create({
+          data: {
+            id: `acc-${Date.now().toString(36)}`,
+            userId: staffRole.userId,
+            issuer: "credential",
+            accountId: staffRole.userId,
+            providerId: "credential",
+            password: passwordHash,
+          },
+        });
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId,
+          userId: ctx.userId ?? "Branch Admin",
+          action: `Reset credentials for ${staffRole.user.name} (${staffRole.user.email})`,
+          entity: "UserTenantRole",
+          entityId: staffRole.id,
+        },
+      });
+
+      return { success: true, message: `Password updated successfully for ${staffRole.user.name}` };
     }),
 
   // Remove staff member assignment from hospital (Branch Admin only)

@@ -158,11 +158,13 @@ export default function NovaLoginPage() {
       sessionStorage.setItem("nova_tenant_slug", workspace);
       sessionStorage.setItem("nova_user_role", tenant.role);
       sessionStorage.setItem("nova_user_name", res.data?.user?.name ?? "");
+      sessionStorage.setItem("nova_doctor_department", (tenant as any).department || "General OPD");
 
       localStorage.setItem("nova_tenant_id", tenant.id);
       localStorage.setItem("nova_tenant_slug", workspace);
       localStorage.setItem("nova_user_role", tenant.role);
       localStorage.setItem("nova_user_name", res.data?.user?.name ?? "");
+      localStorage.setItem("nova_doctor_department", (tenant as any).department || "General OPD");
 
       // 4. Hard redirect to target role dashboard
       const dashboard = ROLE_DASHBOARDS[tenant.role] ?? "/nova/branch-admin";

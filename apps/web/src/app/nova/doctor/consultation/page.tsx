@@ -29,7 +29,12 @@ import {
   X,
   Plus,
   Calendar,
+  Eye,
+  ShieldCheck,
+  HeartPulse,
+  RotateCcw,
 } from "lucide-react";
+import { getDepartmentConfig, ALL_DEPARTMENTS, type DepartmentConfig } from "@/lib/department-configs";
 import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
 import { useNovaRole } from "@/components/nova/nova-role-context";
 import { toast } from "sonner";
@@ -91,10 +96,14 @@ function calculateAge(dobString?: string) {
 function ConsultationContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const { role } = useNovaRole();
+  const { role, doctorDepartment, setDoctorDepartment } = useNovaRole();
   const urlVisitId = params.get("visitId") ?? "";
+  const urlDept = params.get("dept");
 
   const [activeVisitId, setActiveVisitId] = useState<string>(urlVisitId);
+  const [activeDeptId, setActiveDeptId] = useState<string>(() => {
+    return urlDept || doctorDepartment || "general_opd";
+  });
 
   // Sync internal state when URL changes externally
   useEffect(() => {
@@ -102,6 +111,31 @@ function ConsultationContent() {
       setActiveVisitId(urlVisitId);
     }
   }, [urlVisitId]);
+
+  useEffect(() => {
+    if (urlDept && urlDept !== activeDeptId) {
+      setActiveDeptId(urlDept);
+    }
+  }, [urlDept]);
+
+  const deptConfig = useMemo(() => getDepartmentConfig(activeDeptId), [activeDeptId]);
+
+  // Structured Specialty Assessment Form State (JSON-configured per department)
+  const [specialtyData, setSpecialtyData] = useState<Record<string, any>>({});
+  const [showGeneralDiagnoses, setShowGeneralDiagnoses] = useState(false);
+
+  // Initialize or update default specialty data whenever active department changes
+  useEffect(() => {
+    setSpecialtyData((prev) => {
+      const next = { ...prev };
+      deptConfig.assessmentFields.forEach((field) => {
+        if (next[field.key] === undefined && field.defaultValue !== undefined) {
+          next[field.key] = field.defaultValue;
+        }
+      });
+      return next;
+    });
+  }, [deptConfig]);
 
   const isDoctor = role === "Doctor";
   const isAdmin =
@@ -164,7 +198,21 @@ function ConsultationContent() {
     if (latestNote) {
       if (latestNote.chiefComplaint) setComplaint(latestNote.chiefComplaint);
       if (latestNote.history) setHpi(latestNote.history);
-      if (latestNote.examination) setOtherExam(latestNote.examination);
+      if (latestNote.examination) {
+        setOtherExam(latestNote.examination);
+        // Extract saved specialty fields if available
+        deptConfig.assessmentFields.forEach((f) => {
+          const regex = new RegExp(`• ${f.label}: (.*)`);
+          const match = latestNote.examination.match(regex);
+          if (match && match[1]) {
+            let val = match[1].trim();
+            if (f.unit && val.endsWith(f.unit)) {
+              val = val.slice(0, -f.unit.length).trim();
+            }
+            setSpecialtyData((prev) => ({ ...prev, [f.key]: val }));
+          }
+        });
+      }
       if (latestNote.assessment) setClinicalAssessment(latestNote.assessment);
       if (latestNote.plan) setPatientAdvice(latestNote.plan);
     } else {
@@ -177,7 +225,7 @@ function ConsultationContent() {
       if (latestDiag.icdCode) setIcd(latestDiag.icdCode);
       if (latestDiag.description) setDiagnosis(latestDiag.description);
     }
-  }, [visit]);
+  }, [visit, deptConfig]);
 
   const addNote = useMutation(trpc.visit.addNote.mutationOptions());
   const addDiagnosis = useMutation(trpc.visit.addDiagnosis.mutationOptions());
@@ -200,7 +248,33 @@ function ConsultationContent() {
     setDiagnosis(preset.name);
   };
 
+  // Helper for Dental FDI Tooth Odontogram toggle
+  const toggleDentalTooth = (toothNum: string) => {
+    const raw = String(specialtyData.affectedTeeth || "");
+    const teethArr = raw
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const exists = teethArr.includes(toothNum);
+    const updated = exists ? teethArr.filter((t) => t !== toothNum) : [...teethArr, toothNum];
+    setSpecialtyData((prev) => ({
+      ...prev,
+      affectedTeeth: updated.join(", "),
+    }));
+  };
+
   // Compile structured clinical note strings
+  const compileSpecialtyString = () => {
+    const lines: string[] = [`[Specialty Assessment: ${deptConfig.name}]`];
+    deptConfig.assessmentFields.forEach((f) => {
+      const val = specialtyData[f.key];
+      if (val !== undefined && val !== "" && val !== null) {
+        lines.push(`• ${f.label}: ${val}${f.unit ? " " + f.unit : ""}`);
+      }
+    });
+    return lines.length > 1 ? lines.join("\n") : "";
+  };
+
   const compileHistoryString = () => {
     const parts: string[] = [];
     if (hpi.trim()) parts.push(hpi.trim());
@@ -219,6 +293,8 @@ function ConsultationContent() {
       `Abdomen: ${abdomen}`,
     ];
     if (otherExam.trim()) parts.push(`Other Exam: ${otherExam.trim()}`);
+    const specStr = compileSpecialtyString();
+    if (specStr) parts.push("\n" + specStr);
     return parts.join("\n");
   };
 
@@ -419,14 +495,36 @@ function ConsultationContent() {
 
   return (
     <PageShell
-      title="Consultation Encounter"
+      title={deptConfig.bannerTitle}
       subtitle={
         patient
-          ? `${patient.nameEn} · ${patient.healthId} · Doctor Examination Room`
-          : "Direct Clinical Examination, SOAP Charting & Diagnostic Orders"
+          ? `${patient.nameEn} · ${patient.healthId} · ${deptConfig.defaultRoom}`
+          : `${deptConfig.name} · Direct Clinical Examination & Orders`
       }
       action={
         <div className="flex items-center gap-2">
+          {/* Department Specialty Switcher */}
+          <div className="flex items-center gap-1.5">
+            <span className={`px-2 py-1 rounded text-xs font-bold border hidden sm:inline-block ${deptConfig.badgeColor}`}>
+              {deptConfig.code}
+            </span>
+            <select
+              value={deptConfig.id}
+              onChange={(e) => {
+                setActiveDeptId(e.target.value);
+                setDoctorDepartment(e.target.value);
+              }}
+              className="text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2.5 py-1.5 text-slate-700 dark:text-slate-200 hover:border-teal-400 focus:outline-none"
+              title="Switch Clinical Specialty Layout"
+            >
+              {ALL_DEPARTMENTS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {activeVisitId && (
             <button
               onClick={handleSaveDraft}
@@ -451,7 +549,7 @@ function ConsultationContent() {
             href="/nova/doctor"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-md transition"
           >
-            <Clock size={13} className="text-slate-500" /> Doctor Queue
+            <Clock size={13} className="text-slate-500" /> Queue
           </Link>
         </div>
       }
@@ -911,6 +1009,291 @@ function ConsultationContent() {
               </div>
             </Card>
 
+            {/* ─── 2.5 SPECIALTY CLINICAL ASSESSMENT (Dynamic by Department JSON Config) ─── */}
+            <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs bg-white dark:bg-slate-900">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs border ${deptConfig.badgeColor}`}>
+                    {deptConfig.code}
+                  </span>
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      {deptConfig.name} Specialty Evaluation
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      Tailored clinical assessment schema & specialty fields
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaults: Record<string, any> = {};
+                      deptConfig.assessmentFields.forEach((f) => {
+                        if (f.defaultValue !== undefined) defaults[f.key] = f.defaultValue;
+                      });
+                      setSpecialtyData(defaults);
+                    }}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-medium flex items-center gap-1"
+                    title="Reset specialty fields"
+                  >
+                    <RotateCcw size={11} /> Reset Defaults
+                  </button>
+                </div>
+              </div>
+
+              {/* SPECIALTY: DENTAL OPERATORY & TOOTH CHART */}
+              {deptConfig.id === "dental" && (
+                <div className="space-y-4 mb-4">
+                  {/* FDI Odontogram Interactive Tooth Chart */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                        Interactive Tooth Odontogram (FDI Two-Digit System)
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Click teeth to toggle affected list
+                      </span>
+                    </div>
+
+                    {/* Upper Arch */}
+                    <div className="mb-2">
+                      <div className="text-[10px] font-semibold text-slate-400 text-center mb-1">
+                        MAXILLARY (UPPER JAW)
+                      </div>
+                      <div className="flex items-center justify-center gap-1 flex-wrap">
+                        {/* Upper Right 18..11 */}
+                        <div className="flex items-center gap-0.5 border-r border-slate-300 dark:border-slate-600 pr-1 mr-1">
+                          {["18", "17", "16", "15", "14", "13", "12", "11"].map((t) => {
+                            const selected = (specialtyData.affectedTeeth || "").includes(t);
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => toggleDentalTooth(t)}
+                                className={`w-7 h-8 rounded text-[10px] font-mono font-bold transition flex flex-col items-center justify-center border cursor-pointer ${
+                                  selected
+                                    ? "bg-cyan-600 text-white border-cyan-600 shadow-2xs"
+                                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400"
+                                }`}
+                                title={`Tooth ${t}`}
+                              >
+                                <span>{t}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Upper Left 21..28 */}
+                        <div className="flex items-center gap-0.5">
+                          {["21", "22", "23", "24", "25", "26", "27", "28"].map((t) => {
+                            const selected = (specialtyData.affectedTeeth || "").includes(t);
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => toggleDentalTooth(t)}
+                                className={`w-7 h-8 rounded text-[10px] font-mono font-bold transition flex flex-col items-center justify-center border cursor-pointer ${
+                                  selected
+                                    ? "bg-cyan-600 text-white border-cyan-600 shadow-2xs"
+                                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400"
+                                }`}
+                                title={`Tooth ${t}`}
+                              >
+                                <span>{t}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lower Arch */}
+                    <div>
+                      <div className="flex items-center justify-center gap-1 flex-wrap">
+                        {/* Lower Right 48..41 */}
+                        <div className="flex items-center gap-0.5 border-r border-slate-300 dark:border-slate-600 pr-1 mr-1">
+                          {["48", "47", "46", "45", "44", "43", "42", "41"].map((t) => {
+                            const selected = (specialtyData.affectedTeeth || "").includes(t);
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => toggleDentalTooth(t)}
+                                className={`w-7 h-8 rounded text-[10px] font-mono font-bold transition flex flex-col items-center justify-center border cursor-pointer ${
+                                  selected
+                                    ? "bg-cyan-600 text-white border-cyan-600 shadow-2xs"
+                                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400"
+                                }`}
+                                title={`Tooth ${t}`}
+                              >
+                                <span>{t}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Lower Left 31..38 */}
+                        <div className="flex items-center gap-0.5">
+                          {["31", "32", "33", "34", "35", "36", "37", "38"].map((t) => {
+                            const selected = (specialtyData.affectedTeeth || "").includes(t);
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => toggleDentalTooth(t)}
+                                className={`w-7 h-8 rounded text-[10px] font-mono font-bold transition flex flex-col items-center justify-center border cursor-pointer ${
+                                  selected
+                                    ? "bg-cyan-600 text-white border-cyan-600 shadow-2xs"
+                                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-cyan-400"
+                                }`}
+                                title={`Tooth ${t}`}
+                              >
+                                <span>{t}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="text-[10px] font-semibold text-slate-400 text-center mt-1">
+                        MANDIBULAR (LOWER JAW)
+                      </div>
+                    </div>
+
+                    <div className="mt-2 text-center text-xs">
+                      <span className="text-slate-500 font-medium">Selected Teeth: </span>
+                      <span className="font-mono font-bold text-cyan-700 dark:text-cyan-300">
+                        {specialtyData.affectedTeeth || "None selected"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SPECIALTY: PEDIATRICS MUAC BADGE GUIDE */}
+              {deptConfig.id === "pediatrics" && specialtyData.muac && (
+                <div className="mb-3 p-2.5 rounded-lg border text-xs flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Nutrition Triage Assessment (MUAC {specialtyData.muac} cm):
+                  </span>
+                  {parseFloat(specialtyData.muac) < 11.5 ? (
+                    <span className="px-2 py-0.5 rounded font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                      🚨 Severe Acute Malnutrition (SAM)
+                    </span>
+                  ) : parseFloat(specialtyData.muac) <= 12.5 ? (
+                    <span className="px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      ⚠️ Moderate Acute Malnutrition (MAM)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      ✓ Normal Nutrition Status
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* SPECIALTY: OB/GYN FETAL HEART RATE BADGE */}
+              {deptConfig.id === "ob_gyn" && specialtyData.fetalHeartRate && (
+                <div className="mb-3 p-2.5 rounded-lg border text-xs flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Fetal Well-being (FHR {specialtyData.fetalHeartRate} bpm):
+                  </span>
+                  {parseInt(specialtyData.fetalHeartRate, 10) >= 120 && parseInt(specialtyData.fetalHeartRate, 10) <= 160 ? (
+                    <span className="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800">
+                      ✓ Normal Baseline (120–160 bpm)
+                    </span>
+                  ) : parseInt(specialtyData.fetalHeartRate, 10) < 120 ? (
+                    <span className="px-2 py-0.5 rounded font-bold bg-rose-100 text-rose-800">
+                      🚨 Fetal Bradycardia (&lt;120 bpm)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-800">
+                      ⚠️ Fetal Tachycardia (&gt;160 bpm)
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* DYNAMIC SCHEMA FIELDS (From Department Config) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {deptConfig.assessmentFields
+                  .filter((f) => !(deptConfig.id === "dental" && f.key === "affectedTeeth"))
+                  .map((field) => (
+                    <div
+                      key={field.key}
+                      className={field.type === "textarea" ? "sm:col-span-2" : ""}
+                    >
+                      <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 flex items-center justify-between mb-1">
+                        <span>{field.label}</span>
+                        {field.category && (
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            {field.category}
+                          </span>
+                        )}
+                      </label>
+
+                      {field.type === "select" && field.options ? (
+                        <select
+                          className={inputCls}
+                          value={specialtyData[field.key] ?? field.defaultValue ?? ""}
+                          onChange={(e) =>
+                            setSpecialtyData((prev) => ({ ...prev, [field.key]: e.target.value }))
+                          }
+                        >
+                          {field.options.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field.type === "number" ? (
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="any"
+                            className={inputCls}
+                            placeholder={field.placeholder}
+                            value={specialtyData[field.key] ?? ""}
+                            onChange={(e) =>
+                              setSpecialtyData((prev) => ({ ...prev, [field.key]: e.target.value }))
+                            }
+                          />
+                          {field.unit && (
+                            <span className="absolute right-3 top-2 text-xs text-slate-400 pointer-events-none">
+                              {field.unit}
+                            </span>
+                          )}
+                        </div>
+                      ) : field.type === "textarea" ? (
+                        <textarea
+                          rows={2}
+                          className={inputCls}
+                          placeholder={field.placeholder}
+                          value={specialtyData[field.key] ?? ""}
+                          onChange={(e) =>
+                            setSpecialtyData((prev) => ({ ...prev, [field.key]: e.target.value }))
+                          }
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder={field.placeholder}
+                          value={specialtyData[field.key] ?? ""}
+                          onChange={(e) =>
+                            setSpecialtyData((prev) => ({ ...prev, [field.key]: e.target.value }))
+                          }
+                        />
+                      )}
+
+                      {field.helpText && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">{field.helpText}</p>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </Card>
+
             {/* 3. ASSESSMENT: Primary Diagnosis & Differential ICD Codes */}
             <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -924,11 +1307,20 @@ function ConsultationContent() {
 
               {/* Quick Common Diagnosis Chips */}
               <div className="mb-3">
-                <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">
-                  Quick Diagnostic Presets:
-                </span>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {showGeneralDiagnoses ? "General Outpatient" : deptConfig.name} Diagnostic Presets:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowGeneralDiagnoses(!showGeneralDiagnoses)}
+                    className="text-[10px] text-teal-700 dark:text-teal-400 font-semibold hover:underline cursor-pointer"
+                  >
+                    {showGeneralDiagnoses ? "← Switch to Specialty Presets" : "Show General Presets →"}
+                  </button>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {COMMON_DIAGNOSES.map((item) => (
+                  {(showGeneralDiagnoses ? COMMON_DIAGNOSES : deptConfig.quickDiagnoses).map((item) => (
                     <button
                       key={item.icd}
                       type="button"
@@ -1042,6 +1434,37 @@ function ConsultationContent() {
                   );
                 })}
               </div>
+
+              {/* Specialty Diagnostic Lab Quick Orders */}
+              {deptConfig.quickLabTests.length > 0 && (
+                <div className="p-3 mb-3 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <FlaskConical size={12} className="text-teal-600" />
+                      {deptConfig.code} Common Diagnostic Investigations:
+                    </span>
+                    <Link
+                      href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                      className="text-[10px] font-semibold text-teal-700 hover:underline"
+                    >
+                      Full Catalog →
+                    </Link>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {deptConfig.quickLabTests.map((t) => (
+                      <Link
+                        key={t.code}
+                        href={`/nova/doctor/lab-order?visitId=${activeVisitId}&testCode=${t.code}`}
+                        className="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:border-teal-400 hover:text-teal-700 flex items-center gap-1 shadow-2xs transition"
+                      >
+                        <Plus size={10} className="text-teal-600" />
+                        <span>{t.name}</span>
+                        <span className="text-[9px] text-slate-400">({t.category})</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                 <div>

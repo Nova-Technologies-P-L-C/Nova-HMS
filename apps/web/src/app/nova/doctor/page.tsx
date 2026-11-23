@@ -23,12 +23,20 @@ import {
   X,
 } from "lucide-react";
 import { useNovaRole } from "@/components/nova/nova-role-context";
+import { getDepartmentConfig, ALL_DEPARTMENTS } from "@/lib/department-configs";
 import { toast } from "sonner";
 
 export default function DoctorDashboard() {
-  const { userName } = useNovaRole();
+  const { userName, doctorDepartment, setDoctorDepartment } = useNovaRole();
   const [filterTab, setFilterTab] = useState<"all" | "results-ready" | "in-lab" | "waiting" | "done">("all");
   const [search, setSearch] = useState("");
+
+  const { data: meDoctor } = useQuery(trpc.doctor.me.queryOptions());
+
+  // Resolve active department config
+  const activeDeptConfig = useMemo(() => {
+    return getDepartmentConfig(doctorDepartment || meDoctor?.department);
+  }, [doctorDepartment, meDoctor?.department]);
 
   const { data: queue = [], refetch: refetchQueue, isFetching: isQueueFetching } = useQuery({
     ...trpc.visit.queue.queryOptions(),
@@ -261,20 +269,41 @@ export default function DoctorDashboard() {
 
       {/* ── 1. UNIFIED PHYSICIAN STATION & METRICS STRIP (Merged, Sleek, Short Words) ── */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 mb-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        {/* Left: Doctor Station Info */}
+        {/* Left: Doctor Station Info & Specialty Department Switcher */}
         <div className="flex items-center gap-3">
           <span className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0">
             <Stethoscope size={16} />
           </span>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-slate-900 dark:text-white text-sm">
-                {myDoctorRecord?.name || "Attending Physician"}
+                {myDoctorRecord?.name || userName || "Attending Physician"}
               </span>
+              <span className="text-slate-300 dark:text-slate-700">•</span>
+              
+              {/* Department Badge & Quick Switcher */}
+              <div className="flex items-center gap-1.5">
+                <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${activeDeptConfig.badgeColor}`}>
+                  {activeDeptConfig.code} — {activeDeptConfig.name}
+                </span>
+                <select
+                  value={activeDeptConfig.id}
+                  onChange={(e) => setDoctorDepartment(e.target.value)}
+                  className="text-[11px] font-medium bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 hover:border-teal-400 focus:outline-none"
+                  title="Switch Specialty Clinical Page Layout"
+                >
+                  {ALL_DEPARTMENTS.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <span className="text-xs text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1">
                 <DoorOpen size={12} className="text-teal-600" />
-                {myDoctorRecord?.roomNumber?.split("—")[0]?.trim() || "Room 104"}
+                {myDoctorRecord?.roomNumber?.split("—")[0]?.trim() || activeDeptConfig.defaultRoom.split("—")[0]?.trim()}
               </span>
             </div>
             <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
@@ -288,6 +317,10 @@ export default function DoctorDashboard() {
                 {myDoctorRecord?.status === "available" ? "● Ready" :
                  myDoctorRecord?.status === "in-consultation" ? "● In Consult" :
                  myDoctorRecord?.status === "on-break" ? "● Break" : "○ Off Duty"}
+              </span>
+              <span>•</span>
+              <span className="text-slate-500 italic text-[10px]">
+                {activeDeptConfig.bannerTitle}
               </span>
             </div>
           </div>
@@ -650,7 +683,7 @@ export default function DoctorDashboard() {
                             {q.status === "done" ? (
                               <div className="flex items-center gap-1">
                                 <Link
-                                  href={`/nova/doctor/consultation?visitId=${q.visitId}`}
+                                  href={`/nova/doctor/consultation?visitId=${q.visitId}&dept=${activeDeptConfig.id}`}
                                   className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
                                 >
                                   Review
@@ -673,7 +706,7 @@ export default function DoctorDashboard() {
                               </span>
                             ) : isResultsReady ? (
                               <Link
-                                href={`/nova/doctor/consultation?visitId=${q.visitId}`}
+                                href={`/nova/doctor/consultation?visitId=${q.visitId}&dept=${activeDeptConfig.id}`}
                                 onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
                                 className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-xs"
                               >
@@ -682,7 +715,7 @@ export default function DoctorDashboard() {
                               </Link>
                             ) : (
                               <Link
-                                href={`/nova/doctor/consultation?visitId=${q.visitId}`}
+                                href={`/nova/doctor/consultation?visitId=${q.visitId}&dept=${activeDeptConfig.id}`}
                                 onClick={() => updateStatus.mutate({ ticketId: q.id, status: "being-seen" })}
                                 className="inline-flex items-center gap-1 px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-bold transition shadow-xs"
                               >

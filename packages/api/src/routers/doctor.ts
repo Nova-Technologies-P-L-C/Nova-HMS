@@ -124,6 +124,29 @@ const DEFAULT_DOCTORS_ROSTER = [
 ];
 
 export const doctorRouter = router({
+  // Get current logged-in doctor profile with department & title
+  me: tenantProcedure.query(async ({ ctx }) => {
+    const userRole = await prisma.userTenantRole.findFirst({
+      where: { userId: ctx.userId, tenantId: ctx.tenantId },
+    });
+
+    const user = await prisma.user.findUnique({
+      where: { id: ctx.userId },
+      select: { id: true, name: true, email: true, image: true },
+    });
+
+    return {
+      userId: ctx.userId,
+      name: user?.name || "Doctor",
+      email: user?.email || "",
+      role: userRole?.role || "Doctor",
+      department: userRole?.department || "General OPD",
+      title: userRole?.title || "",
+      phone: userRole?.phone || "",
+      licenseNumber: userRole?.licenseNumber || "",
+    };
+  }),
+
   // 1. List Doctor Presence Roster for Reception
   listPresence: tenantProcedure.query(async ({ ctx }) => {
     const tenantId = ctx.tenantId;

@@ -62,6 +62,39 @@ const ROLE_COLORS: Record<string, string> = {
   "Ward Manager": "bg-orange-50 text-orange-700 border-orange-200",
 };
 
+export const CLINICAL_DEPARTMENTS = [
+  "General OPD & Internal Medicine",
+  "Pediatrics & Child Health",
+  "OB/GYN & Maternal Health",
+  "Dental Clinic & Oral Surgery",
+  "Ophthalmology / Eye Clinic",
+  "General Surgery & Minor OR",
+  "Emergency & Triage",
+  "Inpatient Ward",
+  "Pharmacy",
+  "Laboratory",
+  "Finance & Billing",
+] as const;
+
+export const DEPT_BADGE_COLORS: Record<string, string> = {
+  "General OPD & Internal Medicine": "bg-teal-50 text-teal-700 border-teal-200",
+  "General OPD": "bg-teal-50 text-teal-700 border-teal-200",
+  "Internal Medicine": "bg-teal-50 text-teal-700 border-teal-200",
+  "Pediatrics & Child Health": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "Pediatrics": "bg-emerald-50 text-emerald-700 border-emerald-200",
+  "OB/GYN & Maternal Health": "bg-pink-50 text-pink-700 border-pink-200",
+  "OB/GYN": "bg-pink-50 text-pink-700 border-pink-200",
+  "Dental Clinic & Oral Surgery": "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "Dental": "bg-cyan-50 text-cyan-700 border-cyan-200",
+  "Ophthalmology / Eye Clinic": "bg-blue-50 text-blue-700 border-blue-200",
+  "Ophthalmology": "bg-blue-50 text-blue-700 border-blue-200",
+  "General Surgery & Minor OR": "bg-purple-50 text-purple-700 border-purple-200",
+  "General Surgery": "bg-purple-50 text-purple-700 border-purple-200",
+  "Surgery": "bg-purple-50 text-purple-700 border-purple-200",
+  "Emergency & Triage": "bg-rose-50 text-rose-700 border-rose-200",
+  "Inpatient Ward": "bg-amber-50 text-amber-700 border-amber-200",
+};
+
 interface ActivityDef {
   key: string;
   name: string;
@@ -190,15 +223,22 @@ export default function StaffAndRoleManagementPage() {
   const [isViewPersonOpen, setIsViewPersonOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
 
+  // Password Reset Modal
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
+  const [targetStaffForPassword, setTargetStaffForPassword] = useState<any>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
   // Add staff form
   const [addForm, setAddForm] = useState({
     name: "",
     email: "",
     role: "Doctor",
-    department: "Internal Medicine",
+    department: "General OPD & Internal Medicine",
     title: "",
     phone: "",
     licenseNumber: "",
+    password: "",
   });
 
   // Edit staff form
@@ -210,6 +250,7 @@ export default function StaffAndRoleManagementPage() {
     title: "",
     phone: "",
     licenseNumber: "",
+    password: "",
     status: "active" as "active" | "suspended" | "inactive",
   });
 
@@ -241,10 +282,11 @@ export default function StaffAndRoleManagementPage() {
           name: "",
           email: "",
           role: "Doctor",
-          department: "Internal Medicine",
+          department: "General OPD & Internal Medicine",
           title: "",
           phone: "",
           licenseNumber: "",
+          password: "",
         });
         showNotification("success", "Staff member successfully added and role assigned.");
       },
@@ -258,6 +300,18 @@ export default function StaffAndRoleManagementPage() {
         qc.invalidateQueries({ queryKey: trpc.tenant.staff.queryKey() });
         setIsEditOpen(false);
         showNotification("success", "Staff profile and role updated successfully.");
+      },
+      onError: (err) => showNotification("error", err.message),
+    })
+  );
+
+  const resetPasswordMutation = useMutation(
+    trpc.tenant.resetStaffPassword.mutationOptions({
+      onSuccess: () => {
+        setIsPasswordResetOpen(false);
+        setNewPasswordInput("");
+        setTargetStaffForPassword(null);
+        showNotification("success", "Password updated successfully. Staff can now log in with the new credentials.");
       },
       onError: (err) => showNotification("error", err.message),
     })
@@ -407,13 +461,22 @@ export default function StaffAndRoleManagementPage() {
       id: staff.id,
       name: staff.name,
       role: staff.role,
-      department: staff.department || "",
+      department: staff.department || "General OPD & Internal Medicine",
       title: staff.title || "",
       phone: staff.phone || "",
       licenseNumber: staff.licenseNumber || "",
+      password: "",
       status: staff.status || "active",
     });
     setIsEditOpen(true);
+  };
+
+  // Open password reset modal
+  const handleOpenPasswordReset = (staff: any) => {
+    setTargetStaffForPassword(staff);
+    setNewPasswordInput("");
+    setShowPassword(false);
+    setIsPasswordResetOpen(true);
   };
 
   // Open view modal
@@ -851,9 +914,14 @@ export default function StaffAndRoleManagementPage() {
 
                         {/* Department & Title */}
                         <td className="px-3 py-3">
-                          <div className="font-medium text-slate-700 flex items-center gap-1">
-                            <Building2 size={11} className="text-slate-400" />
-                            {staff.department || "General"}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                DEPT_BADGE_COLORS[staff.department] ?? "bg-slate-50 text-slate-700 border-slate-200"
+                              }`}
+                            >
+                              {staff.department || "General OPD"}
+                            </span>
                           </div>
                           {staff.title && (
                             <div className="text-[11px] text-slate-500 mt-0.5">{staff.title}</div>
@@ -881,6 +949,13 @@ export default function StaffAndRoleManagementPage() {
                         {/* Actions */}
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleOpenPasswordReset(staff)}
+                              className="px-2 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                              title="Set or reset login password"
+                            >
+                              <Key size={11} /> Password
+                            </button>
                             <button
                               onClick={() => handleOpenView(staff)}
                               className="px-2 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded text-[11px] font-medium"
@@ -1079,14 +1154,18 @@ export default function StaffAndRoleManagementPage() {
                     ))}
                   </select>
                 </FormField>
-                <FormField label="Department / Unit">
-                  <input
-                    type="text"
+                <FormField label="Department / Specialty">
+                  <select
                     value={addForm.department}
                     onChange={(e) => setAddForm((f) => ({ ...f, department: e.target.value }))}
-                    placeholder="e.g. Emergency, Surgery, OPD"
                     className={inputCls}
-                  />
+                  >
+                    {CLINICAL_DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
                 </FormField>
               </div>
 
@@ -1096,10 +1175,22 @@ export default function StaffAndRoleManagementPage() {
                     type="text"
                     value={addForm.title}
                     onChange={(e) => setAddForm((f) => ({ ...f, title: e.target.value }))}
-                    placeholder="e.g. Consultant Surgeon, Triage Nurse"
+                    placeholder="e.g. Consultant Surgeon, Pediatrician"
                     className={inputCls}
                   />
                 </FormField>
+                <FormField label="Initial Password (Min 4 chars)">
+                  <input
+                    type="text"
+                    value={addForm.password}
+                    onChange={(e) => setAddForm((f) => ({ ...f, password: e.target.value }))}
+                    placeholder="e.g. Doctor@123"
+                    className={inputCls}
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <FormField label="Phone Number">
                   <input
                     type="text"
@@ -1109,20 +1200,19 @@ export default function StaffAndRoleManagementPage() {
                     className={inputCls}
                   />
                 </FormField>
+                <FormField label="Medical License / Employee Badge ID">
+                  <input
+                    type="text"
+                    value={addForm.licenseNumber}
+                    onChange={(e) => setAddForm((f) => ({ ...f, licenseNumber: e.target.value }))}
+                    placeholder="e.g. ETH-MD-2984"
+                    className={`${inputCls} font-mono`}
+                  />
+                </FormField>
               </div>
 
-              <FormField label="Medical License / Employee Badge ID">
-                <input
-                  type="text"
-                  value={addForm.licenseNumber}
-                  onChange={(e) => setAddForm((f) => ({ ...f, licenseNumber: e.target.value }))}
-                  placeholder="e.g. ETH-MD-2984"
-                  className={`${inputCls} font-mono`}
-                />
-              </FormField>
-
               <div className="p-3 bg-teal-50 border border-teal-100 rounded text-xs text-teal-800">
-                ℹ️ This staff member will immediately inherit all permissions configured under the <strong>{addForm.role}</strong> toggle matrix.
+                ℹ️ This staff member will immediately inherit all permissions configured under the <strong>{addForm.role}</strong> toggle matrix, and their department configuration will tailor their clinical station.
               </div>
             </div>
 
@@ -1189,13 +1279,18 @@ export default function StaffAndRoleManagementPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <FormField label="Department / Unit">
-                  <input
-                    type="text"
+                <FormField label="Department / Specialty">
+                  <select
                     value={editForm.department}
                     onChange={(e) => setEditForm((f) => ({ ...f, department: e.target.value }))}
                     className={inputCls}
-                  />
+                  >
+                    {CLINICAL_DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
                 </FormField>
 
                 <FormField label="Job Title / Specialty">
@@ -1231,14 +1326,26 @@ export default function StaffAndRoleManagementPage() {
                 </FormField>
               </div>
 
-              <FormField label="Medical License / Employee Badge ID">
-                <input
-                  type="text"
-                  value={editForm.licenseNumber}
-                  onChange={(e) => setEditForm((f) => ({ ...f, licenseNumber: e.target.value }))}
-                  className={`${inputCls} font-mono`}
-                />
-              </FormField>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label="Update Password (Optional)">
+                  <input
+                    type="text"
+                    value={editForm.password}
+                    onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))}
+                    placeholder="Leave blank to keep unchanged"
+                    className={inputCls}
+                  />
+                </FormField>
+
+                <FormField label="Medical License / Badge ID">
+                  <input
+                    type="text"
+                    value={editForm.licenseNumber}
+                    onChange={(e) => setEditForm((f) => ({ ...f, licenseNumber: e.target.value }))}
+                    className={`${inputCls} font-mono`}
+                  />
+                </FormField>
+              </div>
             </div>
 
             <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -1365,6 +1472,82 @@ export default function StaffAndRoleManagementPage() {
               </button>
               <button onClick={() => setIsViewPersonOpen(false)} className={btnSecondary}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: RESET STAFF PASSWORD / CREDENTIALS ─── */}
+      {isPasswordResetOpen && targetStaffForPassword && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Key size={18} className="text-amber-600" />
+                <h3 className="font-semibold text-slate-800 text-sm">Reset Staff Credentials</h3>
+              </div>
+              <button onClick={() => setIsPasswordResetOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg text-xs text-amber-900">
+                <p className="font-semibold">{targetStaffForPassword.name}</p>
+                <p className="text-[11px] text-amber-700 mt-0.5">{targetStaffForPassword.email} • {targetStaffForPassword.role} ({targetStaffForPassword.department || "General"})</p>
+                <p className="text-[11px] text-amber-700 mt-1">Branch Admin can immediately set a new login password for this staff member.</p>
+              </div>
+
+              <FormField label="New Login Password (Min 4 characters)">
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    placeholder="Enter new secure password…"
+                    className={`${inputCls} pr-16`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-2 text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </FormField>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const randomPass = "Pass@" + Math.floor(1000 + Math.random() * 9000);
+                    setNewPasswordInput(randomPass);
+                    setShowPassword(true);
+                  }}
+                  className="text-xs text-teal-700 hover:text-teal-800 font-semibold underline"
+                >
+                  Generate secure temporary password
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button onClick={() => setIsPasswordResetOpen(false)} className={btnSecondary}>
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  resetPasswordMutation.mutate({
+                    staffId: targetStaffForPassword.id,
+                    newPassword: newPasswordInput,
+                  })
+                }
+                disabled={resetPasswordMutation.isPending || newPasswordInput.trim().length < 4}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-semibold shadow-xs transition disabled:opacity-50"
+              >
+                {resetPasswordMutation.isPending ? "Updating…" : "Update Password"}
               </button>
             </div>
           </div>
