@@ -191,6 +191,13 @@ export const wardRouter = router({
         where: { id: input.admissionId, tenantId: ctx.tenantId },
       });
 
+      if (admission.paymentStatus !== "paid") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Patient must pay their bill at the Cashier before being discharged",
+        });
+      }
+
       const dischargedAt = new Date();
       await prisma.admission.update({
         where: { id: input.admissionId },

@@ -1141,7 +1141,21 @@ export default function NurseDashboard() {
                     {dischargeTarget.daysElapsed || 1} day(s)
                   </span>
                 </div>
+                <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-500">Cashier Status:</span>
+                  {dischargeTarget.paymentStatus === "paid" ? (
+                    <span className="font-bold text-emerald-600">✓ Paid (Cleared)</span>
+                  ) : (
+                    <span className="font-bold text-red-600">✕ Unpaid (Pay at Cashier First)</span>
+                  )}
+                </div>
               </div>
+
+              {dischargeTarget.paymentStatus !== "paid" && (
+                <div className="p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-xs text-red-700 dark:text-red-300 font-medium">
+                  Payment required. Patient must pay bill at Cashier before discharge.
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
@@ -1168,10 +1182,14 @@ export default function NurseDashboard() {
                 </button>
                 <button
                   onClick={handleConfirmDischarge}
-                  disabled={dischargeMutation.isPending}
+                  disabled={dischargeMutation.isPending || dischargeTarget.paymentStatus !== "paid"}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  {dischargeMutation.isPending ? "Discharging…" : "Confirm Discharge & Free Bed"}
+                  {dischargeMutation.isPending
+                    ? "Discharging…"
+                    : dischargeTarget.paymentStatus !== "paid"
+                    ? "Unpaid (Must Pay at Cashier First)"
+                    : "Confirm Discharge & Free Bed"}
                 </button>
               </div>
             </div>

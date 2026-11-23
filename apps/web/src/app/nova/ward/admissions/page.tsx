@@ -13,12 +13,10 @@ import {
   Search,
   FileText,
   Pill,
-  Filter,
   Plus,
   RefreshCw,
   LogOut,
   Users,
-  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -144,6 +142,7 @@ function AdmissionsContent() {
   );
 
   const selectedAdmissionToDischarge = admissions.find((a) => a.id === selectedAdmissionId);
+  const isSelectedAdmissionPaid = selectedAdmissionToDischarge?.paymentStatus === "paid";
 
   // Filtered active admissions
   const filteredAdmissions = useMemo(() => {
@@ -219,14 +218,6 @@ function AdmissionsContent() {
             <Users size={14} className="text-teal-600" />
             <span>Nurse Census</span>
           </Link>
-
-          <Link
-            href="/nova/billing/invoices"
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-xs"
-          >
-            <CreditCard size={14} className="text-teal-600" />
-            <span>Cashier</span>
-          </Link>
         </div>
       }
     >
@@ -258,10 +249,10 @@ function AdmissionsContent() {
           </div>
 
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 shadow-xs">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Unpaid at Cashier</p>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Unpaid Stays</p>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">{pendingCount}</span>
-              <span className="text-xs text-slate-400">stays</span>
+              <span className="text-xs text-slate-400">awaiting cashier</span>
             </div>
           </div>
         </div>
@@ -378,122 +369,130 @@ function AdmissionsContent() {
                       <th className="py-3 px-3.5">Patient</th>
                       <th className="py-3 px-3.5">Stay</th>
                       <th className="py-3 px-3.5">Duty Nurse</th>
-                      <th className="py-3 px-3.5">Bill (Cashier)</th>
+                      <th className="py-3 px-3.5">Cashier Bill</th>
                       <th className="py-3 px-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredAdmissions.map((a) => (
-                      <tr key={a.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-850/50 transition-colors">
-                        {/* Bed */}
-                        <td className="py-3 px-3.5 font-medium whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-sm">
-                              #{a.bed.room}
-                            </span>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
-                              {a.bed.ward}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Patient */}
-                        <td className="py-3 px-3.5">
-                          <p className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
-                            {a.patient.nameEn}
-                          </p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            MRN: <span className="font-mono">{a.patient.healthId}</span>
-                          </p>
-                        </td>
-
-                        {/* Stay */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
-                            {a.daysElapsed} {a.daysElapsed === 1 ? "day" : "days"}
-                          </span>
-                          <p className="text-[10px] text-slate-400">
-                            {new Date(a.admittedAt).toLocaleDateString()}
-                          </p>
-                        </td>
-
-                        {/* Duty Nurse */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <select
-                            className="text-[11px] py-1 px-2 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-teal-500 focus:outline-hidden"
-                            value={a.assignedNurseId || ""}
-                            onChange={(e) => {
-                              const nurse = nurses.find((n) => n.id === e.target.value);
-                              if (nurse) {
-                                assignNurseMutation.mutate({
-                                  admissionId: a.id,
-                                  assignedNurseId: nurse.id,
-                                  assignedNurseName: nurse.name,
-                                });
-                              }
-                            }}
-                          >
-                            <option value="">{a.assignedNurseName || "Assign nurse…"}</option>
-                            {nurses.map((n) => (
-                              <option key={n.id} value={n.id}>
-                                {n.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-
-                        {/* Cashier Bill */}
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <p className="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs">
-                            ETB {a.totalAccrued.toLocaleString()}
-                          </p>
-                          <div className="mt-0.5">
-                            {a.paymentStatus === "paid" ? (
-                              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                                ● Paid
+                    {filteredAdmissions.map((a) => {
+                      const isPaid = a.paymentStatus === "paid";
+                      return (
+                        <tr key={a.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-850/50 transition-colors">
+                          {/* Bed */}
+                          <td className="py-3 px-3.5 font-medium whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-sm">
+                                #{a.bed.room}
                               </span>
-                            ) : (
-                              <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                                ● Unpaid
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
+                                {a.bed.ward}
                               </span>
-                            )}
-                          </div>
-                        </td>
+                            </div>
+                          </td>
 
-                        {/* Actions */}
-                        <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Link
-                              href="/nova/nurse/mar"
-                              className="px-2 py-1 text-[11px] font-medium rounded-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
-                              title="Give Medicines (MAR)"
-                            >
-                              <Pill size={11} className="text-teal-600" />
-                              <span>Meds</span>
-                            </Link>
+                          {/* Patient */}
+                          <td className="py-3 px-3.5">
+                            <p className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">
+                              {a.patient.nameEn}
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              MRN: <span className="font-mono">{a.patient.healthId}</span>
+                            </p>
+                          </td>
 
-                            <Link
-                              href="/nova/nurse/notes"
-                              className="px-2 py-1 text-[11px] font-medium rounded-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
-                              title="Nurse Notes"
-                            >
-                              <FileText size={11} className="text-teal-600" />
-                              <span>Notes</span>
-                            </Link>
+                          {/* Stay */}
+                          <td className="py-3 px-3.5 whitespace-nowrap">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                              {a.daysElapsed} {a.daysElapsed === 1 ? "day" : "days"}
+                            </span>
+                            <p className="text-[10px] text-slate-400">
+                              {new Date(a.admittedAt).toLocaleDateString()}
+                            </p>
+                          </td>
 
-                            <button
-                              onClick={() => {
-                                setSelectedAdmissionId(a.id);
-                                setTab("discharge");
+                          {/* Duty Nurse */}
+                          <td className="py-3 px-3.5 whitespace-nowrap">
+                            <select
+                              className="text-[11px] py-1 px-2 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-teal-500 focus:outline-hidden"
+                              value={a.assignedNurseId || ""}
+                              onChange={(e) => {
+                                const nurse = nurses.find((n) => n.id === e.target.value);
+                                if (nurse) {
+                                  assignNurseMutation.mutate({
+                                    admissionId: a.id,
+                                    assignedNurseId: nurse.id,
+                                    assignedNurseName: nurse.name,
+                                  });
+                                }
                               }}
-                              className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 transition-colors"
                             >
-                              Discharge
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              <option value="">{a.assignedNurseName || "Assign nurse…"}</option>
+                              {nurses.map((n) => (
+                                <option key={n.id} value={n.id}>
+                                  {n.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Cashier Bill */}
+                          <td className="py-3 px-3.5 whitespace-nowrap">
+                            <p className="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs">
+                              ETB {a.totalAccrued.toLocaleString()}
+                            </p>
+                            <div className="mt-0.5">
+                              {isPaid ? (
+                                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                  ● Paid
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                                  ● Unpaid
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link
+                                href="/nova/nurse/mar"
+                                className="px-2 py-1 text-[11px] font-medium rounded-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
+                                title="Give Medicines (MAR)"
+                              >
+                                <Pill size={11} className="text-teal-600" />
+                                <span>Meds</span>
+                              </Link>
+
+                              <Link
+                                href="/nova/nurse/notes"
+                                className="px-2 py-1 text-[11px] font-medium rounded-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
+                                title="Nurse Notes"
+                              >
+                                <FileText size={11} className="text-teal-600" />
+                                <span>Notes</span>
+                              </Link>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedAdmissionId(a.id);
+                                  setTab("discharge");
+                                }}
+                                className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                                  isPaid
+                                    ? "bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900"
+                                    : "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 hover:bg-amber-200 border border-amber-300 dark:border-amber-800"
+                                }`}
+                                title={isPaid ? "Proceed to discharge" : "Patient must pay at Cashier before discharge"}
+                              >
+                                {isPaid ? "Discharge" : "Discharge (Unpaid)"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -736,7 +735,7 @@ function AdmissionsContent() {
               Discharge Patient
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Confirm stay, check cashier payment, and release bed.
+              Patient must pay hospital bill at Cashier before discharge can be confirmed.
             </p>
 
             <div className="space-y-3.5">
@@ -749,7 +748,7 @@ function AdmissionsContent() {
                   <option value="">Select admission…</option>
                   {admissions.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.patient.nameEn} ({a.patient.healthId}) — {a.bed.ward} Bed #{a.bed.room} ({a.daysElapsed}d)
+                      {a.patient.nameEn} ({a.patient.healthId}) — {a.bed.ward} Bed #{a.bed.room} ({a.daysElapsed}d) — {a.paymentStatus === "paid" ? "Paid" : "Unpaid"}
                     </option>
                   ))}
                 </select>
@@ -778,24 +777,30 @@ function AdmissionsContent() {
                       </span>
                     </div>
 
-                    {/* Simple Cashier Status Line (No yellow preaching) */}
+                    {/* Cashier Payment Status Check */}
                     <div className="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-500">Cashier Status:</span>
-                      {selectedAdmissionToDischarge.paymentStatus === "paid" ? (
-                        <span className="font-bold text-emerald-600">✓ Paid</span>
+                      <span className="text-slate-500 font-medium">Cashier Status:</span>
+                      {isSelectedAdmissionPaid ? (
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          ✓ Paid (Cleared for discharge)
+                        </span>
                       ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-amber-600">Unpaid at Cashier</span>
-                          <Link
-                            href="/nova/billing/invoices"
-                            className="text-[11px] text-teal-600 underline font-medium"
-                          >
-                            Invoice →
-                          </Link>
-                        </div>
+                        <span className="font-bold text-red-600 dark:text-red-400">
+                          ✕ Unpaid (Payment required first)
+                        </span>
                       )}
                     </div>
                   </div>
+
+                  {/* Warning when bill is not paid */}
+                  {!isSelectedAdmissionPaid && (
+                    <div className="p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-xs text-red-700 dark:text-red-300 font-medium flex items-center gap-2">
+                      <AlertCircle size={15} className="shrink-0 text-red-600" />
+                      <span>
+                        Payment required. The patient must pay the stay bill at the Cashier before the ward nurse can discharge them.
+                      </span>
+                    </div>
+                  )}
 
                   {/* Outcome Select */}
                   <FormField label="Condition / Outcome">
@@ -823,7 +828,7 @@ function AdmissionsContent() {
               <div className="flex gap-2 pt-2">
                 <button
                   className={btnPrimary}
-                  disabled={!selectedAdmissionId || discharge.isPending}
+                  disabled={!selectedAdmissionId || !isSelectedAdmissionPaid || discharge.isPending}
                   onClick={() =>
                     discharge.mutate({
                       admissionId: selectedAdmissionId,
@@ -831,7 +836,11 @@ function AdmissionsContent() {
                     })
                   }
                 >
-                  {discharge.isPending ? "Discharging…" : "Confirm Discharge & Free Bed"}
+                  {discharge.isPending
+                    ? "Discharging…"
+                    : !isSelectedAdmissionPaid
+                    ? "Cannot Discharge (Must Pay at Cashier First)"
+                    : "Confirm Discharge & Free Bed"}
                 </button>
                 <button className={btnSecondary} onClick={() => setTab("active")}>
                   Cancel
