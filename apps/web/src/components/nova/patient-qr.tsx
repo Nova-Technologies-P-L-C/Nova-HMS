@@ -25,7 +25,7 @@ export function createPatientQRPayload(patient: PatientQRData): string {
     dob: patient.dob,
     cbhi: patient.cbhi,
     pin: patient.portalPin,
-    facility: patient.facility || "Debre Markos Referral Hospital",
+    facility: patient.facility || "Nova Medical Center",
     issued: new Date().toISOString().split("T")[0],
   });
 }
@@ -159,8 +159,8 @@ export default function PatientQRCode({
           <div class="card">
             <div class="header">
               <div>
-                <div class="title">Ethiora HMS · DMRH</div>
-                <div class="subtitle">Debre Markos Referral Hospital</div>
+                <div class="title">Nova HMS · DMRH</div>
+                <div class="subtitle">Nova Medical Center</div>
               </div>
 
             </div>
@@ -284,7 +284,7 @@ export function PatientIDCardVisual({
             N
           </div>
           <div>
-            <p className="font-bold text-sm tracking-wide text-white">Ethiora HMS · DMRH</p>
+            <p className="font-bold text-sm tracking-wide text-white">Nova HMS · DMRH</p>
             <p className="text-[11px] text-teal-200">Patient Health ID Card</p>
           </div>
         </div>
@@ -342,7 +342,7 @@ export function PatientIDCardVisual({
 
       {/* Footer bar */}
       <div className="mt-4 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] text-teal-200/70 relative z-10">
-        <span>Debre Markos Referral Hospital</span>
+        <span>Nova Medical Center</span>
         <span>Valid for All OPD & Specialty Care</span>
       </div>
     </div>

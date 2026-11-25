@@ -223,13 +223,13 @@ export default function NovaSidebar() {
           <div
             className="w-8 h-8 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs cursor-pointer"
             onClick={toggleCollapsed}
-            title={isCollapsed ? "Click to expand sidebar" : theme.hospitalName || "Ethiora HMS"}
+            title={isCollapsed ? "Click to expand sidebar" : theme.hospitalName || "Nova Medical Center"}
             style={{
               backgroundColor: theme.primaryColor,
               borderRadius: `${Math.min(theme.radius, 10)}px`,
             }}
           >
-            {theme.logoBadge || "E"}
+            {theme.logoBadge || "N"}
           </div>
 
           {!isCollapsed && (
@@ -237,9 +237,9 @@ export default function NovaSidebar() {
               className={`font-semibold tracking-wide truncate text-sm transition-opacity duration-200 ${
                 isWhiteSidebar ? "text-slate-900" : "text-white"
               }`}
-              title={theme.hospitalName || "Ethiora HMS"}
+              title={theme.hospitalName || "Nova Medical Center"}
             >
-              {theme.hospitalName || "Ethiora HMS"}
+              {theme.hospitalName || "Nova Medical Center"}
             </span>
           )}
         </div>

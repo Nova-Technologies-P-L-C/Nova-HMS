@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Check,
   Sparkles,
+  Building2,
 } from "lucide-react";
 import { useNovaRole } from "./nova-role-context";
 import { useNovaTheme } from "./nova-theme-context";
@@ -218,10 +219,11 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
             {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
 
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center">
-            <span className="text-slate-400 dark:text-slate-500">Ethiora HMS</span>
-            <span className="mx-1.5 text-slate-300 dark:text-slate-600">/</span>
-            <span className="text-slate-700 dark:text-slate-200 font-medium">{theme.hospitalName || hospitalName}</span>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/70 border border-teal-200 dark:border-teal-800/80 shadow-2xs">
+            <Building2 size={15} className="text-teal-600 dark:text-teal-400 shrink-0" />
+            <span className="text-xs sm:text-sm font-bold text-teal-950 dark:text-teal-100 truncate max-w-[220px] sm:max-w-xs">
+              {hospitalName || theme.hospitalName || "Nova Medical Center"}
+            </span>
           </div>
         </div>
 

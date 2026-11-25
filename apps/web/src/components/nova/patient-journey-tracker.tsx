@@ -470,7 +470,7 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
                   </h3>
                   <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-1">
                     {t(
-                      "Thank you for visiting Debre Markos Hospital. Your records and prescriptions have been stored in your digital history.",
+                      "Thank you for visiting Nova Medical Center. Your records and prescriptions have been stored in your digital history.",
                       "ስለጎበኙን እናመሰግናለን። የህክምና ታሪክዎ እና የታዘዙልዎት መድኃኒቶች በዲጂታል መዝገብዎ ተቀምጠዋል።"
                     )}
                   </p>

@@ -597,7 +597,7 @@ export default function AppearanceCustomizerPage() {
                     value={draft.hospitalName}
                     onChange={(e) => handleIdentityChange("hospitalName", e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="e.g. Debre Markos Comprehensive Referral Hospital"
+                    placeholder="e.g. Nova Medical Center"
                   />
                 </div>
                 <div className="space-y-1">
@@ -649,7 +649,7 @@ export default function AppearanceCustomizerPage() {
                     <span className="text-slate-400 font-medium">Ethiora</span>
                     <span className="text-slate-300">/</span>
                     <span className="font-bold text-slate-800 dark:text-slate-100 truncate">
-                      {draft.hospitalName || "Ethiora HMS"}
+                      {draft.hospitalName || "Nova HMS"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

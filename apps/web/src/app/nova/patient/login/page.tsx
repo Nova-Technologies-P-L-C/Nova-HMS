@@ -95,8 +95,8 @@ export default function PatientLoginPage() {
             E
           </div>
           <div>
-            <span className="font-extrabold text-sm text-white block leading-none">Ethiora HMS</span>
-            <span className="text-[10px] text-teal-300 font-medium">Debre Markos Referral Hospital</span>
+            <span className="font-extrabold text-sm text-white block leading-none">Nova HMS</span>
+            <span className="text-[10px] text-teal-300 font-medium">Nova Medical Center</span>
           </div>
         </div>
 
@@ -327,7 +327,7 @@ export default function PatientLoginPage() {
 
       {/* Footer */}
       <div className="w-full max-w-md mx-auto text-center text-[11px] text-slate-500 py-2">
-        <span>Ethiora HMS · Secure Patient Health ID &amp; Portal Authentication · Debre Markos</span>
+        <span>Nova HMS · Secure Patient Health ID &amp; Portal Authentication · Nova Medical Center</span>
       </div>
     </div>
   );

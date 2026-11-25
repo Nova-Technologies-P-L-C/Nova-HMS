@@ -21,7 +21,7 @@ export interface EmailResult {
 export async function sendBrevoEmail(payload: SendEmailPayload): Promise<EmailResult> {
   const apiKey = env.BREVO_API_KEY;
   const senderEmail = env.BREVO_SENDER_EMAIL || "notifications@dmh-hospital.org";
-  const senderName = env.BREVO_SENDER_NAME || "Debre Markos Hospital";
+  const senderName = env.BREVO_SENDER_NAME || "Nova Medical Center";
 
   // Development / Test fallback: if API key is not yet configured or pending approval
   if (!apiKey || apiKey.trim() === "" || apiKey === "your_brevo_api_key_here") {
@@ -82,7 +82,7 @@ export async function sendAppointmentConfirmationEmail(params: {
   time: string;
   hospitalName?: string;
 }): Promise<EmailResult> {
-  const hospital = params.hospitalName || env.BREVO_SENDER_NAME || "Debre Markos Comprehensive Specialized Hospital";
+  const hospital = params.hospitalName || env.BREVO_SENDER_NAME || "Nova Medical Center";
 
   const html = `
     <!DOCTYPE html>
@@ -180,7 +180,7 @@ export async function sendAppointmentStatusEmail(params: {
   status: string;
   hospitalName?: string;
 }): Promise<EmailResult> {
-  const hospital = params.hospitalName || env.BREVO_SENDER_NAME || "Debre Markos Comprehensive Specialized Hospital";
+  const hospital = params.hospitalName || env.BREVO_SENDER_NAME || "Nova Medical Center";
   const isCancelled = params.status === "cancelled";
 
   const statusLabel = isCancelled ? "Cancelled" : params.status;

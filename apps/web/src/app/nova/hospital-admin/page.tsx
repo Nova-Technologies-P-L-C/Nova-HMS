@@ -14,7 +14,7 @@ export default function HospitalAdminDashboard() {
   const occupancyPct = stats ? Math.round((stats.occupiedBeds / Math.max(stats.beds, 1)) * 100) : 0;
 
   return (
-    <PageShell title="Hospital Dashboard" subtitle="Debre Markos Referral Hospital">
+    <PageShell title="Hospital Dashboard" subtitle="Nova Medical Center">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <KpiCard label="Patients today" value={stats?.todayVisits ?? "—"} sub="OPD registrations" accent />
         <KpiCard label="Total patients" value={stats?.patients ?? "—"} />

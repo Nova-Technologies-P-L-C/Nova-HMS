@@ -7,13 +7,13 @@ const adapter = new PrismaLibSql({ url: DB_PATH });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Seeding Ethiora HMS database...");
+  console.log("Seeding Nova HMS database...");
 
   const tenant = await prisma.tenant.upsert({
     where: { slug: "dmrh" },
     update: {},
     create: {
-      name: "Debre Markos Referral Hospital",
+      name: "Nova Medical Center",
       slug: "dmrh",
       region: "Amhara",
       facilityType: "referral",
@@ -560,8 +560,8 @@ async function main() {
 
   // Referrals
   const refData = [
-    { id: "ref-001", visitId: "visit-p3", patientId: "pat-p3", fromFacility: "Debre Markos Referral Hospital", toFacility: "Tikur Anbessa Specialized Hospital", reason: "Cardiac evaluation", clinicalSummary: "Patient presents with chest pain and shortness of breath. ECG shows ST changes. Requires specialist cardiac evaluation and possible intervention.", urgency: "urgent", type: "out", status: "in-transit", createdBy: "u-tigist" },
-    { id: "ref-002", visitId: "visit-p4", patientId: "pat-p4", fromFacility: "Motta Primary Hospital", toFacility: "Debre Markos Referral Hospital", reason: "High-risk obstetric case", clinicalSummary: "Primigravida at 38 weeks with pre-eclampsia. BP 160/110. Requires obstetric specialist care and possible emergency delivery.", urgency: "urgent", type: "in", status: "arrived", createdBy: "u-solomon" },
+    { id: "ref-001", visitId: "visit-p3", patientId: "pat-p3", fromFacility: "Nova Medical Center", toFacility: "Tikur Anbessa Specialized Hospital", reason: "Cardiac evaluation", clinicalSummary: "Patient presents with chest pain and shortness of breath. ECG shows ST changes. Requires specialist cardiac evaluation and possible intervention.", urgency: "urgent", type: "out", status: "in-transit", createdBy: "u-tigist" },
+    { id: "ref-002", visitId: "visit-p4", patientId: "pat-p4", fromFacility: "Motta Primary Hospital", toFacility: "Nova Medical Center", reason: "High-risk obstetric case", clinicalSummary: "Primigravida at 38 weeks with pre-eclampsia. BP 160/110. Requires obstetric specialist care and possible emergency delivery.", urgency: "urgent", type: "in", status: "arrived", createdBy: "u-solomon" },
   ];
   for (const r of refData) {
     await prisma.referral.upsert({ where: { id: r.id }, update: {}, create: { ...r, tenantId: tenant.id } });

@@ -187,7 +187,7 @@ export default function QRScanner({ onScan, className = "", autoStart = true }: 
       name: p.name,
       dob: p.dob,
       cbhi: p.cbhi,
-      facility: "Debre Markos Referral Hospital",
+      facility: "Nova Medical Center",
     });
     handleSuccessfulScan(payload);
   };

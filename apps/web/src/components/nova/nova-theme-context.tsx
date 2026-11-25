@@ -156,8 +156,8 @@ export const DEFAULT_THEME: NovaThemeConfig = {
   mode: "system",
   density: "standard",
   radius: 8,
-  hospitalName: "Debre Markos Comprehensive Referral Hospital",
-  logoBadge: "DM",
+  hospitalName: "Nova Medical Center",
+  logoBadge: "NMC",
 };
 
 interface NovaThemeContextValue {

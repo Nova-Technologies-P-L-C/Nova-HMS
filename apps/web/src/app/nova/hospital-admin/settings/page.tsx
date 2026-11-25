@@ -121,7 +121,7 @@ export default function HospitalSettingsPage() {
           <h3 className="font-semibold text-slate-800 mb-4">Branding</h3>
           <div className="space-y-3">
             <FormField label="Hospital name">
-              <input defaultValue="Debre Markos Referral Hospital" className={inputCls} />
+              <input defaultValue="Nova Medical Center" className={inputCls} />
             </FormField>
             <FormField label="Short name / slug">
               <input defaultValue="debremarkos" className={inputCls} />

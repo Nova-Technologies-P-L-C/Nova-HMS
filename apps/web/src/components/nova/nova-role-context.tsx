@@ -23,7 +23,7 @@ const RoleContext = createContext<RoleContextValue>({
   setLang: () => {},
   userName: "",
   userInitials: "",
-  hospitalName: "Ethiora HMS",
+  hospitalName: "Nova Medical Center",
 });
 
 export function NovaRoleProvider({ children }: { children: React.ReactNode }) {
@@ -31,7 +31,7 @@ export function NovaRoleProvider({ children }: { children: React.ReactNode }) {
   const [doctorDepartment, setDoctorDepartmentState] = useState<string>("General OPD");
   const [lang, setLang] = useState<"en" | "am">("en");
   const [userName, setUserName] = useState("");
-  const [hospitalName, setHospitalName] = useState("Ethiora HMS");
+  const [hospitalName, setHospitalName] = useState("Nova Medical Center");
 
   // Load from sessionStorage on mount (per-tab isolated, with localStorage fallback for new tabs)
   useEffect(() => {
@@ -56,7 +56,7 @@ export function NovaRoleProvider({ children }: { children: React.ReactNode }) {
     if (storedDept) setDoctorDepartmentState(storedDept);
     if (storedSlug) {
       const names: Record<string, string> = {
-        dmrh: "Debre Markos Referral Hospital",
+        dmrh: "Nova Medical Center",
       };
       setHospitalName(names[storedSlug] ?? storedSlug.toUpperCase());
     }

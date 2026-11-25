@@ -40,7 +40,7 @@ export default function OnboardingPage() {
           {step === 0 && (
             <div className="space-y-4">
               <h2 className="font-semibold text-slate-800 mb-4">Hospital details</h2>
-              <div><label className="block text-xs text-slate-500 mb-1">Hospital name</label><input defaultValue="Debre Markos Referral Hospital" className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" /></div>
+              <div><label className="block text-xs text-slate-500 mb-1">Hospital name</label><input defaultValue="Nova Medical Center" className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" /></div>
               <div><label className="block text-xs text-slate-500 mb-1">Workspace slug</label><input defaultValue="debremarkos" className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" /></div>
               <div><label className="block text-xs text-slate-500 mb-1">Region</label>
                 <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400 bg-white"><option>Amhara</option><option>Oromia</option></select>
@@ -96,7 +96,7 @@ export default function OnboardingPage() {
             <div className="text-center py-6">
               <CheckCircle size={48} className="text-teal-500 mx-auto mb-4" />
               <h2 className="font-bold text-slate-800 text-lg mb-2">Workspace ready!</h2>
-              <p className="text-sm text-slate-500 mb-6">Debre Markos Referral Hospital has been set up on Ethiora HMS. Invite emails have been sent to your staff.</p>
+              <p className="text-sm text-slate-500 mb-6">Nova Medical Center has been set up on Nova HMS. Invite emails have been sent to your staff.</p>
               <button onClick={() => router.push("/nova/hospital-admin")} className="px-6 py-2.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors font-medium">
                 Open dashboard →
               </button>

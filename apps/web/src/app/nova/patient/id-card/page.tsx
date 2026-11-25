@@ -17,8 +17,8 @@ export default function IDCardPage() {
 
   const handleShare = async () => {
     const shareData = {
-      title: `Ethiora HMS Health ID — ${PATIENT.name}`,
-      text: `Patient Health ID: ${PATIENT.healthId} (${PATIENT.name}) at Debre Markos Referral Hospital`,
+      title: `Nova HMS Health ID — ${PATIENT.name}`,
+      text: `Patient Health ID: ${PATIENT.healthId} (${PATIENT.name}) at Nova Medical Center`,
       url: window.location.href,
     };
 
@@ -29,7 +29,7 @@ export default function IDCardPage() {
         // User cancelled share
       }
     } else {
-      navigator.clipboard.writeText(`${PATIENT.healthId} — ${PATIENT.name} (Ethiora HMS)`);
+      navigator.clipboard.writeText(`${PATIENT.healthId} — ${PATIENT.name} (Nova HMS)`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -63,8 +63,8 @@ export default function IDCardPage() {
               E
             </div>
             <div>
-              <p className="font-bold text-sm text-white">Ethiora HMS</p>
-              <p className="text-[11px] text-teal-200">Debre Markos Referral Hospital</p>
+              <p className="font-bold text-sm text-white">Nova HMS</p>
+              <p className="text-[11px] text-teal-200">Nova Medical Center</p>
             </div>
           </div>
           {PATIENT.cbhi && (
@@ -111,7 +111,7 @@ export default function IDCardPage() {
               {t("Scan at hospital kiosk or doctor desk", "በሆስፒታሉ ኪዮስክ ወይም በዶክተሩ ጠረጴዛ ይቃኙ")}
             </p>
             <p className="font-mono text-xs font-bold text-white tracking-wider">{PATIENT.healthId}</p>
-            <p className="text-[11px] text-slate-300 mt-1">{PATIENT.kebele} · Debre Markos</p>
+            <p className="text-[11px] text-slate-300 mt-1">{PATIENT.kebele} · Nova Medical Center</p>
           </div>
         </div>
       </div>
