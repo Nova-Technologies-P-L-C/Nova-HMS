@@ -303,7 +303,7 @@ export default function NotificationPopover() {
 
       {/* Popover Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
+        <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-13 sm:top-auto sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-1rem)] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
           {/* Popover Header */}
           <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/40">
             <div className="flex items-center gap-2">

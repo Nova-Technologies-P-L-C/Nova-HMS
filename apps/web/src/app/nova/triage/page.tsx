@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { trpc, queryClient } from "@/utils/trpc";
 import { PageShell } from "@/components/nova/nova-ui";
+import { getDepartmentConfig, ALL_DEPARTMENTS } from "@/lib/department-configs";
 import {
   Activity,
   ArrowLeft,
@@ -69,7 +70,8 @@ export default function TriageStationPage() {
   const [acuity, setAcuity] = useState<"routine" | "priority" | "emergency">("routine");
   const [chiefComplaint, setChiefComplaint] = useState("");
   const [triageNote, setTriageNote] = useState("");
-  const [targetDepartment, setTargetDepartment] = useState("General OPD");
+  const [targetDepartment, setTargetDepartment] = useState("General OPD & Internal Medicine");
+  const [selectedDoctor, setSelectedDoctor] = useState<{ id: string; name: string } | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
 
   // Live Queue Query
@@ -77,6 +79,14 @@ export default function TriageStationPage() {
     ...trpc.visit.queue.queryOptions(),
     refetchInterval: 10_000,
   });
+
+  // Live Doctor Roster Query (shown directly inside the assign dropdown)
+  const { data: presenceData } = useQuery({
+    ...trpc.doctor.listPresence.queryOptions(),
+    refetchInterval: 15_000,
+  });
+
+  const allRosterDoctors = presenceData?.roster || [];
 
   // Filtered Queue
   const filteredQueue = useMemo(() => {
@@ -125,6 +135,20 @@ export default function TriageStationPage() {
     setAcuity(item.status === "urgent" ? "emergency" : "routine");
     setChiefComplaint("");
     setTriageNote("");
+    if (item.department && item.department !== "OPD") {
+      setTargetDepartment(
+        item.department.toLowerCase().includes("emerg")
+          ? "Emergency & Trauma"
+          : getDepartmentConfig(item.department).name
+      );
+    } else {
+      setTargetDepartment("General OPD & Internal Medicine");
+    }
+    setSelectedDoctor(
+      item.assignedDoctorId && item.assignedDoctorName
+        ? { id: item.assignedDoctorId, name: item.assignedDoctorName }
+        : null
+    );
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -151,12 +175,19 @@ export default function TriageStationPage() {
 
       await updateTicketStatus.mutateAsync({
         ticketId: activeItem.id,
-        status: (acuity === "emergency" || acuity === "priority" ? "urgent" : "being-seen") as "urgent" | "being-seen",
+        status: (acuity === "emergency" || acuity === "priority" ? "urgent" : "waiting") as "urgent" | "waiting",
+        department: targetDepartment,
+        assignedDoctorId: selectedDoctor?.id ?? null,
+        assignedDoctorName: selectedDoctor?.name ?? null,
       });
+
+      queryClient.invalidateQueries({ queryKey: trpc.doctor.listPresence.queryKey() });
 
       const activePatient = getPatientInfo(activeItem);
       setSuccessMessage(
-        `Patient ${activePatient.nameEn} (#${activeItem.ticketNumber}) triaged and routed to ${targetDepartment}.`
+        selectedDoctor
+          ? `${activePatient.nameEn} (#${activeItem.ticketNumber}) assigned to ${selectedDoctor.name} (${targetDepartment}).`
+          : `${activePatient.nameEn} (#${activeItem.ticketNumber}) routed to ${targetDepartment} (Next available doctor).`
       );
       setTimeout(() => setSuccessMessage(""), 5000);
 
@@ -521,32 +552,74 @@ export default function TriageStationPage() {
                 />
               </div>
 
-              {/* Destination Routing (5 cols) */}
-              <div className="lg:col-span-5 space-y-3">
+              {/* Single Unified Clinic & Doctor Assignment Dropdown (5 cols) */}
+              <div className="lg:col-span-5 space-y-2.5">
                 <div>
                   <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                    4. Route to Department / Doctor
+                    4. Route to Clinic / Doctor
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Direct patient to the appropriate outpatient service clinic.
+                    Pick a clinic queue or a specific doctor.
                   </p>
                 </div>
 
-                <div className="pt-1">
+                <div>
                   <select
-                    value={targetDepartment}
-                    onChange={(e) => setTargetDepartment(e.target.value)}
+                    value={
+                      selectedDoctor
+                        ? `doc::${targetDepartment}::${selectedDoctor.id}`
+                        : `dept::${targetDepartment}`
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val.startsWith("dept::")) {
+                        setTargetDepartment(val.slice(6));
+                        setSelectedDoctor(null);
+                      } else if (val.startsWith("doc::")) {
+                        const [, deptName, docId] = val.split("::");
+                        const found = allRosterDoctors.find((d: any) => (d.userId || d.id) === docId);
+                        if (deptName) setTargetDepartment(deptName);
+                        if (found && docId) {
+                          setSelectedDoctor({ id: docId, name: found.name });
+                        }
+                      }
+                    }}
                     className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:border-teal-500 font-semibold"
                   >
-                    <option value="General OPD">General OPD (Next Available Physician)</option>
-                    <option value="Internal Medicine">Internal Medicine Specialist</option>
-                    <option value="Pediatrics Clinic">Pediatrics & Child Health</option>
-                    <option value="Maternal & Child Health (MCH)">Maternal & Child Health (MCH)</option>
-                    <option value="Emergency & Trauma">Emergency & Resuscitation Bay</option>
+                    {ALL_DEPARTMENTS.map((dept) => {
+                      const deptDocs = allRosterDoctors.filter(
+                        (d: any) => getDepartmentConfig(d.department).id === dept.id
+                      );
+                      return (
+                        <optgroup key={dept.id} label={`── ${dept.name} ──`}>
+                          <option value={`dept::${dept.name}`}>
+                            {`${dept.shortLabel}  |  Any Available Doctor`}
+                          </option>
+                          {deptDocs.map((doc: any) => {
+                            const docId = doc.userId || doc.id;
+                            const statusWord =
+                              doc.status === "available"
+                                ? "Ready"
+                                : doc.status === "in-consultation"
+                                ? "In Consult"
+                                : doc.status === "on-break"
+                                ? "On Break"
+                                : "Off Duty";
+                            return (
+                              <option key={docId} value={`doc::${dept.name}::${docId}`}>
+                                {`${doc.name}  |  ${statusWord}  |  ${doc.waitingCount} waiting`}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      );
+                    })}
+                    <optgroup label="── Emergency ──">
+                      <option value="dept::Emergency & Trauma">
+                        Emergency  |  Resuscitation Bay
+                      </option>
+                    </optgroup>
                   </select>
-                  <p className="text-[11px] text-slate-400 mt-2">
-                    Patient will immediately be added to the queue of the selected department.
-                  </p>
                 </div>
               </div>
             </div>
@@ -635,9 +708,11 @@ export default function TriageStationPage() {
           </div>
 
           <div className="pl-4 sm:pl-6 flex items-center gap-2 hidden lg:flex">
-            <Clock size={13} className="text-amber-500" />
-            <span className="text-slate-500 font-medium">Avg:</span>
-            <span className="font-bold text-slate-700 dark:text-slate-200">3.2 min</span>
+            <Users size={13} className="text-emerald-600" />
+            <span className="text-slate-500 font-medium">Doctors Ready:</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">
+              {presenceData?.summary?.availableCount ?? "—"}
+            </span>
           </div>
         </div>
 

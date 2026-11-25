@@ -677,7 +677,7 @@ export default function ReportsPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Pharmacy Stock</span>
                     <span className="text-lg font-black text-teal-700 dark:text-teal-300 block font-mono">

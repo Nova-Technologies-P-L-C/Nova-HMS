@@ -560,8 +560,8 @@ export default function NovaHmisDhis2Tab() {
           MODAL: RAW DHIS2 dataValueSets PAYLOAD INSPECTOR
          ───────────────────────────────────────────────────────────── */}
       {showPayloadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl flex flex-col max-h-[90dvh] overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileCode size={18} className="text-emerald-600" />
@@ -619,8 +619,8 @@ export default function NovaHmisDhis2Tab() {
           MODAL: DIRECT TRANSMISSION / PUSH TO DHIS2 ENDPOINT
          ───────────────────────────────────────────────────────────── */}
       {showSyncModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto flex flex-col animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-slate-200 bg-indigo-50/60 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Send size={18} className="text-indigo-600" />

@@ -816,7 +816,7 @@ export default function InvoicesPage() {
               </div>
 
               {/* Printable Invoice Paper Frame */}
-              <div className="p-6 sm:p-8 space-y-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 max-h-[75vh] overflow-y-auto">
+              <div className="p-4 sm:p-8 space-y-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 max-h-[75dvh] overflow-y-auto">
                 {/* Clinic Header */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between pb-5 border-b-2 border-teal-600 gap-4">
                   <div>
@@ -891,8 +891,8 @@ export default function InvoicesPage() {
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                     Itemized Services &amp; Tariffs
                   </h4>
-                  <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                    <table className="w-full text-xs">
+                  <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-x-auto">
+                    <table className="w-full min-w-[460px] text-xs">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-500 font-bold text-[11px]">
                           <th className="py-2.5 px-3 text-center w-10">#</th>
@@ -942,7 +942,7 @@ export default function InvoicesPage() {
                 </div>
 
                 {/* Official Stamp & Sign Area */}
-                <div className="pt-4 border-t border-dashed border-slate-200 dark:border-slate-700 grid grid-cols-2 gap-4 items-center">
+                <div className="pt-4 border-t border-dashed border-slate-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                   <div className="text-center text-xs text-slate-500">
                     <div className="border-b border-slate-400 h-10 mb-1 w-44 mx-auto" />
                     <span>Authorized Cashier Signature</span>

@@ -17,6 +17,7 @@ import {
   Lock,
   Mail,
   Building2,
+  Crown,
 } from "lucide-react";
 
 export interface DoctorSpecialty {
@@ -89,7 +90,8 @@ const ALL_ROLES: QuickRole[] = [
   { id: "lab", title: "Laboratory", email: "bereket@dmrh.gov.et", icon: FlaskConical },
   { id: "pharmacy", title: "Pharmacy", email: "selam@dmrh.gov.et", icon: Pill },
   { id: "referral", title: "Referral", email: "solomon@dmrh.gov.et", icon: Share2 },
-  { id: "admin", title: "Admin", email: "admin@dmrh.gov.et", icon: ShieldCheck },
+  { id: "branch_admin", title: "Branch Admin", email: "admin@dmrh.gov.et", icon: Building2 },
+  { id: "owner", title: "Owner", email: "owner@dmrh.gov.et", icon: Crown },
 ];
 
 const ROLE_DASHBOARDS: Record<string, string> = {
@@ -202,7 +204,7 @@ export default function NovaLoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-12 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans">
+    <div className="min-h-[100dvh] w-full grid grid-cols-1 lg:grid-cols-12 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans">
       
       {/* ─── LEFT PANEL: FULL-HEIGHT HEALTHCARE HERO ─────────────────── */}
       <div className="hidden lg:flex lg:col-span-5 xl:col-span-5 bg-gradient-to-br from-teal-800 via-teal-900 to-slate-900 text-white p-8 xl:p-14 flex-col justify-between relative overflow-hidden">
@@ -212,12 +214,12 @@ export default function NovaLoginPage() {
 
         {/* Top Brand */}
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-md">
-            <HeartPulse size={24} className="text-teal-200" />
+          <div className="w-11 h-11 rounded-2xl bg-white p-1 flex items-center justify-center border border-white/30 shadow-md overflow-hidden shrink-0">
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <span className="font-extrabold tracking-tight text-xl block leading-tight">Nova HMS</span>
-            <span className="text-xs text-teal-200 font-medium tracking-wide">Hospital Care System</span>
+            <span className="font-extrabold tracking-tight text-xl block leading-tight">Ethiora HMS</span>
+            <span className="text-xs text-teal-200 font-medium tracking-wide">Ethiora Medical System</span>
           </div>
         </div>
 
@@ -242,24 +244,24 @@ export default function NovaLoginPage() {
         <div className="relative z-10 pt-6 border-t border-white/20 flex items-center justify-between">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white font-bold text-xs shadow-sm">
             <Building2 size={14} className="text-teal-200" />
-            <span>Nova Medical Center</span>
+            <span>Ethiora Medical System</span>
           </div>
           <span className="font-mono text-xs text-teal-200 font-medium">v2.4</span>
         </div>
       </div>
 
       {/* ─── RIGHT PANEL: EXPANSIVE & INTUITIVE LOGIN WORKSPACE ────────── */}
-      <div className="lg:col-span-7 xl:col-span-7 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-14 xl:p-20 overflow-y-auto">
+      <div className="lg:col-span-7 xl:col-span-7 flex flex-col justify-center items-center p-4 sm:p-10 lg:p-14 xl:p-20 overflow-y-auto">
         <div className="w-full max-w-xl space-y-6">
           
           {/* Mobile Top Header (only on small screens) */}
           <div className="lg:hidden flex items-center gap-2.5 pb-2 border-b border-slate-200 dark:border-slate-800">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shrink-0 shadow-sm">
-              <Building2 size={20} />
+            <div className="w-10 h-10 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <span className="font-bold text-base text-slate-900 dark:text-white block leading-tight">Nova Medical Center</span>
-              <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">Nova HMS Portal</span>
+              <span className="font-bold text-base text-slate-900 dark:text-white block leading-tight">Ethiora Medical System</span>
+              <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">Ethiora HMS Portal</span>
             </div>
           </div>
 
@@ -267,7 +269,7 @@ export default function NovaLoginPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 dark:bg-teal-950/80 border border-teal-200 dark:border-teal-800 text-teal-900 dark:text-teal-100 text-xs font-extrabold shadow-xs">
               <Building2 size={15} className="text-teal-600 dark:text-teal-400" />
-              <span>Nova Medical Center</span>
+              <span>Ethiora Medical System</span>
             </div>
             <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Sign In
@@ -318,7 +320,7 @@ export default function NovaLoginPage() {
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5 uppercase tracking-wide">
                   Clinical Department:
                 </span>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5">
                   {DOCTOR_SPECIALTIES.map((spec) => {
                     const isSpecActive = activeSpecialty.id === spec.id;
                     return (
@@ -429,7 +431,7 @@ export default function NovaLoginPage() {
                   <span>Signing in…</span>
                 </>
               ) : (
-                <span>Sign In to Nova HMS</span>
+                <span>Sign In to Ethiora HMS</span>
               )}
             </button>
           </form>

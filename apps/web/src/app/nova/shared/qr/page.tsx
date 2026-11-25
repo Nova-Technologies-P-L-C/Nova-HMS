@@ -180,7 +180,7 @@ export default function QRPage() {
               <ShieldCheck size={16} className="text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold block">Fully Scannable Worldwide</span>
-                Point any smartphone camera, barcode scanner, or the Nova HMS scanner at this QR code to verify this patient instantly.
+                Point any smartphone camera, barcode scanner, or the Ethiora HMS scanner at this QR code to verify this patient instantly.
               </div>
             </div>
           </div>
@@ -208,7 +208,7 @@ export default function QRPage() {
                         Patient Verified & Found
                       </h3>
                       <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                        Live match in Nova Medical Center Master Registry
+                        Live match in Ethiora Medical System Master Registry
                       </p>
                     </div>
                   </div>
@@ -218,11 +218,11 @@ export default function QRPage() {
                 </div>
 
                 {/* Patient Profile Snapshot */}
-                <div className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 mb-5">
+                <div className="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 mb-5">
                   <div className="w-14 h-14 rounded-2xl bg-teal-600 text-white font-black text-xl flex items-center justify-center shrink-0 shadow-sm">
                     {matchedPatient.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 w-full">
                     <div className="flex items-center justify-between">
                       <h4 className="font-bold text-lg text-slate-900 dark:text-white truncate">
                         {matchedPatient.name}
@@ -233,7 +233,7 @@ export default function QRPage() {
                         {matchedPatient.nameAm}
                       </p>
                     )}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400 mt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400 mt-2">
                       <div>DOB: <span className="font-medium text-slate-800 dark:text-slate-200">{matchedPatient.dob}</span></div>
                       <div>Kebele: <span className="font-medium text-slate-800 dark:text-slate-200">{matchedPatient.kebele}</span></div>
                       <div>Phone: <span className="font-medium text-slate-800 dark:text-slate-200">{matchedPatient.phone}</span></div>

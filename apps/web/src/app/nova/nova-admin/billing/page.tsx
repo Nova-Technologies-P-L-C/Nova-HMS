@@ -14,7 +14,7 @@ export default function NovaAdminBillingPage() {
 
   return (
     <PageShell title="Subscription & Billing" subtitle="Per-tenant plans and invoicing">
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
         <KpiCard label="MRR" value={`ETB ${mrr.toLocaleString()}`} accent />
         <KpiCard label="Paying tenants" value={active.length} />
         <KpiCard label="Suspended" value={HOSPITALS.filter((h) => h.status === "suspended").length} />

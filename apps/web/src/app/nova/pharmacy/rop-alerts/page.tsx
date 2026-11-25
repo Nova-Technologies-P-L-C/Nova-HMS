@@ -20,7 +20,7 @@ export default function ROPAlertsPage() {
 
   return (
     <PageShell title="Reorder Point Alerts" subtitle="Items at or below their reorder threshold">
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
         <KpiCard label="Critical" value={critical.length} accent={critical.length > 0} />
         <KpiCard label="Low" value={low.length} />
         <KpiCard label="OK" value={okCount} />

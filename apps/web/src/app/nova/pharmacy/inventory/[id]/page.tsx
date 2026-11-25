@@ -56,7 +56,7 @@ export default function ItemDetailPage({ params }: { params: Promise<{ id: strin
         {/* Item info */}
         <Card className="p-5">
           <h2 className="font-semibold text-slate-800 mb-4">Item details</h2>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             {[
               ["ID", item.id], ["Category", item.category], ["Supplier", item.supplier],
               ["Unit", item.unit], ["Pack size", `${item.uomBoxQty} ${item.uomBase} / ${item.uomBox}`],

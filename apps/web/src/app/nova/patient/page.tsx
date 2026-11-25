@@ -83,7 +83,7 @@ export default function PatientDashboard() {
       {latestVitals && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs">
           <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">{t("Latest vitals", "የቅርብ ጊዜ ምልክቶች")} <span className="text-xs text-slate-400 dark:text-slate-500 font-normal ml-1">{latestVitals.date}</span></p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
             {[
               { label: t("Blood pressure", "ደም ግፊት"), value: latestVitals.bp, unit: "mmHg" },
               { label: t("Heart rate", "የልብ ምት"), value: latestVitals.hr, unit: "bpm" },
@@ -140,7 +140,7 @@ export default function PatientDashboard() {
       )}
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {[
           { href: "/nova/patient/results", icon: <FlaskConical size={18} className="text-purple-600 dark:text-purple-400" />, label: t("Lab results", "የላቦ ውጤቶች"), bg: "bg-purple-50 dark:bg-purple-950/50" },
           { href: "/nova/patient/cbhi", icon: <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400" />, label: t("CBHI claims", "ሲቢኤችአይ"), bg: "bg-emerald-50 dark:bg-emerald-950/50" },

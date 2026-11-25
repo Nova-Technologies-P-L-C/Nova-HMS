@@ -518,8 +518,8 @@ export default function HospitalTariffsPage() {
 
       {/* Add / Edit Service Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <Banknote size={18} className="text-teal-600" />
@@ -536,7 +536,7 @@ export default function HospitalTariffsPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Service Code (e.g. LAB_CRP)">
                   <input
                     type="text"
@@ -577,7 +577,7 @@ export default function HospitalTariffsPage() {
                 />
               </FormField>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Department / Unit">
                   <input
                     type="text"

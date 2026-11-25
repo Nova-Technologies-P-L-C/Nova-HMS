@@ -156,8 +156,8 @@ export const DEFAULT_THEME: NovaThemeConfig = {
   mode: "system",
   density: "standard",
   radius: 8,
-  hospitalName: "Nova Medical Center",
-  logoBadge: "NMC",
+  hospitalName: "Ethiora Medical System",
+  logoBadge: "EMS",
 };
 
 interface NovaThemeContextValue {

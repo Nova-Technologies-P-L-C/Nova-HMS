@@ -22,7 +22,7 @@ export default function ProfilePage() {
               <p className="text-sm text-slate-500 dark:text-slate-400">{role} · {MOCK_USER.hospital}</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="First name"><input defaultValue="Tigist" className={inputCls} /></FormField>
             <FormField label="Family name"><input defaultValue="Alemu" className={inputCls} /></FormField>
             <FormField label="Email"><input defaultValue="tigist@dmrh.gov.et" className={inputCls} /></FormField>

@@ -55,8 +55,8 @@ export default function OPDQueueBoardPage() {
 
   if (fullscreen) {
     return (
-      <div className="h-full min-h-screen bg-[#0a1929] p-6 overflow-y-auto">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+      <div className="h-full min-h-[100dvh] bg-[#0a1929] p-4 sm:p-6 overflow-y-auto">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-teal-500 flex items-center justify-center font-black text-white text-base">
               E

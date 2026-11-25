@@ -1100,8 +1100,8 @@ export default function StaffAndRoleManagementPage() {
 
       {/* ─── MODAL: ADD PERSONNEL MEMBER ─── */}
       {isAddOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <UserPlus size={18} className="text-teal-600" />
@@ -1113,7 +1113,7 @@ export default function StaffAndRoleManagementPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Full Name">
                   <input
                     type="text"
@@ -1134,7 +1134,7 @@ export default function StaffAndRoleManagementPage() {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Assigned Role">
                   <select
                     value={addForm.role}
@@ -1169,7 +1169,7 @@ export default function StaffAndRoleManagementPage() {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Job Title / Specialty">
                   <input
                     type="text"
@@ -1190,7 +1190,7 @@ export default function StaffAndRoleManagementPage() {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Phone Number">
                   <input
                     type="text"
@@ -1234,8 +1234,8 @@ export default function StaffAndRoleManagementPage() {
 
       {/* ─── MODAL: EDIT STAFF PROFILE & ROLE ─── */}
       {isEditOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <Edit2 size={18} className="text-teal-600" />
@@ -1247,7 +1247,7 @@ export default function StaffAndRoleManagementPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Full Name">
                   <input
                     type="text"
@@ -1278,7 +1278,7 @@ export default function StaffAndRoleManagementPage() {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Department / Specialty">
                   <select
                     value={editForm.department}
@@ -1303,7 +1303,7 @@ export default function StaffAndRoleManagementPage() {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Phone Number">
                   <input
                     type="text"
@@ -1326,7 +1326,7 @@ export default function StaffAndRoleManagementPage() {
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Update Password (Optional)">
                   <input
                     type="text"
@@ -1366,8 +1366,8 @@ export default function StaffAndRoleManagementPage() {
 
       {/* ─── MODAL: VIEW PERSON ROLE DATA & EFFECTIVE PERMISSIONS ─── */}
       {isViewPersonOpen && selectedStaff && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90dvh] flex flex-col">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <UserCheck size={18} className="text-teal-600" />
@@ -1480,8 +1480,8 @@ export default function StaffAndRoleManagementPage() {
 
       {/* ─── MODAL: RESET STAFF PASSWORD / CREDENTIALS ─── */}
       {isPasswordResetOpen && targetStaffForPassword && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <Key size={18} className="text-amber-600" />

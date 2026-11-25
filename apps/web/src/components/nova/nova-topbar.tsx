@@ -201,8 +201,8 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
           </button>
         </div>
       )}
-      <header className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Side-by-side open / close toggle */}
           <button
             onClick={() => {
@@ -212,46 +212,55 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
                 toggleCollapsed();
               }
             }}
-            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer flex items-center justify-center"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition shadow-2xs cursor-pointer flex items-center justify-center shrink-0"
             title={isCollapsed ? "Expand sidebar (Open)" : "Collapse sidebar (Close)"}
             aria-label="Toggle navigation sidebar"
           >
             {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
 
-          <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/70 border border-teal-200 dark:border-teal-800/80 shadow-2xs">
-            <Building2 size={15} className="text-teal-600 dark:text-teal-400 shrink-0" />
-            <span className="text-xs sm:text-sm font-bold text-teal-950 dark:text-teal-100 truncate max-w-[220px] sm:max-w-xs">
-              {hospitalName || theme.hospitalName || "Nova Medical Center"}
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/70 border border-teal-200 dark:border-teal-800/80 shadow-2xs min-w-0">
+            <img
+              src="/images/ethiora-logo.jpg"
+              alt="Ethiora"
+              className="w-4 h-4 rounded object-contain bg-white shrink-0"
+            />
+            <span className="text-[11px] sm:text-sm font-bold text-teal-950 dark:text-teal-100 truncate max-w-[110px] sm:max-w-xs">
+              {hospitalName || theme.hospitalName || "Ethiora Medical System"}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Language toggle */}
           <button
             onClick={() => setLang(lang === "en" ? "am" : "en")}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400 dark:hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            className="flex items-center gap-1 text-xs px-2 sm:px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-400 dark:hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            title="Switch language"
           >
-            <Globe size={13} />
-            {lang === "en" ? "English" : "አማርኛ"}
+            <Globe size={13} className="shrink-0" />
+            <span className="hidden sm:inline">{lang === "en" ? "English" : "አማርኛ"}</span>
+            <span className="sm:hidden text-[11px] font-semibold">{lang === "en" ? "EN" : "አማ"}</span>
           </button>
 
           {/* Assigned Role Badge & Light/Dark Mode toggle */}
-          <div className="flex items-center gap-1.5 pl-0.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 pl-0.5">
             {/* Interactive Per-Tab Role Switcher Dropdown */}
             <div className="relative" ref={roleDropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsRoleOpen((prev) => !prev)}
-                className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border transition-all cursor-pointer shadow-2xs hover:shadow-xs ${
+                className={`flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-md border transition-all cursor-pointer shadow-2xs hover:shadow-xs max-w-[115px] sm:max-w-none ${
                   ROLE_CONFIG[role]?.badge ?? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700"
                 }`}
                 title="Switch Station Role (Isolated to this browser tab)"
                 aria-expanded={isRoleOpen}
               >
                 <CurrentRoleIcon size={13} className="shrink-0" />
-                <span>Role: {role}</span>
+                <span className="truncate">
+                  <span className="hidden md:inline">Role: </span>
+                  {role}
+                </span>
                 <ChevronDown
                   size={12}
                   className={`shrink-0 transition-transform duration-200 ${isRoleOpen ? "rotate-180" : ""}`}
@@ -260,7 +269,7 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
 
               {/* Dropdown Menu */}
               {isRoleOpen && (
-                <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-13 sm:top-auto sm:mt-2 w-auto sm:w-72 max-w-[calc(100vw-1rem)] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100">
                       <Sparkles size={14} className="text-teal-600 dark:text-teal-400" />
@@ -318,7 +327,7 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
           {/* Offline toggle (demo) */}
           <button
             onClick={() => setShowOffline((v) => !v)}
-            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 transition-colors"
+            className="hidden sm:flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 transition-colors"
             title="Toggle offline banner (demo)"
           >
             <WifiOff size={13} />
@@ -328,14 +337,14 @@ export default function NovaTopbar({ offline = false }: { offline?: boolean }) {
           <NotificationPopover />
 
           {/* Avatar + name — real logged-in user */}
-          <Link href="/nova/shared/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Link href="/nova/shared/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0">
             <div
-              className="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-xs"
+              className="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center shadow-xs shrink-0"
               style={{ backgroundColor: theme.primaryColor }}
             >
               {userInitials || "?"}
             </div>
-            <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">{userName || "—"}</span>
+            <span className="hidden md:inline text-sm text-slate-700 dark:text-slate-200 font-medium truncate max-w-[130px]">{userName || "—"}</span>
           </Link>
 
           {/* Logout */}

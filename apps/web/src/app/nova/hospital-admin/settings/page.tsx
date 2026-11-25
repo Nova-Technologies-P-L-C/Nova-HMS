@@ -80,7 +80,7 @@ export default function HospitalSettingsPage() {
           <p className="text-xs text-slate-500 mb-4">
             Configure the mandatory card and consultation fee charged to patients at reception upon arrival. CBHI patients are automatically 100% exempt from this cash fee.
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Standard General OPD Card Fee (ETB)">
               <input
                 type="number"
@@ -121,7 +121,7 @@ export default function HospitalSettingsPage() {
           <h3 className="font-semibold text-slate-800 mb-4">Branding</h3>
           <div className="space-y-3">
             <FormField label="Hospital name">
-              <input defaultValue="Nova Medical Center" className={inputCls} />
+              <input defaultValue="Ethiora Medical System" className={inputCls} />
             </FormField>
             <FormField label="Short name / slug">
               <input defaultValue="debremarkos" className={inputCls} />

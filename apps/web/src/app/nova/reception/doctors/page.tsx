@@ -65,11 +65,11 @@ const AVAILABLE_ROOMS = [
   "Room 102 — General OPD A",
   "Room 103 — General OPD B",
   "Room 104 — Internal Medicine",
+  "Room 105 — Dental Suite",
+  "Room 106 — Eye Clinic",
   "Room 110 — Surgical Consult",
-  "Room 115 — Ultrasound & Imaging",
   "Room 205 — Pediatrics",
   "Room 208 — Women's Health & OB/GYN",
-  "Room 302 — Chronic Disease",
 ];
 
 const DEPARTMENTS = [
@@ -79,7 +79,8 @@ const DEPARTMENTS = [
   "Pediatrics",
   "General Surgery",
   "OB/GYN",
-  "Radiology & Imaging",
+  "Dental Clinic & Oral Surgery",
+  "Ophthalmology / Eye Clinic",
 ];
 
 const STATUS_CONFIG: Record<
@@ -273,6 +274,9 @@ export default function DoctorPresenceReceptionPage() {
       await updateTicketStatusMutation.mutateAsync({
         ticketId: ticket.id,
         status: ticket.status === "urgent" ? "urgent" : "waiting",
+        department: queueModalDoctor.department || "General OPD",
+        assignedDoctorId: queueModalDoctor.userId || queueModalDoctor.id,
+        assignedDoctorName: queueModalDoctor.name,
       });
 
       sendIntercomMutation.mutateAsync({
@@ -300,6 +304,8 @@ export default function DoctorPresenceReceptionPage() {
       const res = await openVisitMutation.mutateAsync({
         patientId: apt.patientId,
         department: queueModalDoctor.department || "General OPD",
+        assignedDoctorId: queueModalDoctor.userId || queueModalDoctor.id,
+        assignedDoctorName: queueModalDoctor.name,
         type: "opd",
         channel: "walk_in",
       });
@@ -734,10 +740,10 @@ export default function DoctorPresenceReceptionPage() {
 
       {/* ── 4. DIRECT QUEUE PATIENT MODAL (Role-Governed: No Registration for Triage!) ── */}
       {queueModalDoctor && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full shadow-2xl overflow-hidden my-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[90dvh] overflow-y-auto shadow-2xl my-2 sm:my-6">
             {/* Modal Header */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 <span className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
                   <Stethoscope size={20} />
@@ -990,8 +996,8 @@ export default function DoctorPresenceReceptionPage() {
 
       {/* ── 5. SLIM BREAK NOTE MODAL ── */}
       {breakDoctor && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 max-w-sm w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 max-w-sm w-full max-h-[90dvh] overflow-y-auto shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-600 font-bold text-sm">
                 <Coffee size={16} />

@@ -69,19 +69,21 @@ const TIERS = [
 
 export default function PricingPage() {
   return (
-    <div className="overflow-y-auto h-full bg-slate-50">
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-slate-100 bg-white">
+    <div className="overflow-y-auto min-h-[100dvh] bg-slate-50">
+      <nav className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 py-3.5 sm:py-4 border-b border-slate-100 bg-white">
         <Link href="/nova" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-teal-500 flex items-center justify-center font-bold text-white text-sm">E</div>
-          <span className="font-semibold text-slate-900">Ethiora HMS</span>
+          <div className="w-8 h-8 rounded-lg bg-white p-0.5 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
+          </div>
+          <span className="font-semibold text-slate-900 text-sm sm:text-base">Ethiora HMS</span>
         </Link>
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/nova/login" className="text-slate-600 hover:text-teal-600">Log in</Link>
-          <Link href="/nova/signup" className="px-4 py-1.5 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors">Request Demo</Link>
+        <div className="flex items-center gap-2.5 sm:gap-4 text-xs sm:text-sm">
+          <Link href="/nova/login" className="text-slate-600 hover:text-teal-600 font-medium">Log in</Link>
+          <Link href="/nova/signup" className="px-3.5 sm:px-4 py-1.5 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors font-medium">Request Demo</Link>
         </div>
       </nav>
 
-      <div className="max-w-5xl mx-auto px-8 py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-10 sm:py-16">
         <h1 className="text-3xl font-bold text-slate-900 mb-2 text-center">Simple, transparent pricing</h1>
         <p className="text-slate-500 text-center mb-12">All plans include onboarding support, Amharic interface, and offline capability.</p>
 

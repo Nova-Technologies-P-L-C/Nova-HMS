@@ -26,13 +26,13 @@ export default function ReferralInboxPage() {
       title="Referral Inbox / Outbox"
       action={<Link href="/nova/doctor/referral" className="px-4 py-2 bg-teal-600 text-white text-sm rounded hover:bg-teal-700 font-medium">+ Create referral</Link>}
     >
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
         <KpiCard label="Incoming" value={inRefs} accent />
         <KpiCard label="Outgoing" value={outRefs} />
         <KpiCard label="In transit" value={inTransit} />
       </div>
 
-      <div className="flex gap-1 mb-4">
+      <div className="flex flex-wrap gap-1.5 mb-4">
         {(["all", "in", "out"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-1.5 text-sm rounded capitalize ${tab === t ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-400"}`}>

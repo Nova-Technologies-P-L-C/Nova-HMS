@@ -198,7 +198,7 @@ function OrgAdminCockpitContent() {
     if (!data) return;
     const rows = [
       ["Metric", "Value"],
-      ["Clinic Name", tenant?.name ?? "Nova Health Systems"],
+      ["Clinic Name", tenant?.name ?? "Ethiora Medical System"],
       ["Reporting Range", range],
       ["Total Gross Revenue (ETB)", kpis?.totalGrossRevenue ?? 0],
       ["Today Revenue (ETB)", kpis?.todayRevenue ?? 0],
@@ -326,7 +326,7 @@ function OrgAdminCockpitContent() {
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <span>{tenant?.name ?? "Nova Health Systems"}</span>
+                <span>{tenant?.name ?? "Ethiora Medical System"}</span>
               </h2>
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
@@ -338,7 +338,7 @@ function OrgAdminCockpitContent() {
             {/* Right: Real-time Executive Run-Rate & Pulse Gauges */}
             <div className="flex items-center gap-3 shrink-0 flex-wrap">
               {/* Target Run-Rate Box */}
-              <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 backdrop-blur-md min-w-[210px] shadow-sm">
+              <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 backdrop-blur-md w-full sm:w-auto sm:min-w-[210px] shadow-sm">
                 <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
                   <span>Monthly Run-Rate</span>
                   <span className="text-amber-400 font-mono font-bold">{kpis?.targetAttainment ?? 0}%</span>
@@ -362,7 +362,7 @@ function OrgAdminCockpitContent() {
               </div>
 
               {/* Workforce & Roster Box */}
-              <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 backdrop-blur-md min-w-[170px] shadow-sm">
+              <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 backdrop-blur-md w-full sm:w-auto sm:min-w-[170px] shadow-sm">
                 <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Active Workforce</div>
                 <div className="text-2xl font-black text-white mt-1 flex items-center gap-2">
                   <Users size={20} className="text-[#6AB8FF]" />
@@ -1041,7 +1041,7 @@ function OrgAdminCockpitContent() {
                       {/* Operational Health & Supervise Links (5 cols) */}
                       <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
                         {/* Metric Chips */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="bg-slate-50/80 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800">
                             <div className="text-[10px] uppercase font-bold text-slate-500">Today's Visits</div>
                             <div className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
@@ -1420,8 +1420,8 @@ function OrgAdminCockpitContent() {
 
       {/* ── 10. MODAL: CHANGE BRANCH ADMIN (BA CHANGE) ── */}
       {isChangeModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full max-h-[90dvh] overflow-y-auto border border-slate-200 dark:border-slate-800 shadow-2xl animate-in fade-in zoom-in-95">
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/50">
               <div className="flex items-center gap-3">
@@ -1453,7 +1453,7 @@ function OrgAdminCockpitContent() {
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide block mb-2">
                   1. Choose Appointment Method
                 </label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs">
                   <button
                     type="button"
                     onClick={() => setBaChangeMode("promote")}
@@ -1508,7 +1508,7 @@ function OrgAdminCockpitContent() {
               ) : (
                 /* Mode 2: Appoint New Administrator */
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
                         Full Name *
@@ -1536,7 +1536,7 @@ function OrgAdminCockpitContent() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
                         Phone Number

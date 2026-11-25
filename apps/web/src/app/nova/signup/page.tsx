@@ -5,15 +5,17 @@ import { useRouter } from "next/navigation";
 export default function SignupPage() {
   const router = useRouter();
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center font-bold text-white text-lg mx-auto mb-3">E</div>
+          <div className="w-12 h-12 rounded-xl bg-white p-1 border border-slate-200 flex items-center justify-center mx-auto mb-3 shadow-xs overflow-hidden">
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
+          </div>
           <h1 className="text-xl font-bold text-slate-900">Request a Demo</h1>
-          <p className="text-sm text-slate-500 mt-1">We'll set up a workspace and walk you through Nova HMS</p>
+          <p className="text-sm text-slate-500 mt-1">We'll set up a workspace and walk you through Ethiora HMS</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">First name</label>
               <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" placeholder="Abebe" />
@@ -29,7 +31,7 @@ export default function SignupPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Hospital name</label>
-            <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" placeholder="e.g. Nova Medical Center" />
+            <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" placeholder="e.g. Ethiora Medical System" />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Region</label>

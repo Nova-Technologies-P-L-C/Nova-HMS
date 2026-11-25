@@ -1001,8 +1001,8 @@ function RoleManagementContent() {
       {/* MERGE / COMBINE ROLES WIZARD MODAL */}
       {/* ======================================================== */}
       {isMergeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[90dvh] overflow-y-auto flex flex-col animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-200 bg-indigo-50/50 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -1154,8 +1154,8 @@ function RoleManagementContent() {
       {/* DELETE CONFIRMATION MODAL */}
       {/* ======================================================== */}
       {roleToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3 mb-3 text-red-600">
               <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center">
                 <AlertTriangle size={18} />

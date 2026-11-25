@@ -16,7 +16,7 @@ export default function DepartmentManagementPage() {
       {showAdd && (
         <Card className="p-5 mb-5 border-teal-200">
           <h3 className="font-semibold text-slate-800 mb-4">Add department</h3>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <FormField label="Name (English)"><input className={inputCls} placeholder="Cardiology" /></FormField>
             <FormField label="Name (Amharic)"><input className={inputCls} placeholder="ካርዲዮሎጂ" /></FormField>
             <FormField label="Department head"><input className={inputCls} placeholder="Dr. Name" /></FormField>

@@ -62,18 +62,18 @@ export function KpiCard({ label, value, sub, accent = false }: { label: string; 
 // Page wrapper
 export function PageShell({ title, subtitle, children, action }: { title: string; subtitle?: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+    <div className="flex flex-col h-full min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3.5 sm:px-6 py-3 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <span className="w-1.5 h-4 rounded-full bg-nova-primary inline-block shrink-0" />
-            <span>{title}</span>
+            <span className="truncate">{title}</span>
           </h1>
-          {subtitle && <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5">{subtitle}</p>}
+          {subtitle && <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 ml-3.5 break-words">{subtitle}</p>}
         </div>
-        {action && <div>{action}</div>}
+        {action && <div className="flex flex-wrap items-center gap-2 shrink-0">{action}</div>}
       </div>
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 bg-slate-50 dark:bg-slate-950">
         {children}
       </div>
     </div>
@@ -131,18 +131,18 @@ export function Pagination({
   const pages = getPageNumbers();
 
   return (
-    <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-100 text-xs text-slate-600 ${className}`}>
+    <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-3 sm:px-4 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 ${className}`}>
       {/* Information & Page Size */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3">
         <span>
-          Showing <strong className="font-semibold text-slate-800">{start}</strong> to{" "}
-          <strong className="font-semibold text-slate-800">{end}</strong> of{" "}
-          <strong className="font-semibold text-slate-800">{totalItems}</strong> {itemLabel}
+          Showing <strong className="font-semibold text-slate-800 dark:text-slate-100">{start}</strong> to{" "}
+          <strong className="font-semibold text-slate-800 dark:text-slate-100">{end}</strong> of{" "}
+          <strong className="font-semibold text-slate-800 dark:text-slate-100">{totalItems}</strong> {itemLabel}
         </span>
 
         {onPageSizeChange && (
-          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-            <span className="text-slate-500">Per page:</span>
+          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200 dark:border-slate-700">
+            <span className="text-slate-500 dark:text-slate-400">Per page:</span>
             <select
               value={pageSize}
               onChange={(e) => {
@@ -150,7 +150,7 @@ export function Pagination({
                 onPageSizeChange(newSize);
                 onPageChange(1);
               }}
-              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 font-medium focus:outline-none focus:border-teal-500 cursor-pointer"
+              className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs text-slate-700 dark:text-slate-200 font-medium focus:outline-none focus:border-teal-500 cursor-pointer"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -163,7 +163,7 @@ export function Pagination({
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center justify-center gap-1">
         <button
           type="button"
           onClick={() => onPageChange(1)}
@@ -289,15 +289,15 @@ export function Card({
   return (
     <div className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden ${className}`}>
       {(title || subtitle || action) && (
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 sm:px-5 py-3 sm:py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="min-w-0">
             {title && <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{title}</h3>}
             {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>}
           </div>
-          {action && <div>{action}</div>}
+          {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
-      <div className={title || subtitle || action ? "p-5" : "p-4"}>
+      <div className={title || subtitle || action ? "p-3.5 sm:p-5" : "p-3.5 sm:p-4"}>
         {children}
       </div>
     </div>

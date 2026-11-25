@@ -21,8 +21,11 @@ const urbanist = Urbanist({
 });
 
 export const metadata: Metadata = {
-  title: "Ethiora HMS — Enterprise Hospital ERP",
+  title: "Ethiora HMS — Ethiora Medical System",
   description: "Next-generation Hospital Management System & ERP Platform",
+  icons: {
+    icon: "/images/ethiora-logo.jpg",
+  },
 };
 
 export default function RootLayout({

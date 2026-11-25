@@ -77,7 +77,7 @@ export default function ReferralTrackingPage() {
                   <StatusBadge status={ref.status} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm mb-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-5">
                   <div><p className="text-xs text-slate-400">From</p><p className="font-medium">{ref.fromFacility}</p></div>
                   <div><p className="text-xs text-slate-400">To</p><p className="font-medium">{ref.toFacility}</p></div>
                   <div><p className="text-xs text-slate-400">Urgency</p>

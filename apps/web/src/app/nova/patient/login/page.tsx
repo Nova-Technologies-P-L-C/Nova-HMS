@@ -87,16 +87,16 @@ export default function PatientLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-[#0a1b29] to-[#0c2436] flex flex-col justify-between p-4 md:p-6 text-slate-100">
+    <div className="min-h-[100dvh] bg-gradient-to-b from-slate-900 via-[#0a1b29] to-[#0c2436] flex flex-col justify-between p-3 sm:p-4 md:p-6 text-slate-100">
       {/* Top Header */}
       <div className="w-full max-w-md mx-auto flex items-center justify-between py-2">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center font-black text-white text-base shadow-sm">
-            E
+          <div className="w-9 h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <span className="font-extrabold text-sm text-white block leading-none">Nova HMS</span>
-            <span className="text-[10px] text-teal-300 font-medium">Nova Medical Center</span>
+            <span className="font-extrabold text-sm text-white block leading-none">Ethiora HMS</span>
+            <span className="text-[10px] text-teal-300 font-medium">Ethiora Medical System</span>
           </div>
         </div>
 
@@ -295,7 +295,7 @@ export default function PatientLoginPage() {
               <span className="text-[10px] text-teal-400 font-medium">Auto-Fill</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {PATIENTS.slice(0, 4).map((p) => (
                 <button
                   key={p.id}
@@ -327,7 +327,7 @@ export default function PatientLoginPage() {
 
       {/* Footer */}
       <div className="w-full max-w-md mx-auto text-center text-[11px] text-slate-500 py-2">
-        <span>Nova HMS · Secure Patient Health ID &amp; Portal Authentication · Nova Medical Center</span>
+        <span>Ethiora HMS · Secure Patient Health ID &amp; Portal Authentication · Ethiora Medical System</span>
       </div>
     </div>
   );

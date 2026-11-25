@@ -223,7 +223,7 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
           </div>
 
           {/* ─── LIVE QUEUE RADAR ─── */}
-          <div className="grid grid-cols-3 gap-2.5 my-4 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 my-4 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800">
             <div className="text-center">
               <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t("Queue Status", "የወረፋ ሁኔታ")}</p>
               <p className="text-sm font-black text-slate-800 dark:text-white mt-0.5">
@@ -239,7 +239,7 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
               </p>
             </div>
 
-            <div className="text-center border-x border-slate-200 dark:border-slate-700 px-2">
+            <div className="text-center border-y sm:border-y-0 sm:border-x border-slate-200 dark:border-slate-700 py-2 sm:py-0 sm:px-2">
               <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t("Now Serving", "አሁን እየታየ")}</p>
               <p className="text-sm font-mono font-bold text-teal-600 dark:text-teal-400 mt-0.5">
                 {queue?.nowServingTicket !== "None" ? queue?.nowServingTicket : "—"}
@@ -258,9 +258,9 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
           <div className="pt-2 pb-5">
             <div className="relative">
               {/* Connecting line */}
-              <div className="absolute top-4 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-800 -z-0" />
+              <div className="hidden sm:block absolute top-4 left-6 right-6 h-0.5 bg-slate-200 dark:bg-slate-800 -z-0" />
 
-              <div className="grid grid-cols-6 gap-1 relative z-10">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-y-3 gap-x-1 relative z-10">
                 {journey?.stages.map((st: any) => (
                   <div key={st.id} className="flex flex-col items-center text-center">
                     <div
@@ -337,7 +337,7 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
                 </div>
 
                 {vitals && (
-                  <div className="grid grid-cols-4 gap-2 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-teal-100 dark:border-teal-900 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-teal-100 dark:border-teal-900 text-center">
                     <div>
                       <p className="text-[10px] text-slate-400">BP</p>
                       <p className="text-xs font-bold text-slate-800 dark:text-white">
@@ -470,7 +470,7 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
                   </h3>
                   <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-1">
                     {t(
-                      "Thank you for visiting Nova Medical Center. Your records and prescriptions have been stored in your digital history.",
+                      "Thank you for visiting Ethiora Medical System. Your records and prescriptions have been stored in your digital history.",
                       "ስለጎበኙን እናመሰግናለን። የህክምና ታሪክዎ እና የታዘዙልዎት መድኃኒቶች በዲጂታል መዝገብዎ ተቀምጠዋል።"
                     )}
                   </p>
@@ -572,8 +572,8 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
 
       {/* ─── MODAL: TAKE / BOOK CARD ONLINE ─── */}
       {bookingModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-6 shadow-2xl relative animate-in fade-in zoom-in-95">
             <button
               type="button"
               onClick={() => setBookingModalOpen(false)}
@@ -602,7 +602,7 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-2">
                   {t("Select Service Tier", "የአገልግሎት ደረጃ ይምረጡ")}
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Standard Option */}
                   <div
                     onClick={() => setSelectedTier("standard")}
@@ -671,7 +671,7 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
                   {t("Payment Method", "የክፍያ ዘዴ")}
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { id: "telebirr", label: "Telebirr", badge: "Instant" },
                     { id: "cbe_birr", label: "CBE Birr", badge: "Instant" },
@@ -728,8 +728,8 @@ export default function PatientJourneyTracker({ patient, lang = "en" }: PatientJ
 
       {/* ─── MODAL: DIGITAL PASS QR CODE ─── */}
       {qrModalOpen && ticket && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl relative">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-6 text-center shadow-2xl relative">
             <button
               type="button"
               onClick={() => setQrModalOpen(false)}

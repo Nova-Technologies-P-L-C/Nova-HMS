@@ -48,7 +48,7 @@ export default function VisitsPage() {
                 {visit.vitals && (
                   <div>
                     <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">{t("Vitals", "ምልክቶች")}</p>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
                         { label: "BP", value: visit.vitals.bp },
                         { label: "HR", value: `${visit.vitals.hr} bpm` },

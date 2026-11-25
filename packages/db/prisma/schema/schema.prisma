@@ -164,8 +164,10 @@ model OPDTicket {
   paidAt            DateTime?
   receiptNumber     String    @default("")
   paymentMethod     String    @default("")
-  assignedNurseId   String?
-  assignedNurseName String?
+  assignedNurseId    String?
+  assignedNurseName  String?
+  assignedDoctorId   String?
+  assignedDoctorName String?
 
   visit Visit @relation(fields: [visitId], references: [id])
 

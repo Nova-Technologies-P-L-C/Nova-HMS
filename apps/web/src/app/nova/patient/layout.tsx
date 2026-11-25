@@ -53,7 +53,7 @@ function PatientLayoutInner({ children }: { children: React.ReactNode }) {
   // Loading state while checking patient session
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-slate-900 text-white">
         <Loader2 size={32} className="animate-spin text-teal-400 mb-3" />
         <p className="text-xs text-slate-400 font-medium">Verifying Patient Portal Access…</p>
       </div>
@@ -62,12 +62,12 @@ function PatientLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <LangCtx.Provider value={{ lang, setLang }}>
-      <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 max-w-md mx-auto relative shadow-2xl">
+      <div className="flex flex-col min-h-[100dvh] bg-slate-50 dark:bg-slate-950 max-w-md mx-auto relative shadow-2xl overflow-x-hidden">
         {/* Top bar */}
         <header className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-20">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-teal-500 flex items-center justify-center font-black text-white text-xs shrink-0 shadow-xs">
-              E
+            <div className="w-7 h-7 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
               <span className="font-bold text-slate-800 dark:text-slate-100 text-xs block leading-tight">

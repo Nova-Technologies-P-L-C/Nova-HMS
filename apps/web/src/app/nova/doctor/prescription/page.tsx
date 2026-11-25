@@ -34,12 +34,14 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
+import { useNovaRole } from "@/components/nova/nova-role-context";
+import { getDepartmentConfig, doesTicketBelongToDepartment } from "@/lib/department-configs";
 import { toast } from "sonner";
 
 interface DrugItem {
   id: string;
   name: string;
-  category: "Antibiotics" | "Pain" | "Stomach" | "Cardio" | "Infections" | "Breathing" | "Diabetes" | "Custom";
+  category: "Antibiotics" | "Pain" | "Stomach" | "Cardio" | "Infections" | "Breathing" | "Diabetes" | "Eye & Dental" | "Custom";
   form: string; // e.g. "Tablet", "Capsule", "Syrup", "Injection", "Inhaler"
   defaultDose: string;
   defaultFreq: string;
@@ -113,6 +115,18 @@ const COMPREHENSIVE_DRUG_CATALOG: DrugItem[] = [
   { id: "multivit", name: "Multivitamin + Minerals Tabs", category: "Diabetes", form: "Tablet", defaultDose: "1 tablet", defaultFreq: "Once daily", defaultDays: 30, instructions: "After breakfast" },
   { id: "vit_b", name: "Vitamin B Complex Tabs", category: "Diabetes", form: "Tablet", defaultDose: "1 tablet", defaultFreq: "2x daily", defaultDays: 14, instructions: "With meals" },
   { id: "calc_d3", name: "Calcium + Vitamin D3 500mg Tabs", category: "Diabetes", form: "Tablet", defaultDose: "1 tablet", defaultFreq: "Once daily", defaultDays: 30, instructions: "With meals" },
+
+  // ─── EYE CLINIC, DENTAL, MATERNAL & PEDIATRIC SPECIALTY ───
+  { id: "eye_cipro", name: "Ciprofloxacin 0.3% Eye Drops", category: "Eye & Dental", form: "Eye Drops", defaultDose: "1–2 drops", defaultFreq: "4x daily", defaultDays: 7, instructions: "Affected eye(s)" },
+  { id: "eye_tetra", name: "Tetracycline 1% Eye Ointment", category: "Eye & Dental", form: "Eye Ointment", defaultDose: "Thin ribbon", defaultFreq: "2x daily", defaultDays: 7, instructions: "Inside lower eyelid" },
+  { id: "eye_timolol", name: "Timolol 0.5% Eye Drops", category: "Eye & Dental", form: "Eye Drops", defaultDose: "1 drop", defaultFreq: "2x daily", defaultDays: 30, instructions: "For high eye pressure" },
+  { id: "eye_pred", name: "Prednisolone Acetate 1% Eye Drops", category: "Eye & Dental", form: "Eye Drops", defaultDose: "1 drop", defaultFreq: "4x daily", defaultDays: 7, instructions: "Shake bottle well" },
+  { id: "eye_tears", name: "Artificial Tears (CMC 0.5%) Eye Drops", category: "Eye & Dental", form: "Eye Drops", defaultDose: "1–2 drops", defaultFreq: "As needed", defaultDays: 30, instructions: "For dry/irritated eyes" },
+  { id: "eye_cromo", name: "Sodium Cromoglycate 2% Eye Drops", category: "Eye & Dental", form: "Eye Drops", defaultDose: "1–2 drops", defaultFreq: "4x daily", defaultDays: 14, instructions: "For itchy allergic eyes" },
+  { id: "chlorhex", name: "Chlorhexidine 0.12% Mouthwash 200ml", category: "Eye & Dental", form: "Mouthwash", defaultDose: "15 ml rinse", defaultFreq: "2x daily", defaultDays: 7, instructions: "Rinse 30 sec, do not swallow" },
+  { id: "amox_syp", name: "Amoxicillin 125mg/5ml Pediatric Syrup", category: "Antibiotics", form: "Syrup", defaultDose: "5 ml", defaultFreq: "3x daily", defaultDays: 5, instructions: "Shake well before use" },
+  { id: "methyldopa", name: "Methyldopa 250mg Tabs", category: "Cardio", form: "Tablet", defaultDose: "1 tablet", defaultFreq: "2x daily", defaultDays: 30, instructions: "Safe in pregnancy" },
+  { id: "nifedipine", name: "Nifedipine SR 20mg Tabs", category: "Cardio", form: "Tablet", defaultDose: "1 tablet", defaultFreq: "2x daily", defaultDays: 30, instructions: "Do not crush tablet" },
 ];
 
 function calculateAge(dobString?: string) {
@@ -140,9 +154,13 @@ interface PrescriptionLineItem {
 function PrescriptionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { doctorDepartment } = useNovaRole();
   const rawVisitId = searchParams.get("visitId") ?? "";
+  const urlDept = searchParams.get("dept");
   const [selectedVisitId, setSelectedVisitId] = useState<string>(rawVisitId);
   const activeVisitId = selectedVisitId || rawVisitId;
+  const deptConfig = useMemo(() => getDepartmentConfig(urlDept || doctorDepartment), [urlDept, doctorDepartment]);
+  const [pedsWeightKg, setPedsWeightKg] = useState<string>("");
 
   const qc = useQueryClient();
 
@@ -235,21 +253,27 @@ function PrescriptionContent() {
       map.set(custom.name.toLowerCase().trim(), custom);
     }
 
+    const preferredSet = new Set(deptConfig.preferredDrugIds);
     const items = Array.from(map.values());
-    // Sort items: Custom first, then Most Ordered / Common on top!
+    // Sort items: Custom -> Active Doctor Specialty's Top Drugs -> Common
     return items.sort((a, b) => {
       if (a.category === "Custom" && b.category !== "Custom") return -1;
       if (b.category === "Custom" && a.category !== "Custom") return 1;
+      const aPref = preferredSet.has(a.id);
+      const bPref = preferredSet.has(b.id);
+      if (aPref && !bPref) return -1;
+      if (!aPref && bPref) return 1;
       if (a.isCommon && !b.isCommon) return -1;
       if (!a.isCommon && b.isCommon) return 1;
       return 0;
     });
-  }, [pharmacyTariffs, customDrugs]);
+  }, [pharmacyTariffs, customDrugs, deptConfig.preferredDrugIds]);
 
   // Categories list with counts
   const categories = useMemo(() => {
     const counts: Record<string, number> = {
       All: fullCatalog.length,
+      "Eye & Dental": 0,
       Antibiotics: 0,
       Pain: 0,
       Stomach: 0,
@@ -266,6 +290,7 @@ function PrescriptionContent() {
     }
     return [
       { key: "All", label: "All", count: counts.All },
+      { key: "Eye & Dental", label: "Eye & Dental", count: counts["Eye & Dental"] },
       { key: "Antibiotics", label: "Antibiotics", count: counts.Antibiotics },
       { key: "Pain", label: "Pain & Fever", count: counts.Pain },
       { key: "Stomach", label: "Stomach", count: counts.Stomach },
@@ -505,23 +530,33 @@ function PrescriptionContent() {
   const existingPrescriptions = visit?.prescriptions || [];
   const allergies = patientHistory?.allergies || [];
 
-  // Next 2 waiting patients in line (compact switcher)
-  const nextPatients = queue
-    .filter((q) => q.visitId !== activeVisitId && q.status !== "done")
-    .slice(0, 2);
+  const effectiveWeightKg = Number(pedsWeightKg || latestVitals?.weight || 0);
+  const pregnancyRiskDrugs = useMemo(() => {
+    if (deptConfig.id !== "ob_gyn") return [];
+    const cautionWords = ["ciprofloxacin", "doxycycline", "atorvastatin", "enalapril", "ibuprofen", "diclofenac"];
+    return rxLines
+      .map((l) => l.drug)
+      .filter((name) => cautionWords.some((w) => name.toLowerCase().includes(w)));
+  }, [deptConfig.id, rxLines]);
+
+  // Next 2 waiting patients in doctor's department (fallback to any waiting)
+  const deptWaiting = queue.filter(
+    (q) => q.visitId !== activeVisitId && q.status !== "done" && doesTicketBelongToDepartment(q.department, deptConfig.id)
+  );
+  const nextPatients = (deptWaiting.length > 0 ? deptWaiting : queue.filter((q) => q.visitId !== activeVisitId && q.status !== "done")).slice(0, 2);
 
   return (
     <PageShell
-      title="Prescription"
-      subtitle="Select or add medicines to send to the pharmacy"
+      title={`${deptConfig.shortLabel} — ${deptConfig.sidebarLabels.prescription}`}
+      subtitle={`Top medicines for ${deptConfig.shortLabel} appear first`}
       action={
         <div className="flex items-center gap-2">
           {activeVisitId && (
             <Link
-              href={`/nova/doctor/consultation?visitId=${activeVisitId}`}
+              href={`/nova/doctor/consultation?visitId=${activeVisitId}&dept=${deptConfig.id}`}
               className="text-xs text-slate-600 dark:text-slate-300 hover:text-nova-primary flex items-center gap-1 font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg shadow-xs transition-colors"
             >
-              <ArrowLeft size={14} /> Consultation
+              <ArrowLeft size={14} /> {deptConfig.sidebarLabels.consult}
             </Link>
           )}
         </div>
@@ -669,6 +704,64 @@ function PrescriptionContent() {
                   Doctor Queue →
                 </Link>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Specialty Clinical Dosing & Safety Helpers */}
+        {deptConfig.id === "pediatrics" && (
+          <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-emerald-900 dark:text-emerald-200">
+                Child Dose Helper (by Weight):
+              </span>
+              <input
+                type="number"
+                step="0.5"
+                placeholder={latestVitals?.weight ? `${latestVitals.weight}` : "Weight kg"}
+                value={pedsWeightKg}
+                onChange={(e) => setPedsWeightKg(e.target.value)}
+                className="w-24 px-2 py-1 rounded border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-xs font-bold"
+              />
+              <span className="text-emerald-800 dark:text-emerald-300">kg</span>
+            </div>
+            {effectiveWeightKg > 0 ? (
+              <div className="flex flex-wrap items-center gap-3 font-medium text-emerald-900 dark:text-emerald-200">
+                <span>Paracetamol (15 mg/kg): <strong>{Math.round(effectiveWeightKg * 15)} mg/dose</strong> ({((effectiveWeightKg * 15) / 24).toFixed(1)} ml of 120mg/5ml)</span>
+                <span>•</span>
+                <span>Amoxicillin (45 mg/kg/day): <strong>{Math.round((effectiveWeightKg * 45) / 3)} mg 3x/day</strong></span>
+              </div>
+            ) : (
+              <span className="text-emerald-700 dark:text-emerald-400">Enter child weight to see safe mg/ml doses</span>
+            )}
+          </div>
+        )}
+
+        {deptConfig.id === "ob_gyn" && pregnancyRiskDrugs.length > 0 && (
+          <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl p-3 flex items-center gap-2 text-xs text-rose-800 dark:text-rose-200">
+            <AlertTriangle size={16} className="shrink-0 text-rose-600" />
+            <span>
+              <strong>Pregnancy Safety Alert:</strong> {pregnancyRiskDrugs.join(", ")} may be unsafe during pregnancy. Verify gestational age before sending.
+            </span>
+          </div>
+        )}
+
+        {deptConfig.id === "ophthalmology" && (
+          <div className="bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-2.5 px-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="font-semibold text-blue-900 dark:text-blue-200">
+              Quick Eye Instruction:
+            </span>
+            <div className="flex items-center gap-1.5">
+              {["Apply to Right Eye (OD)", "Apply to Left Eye (OS)", "Apply to Both Eyes (OU)"].map((lbl) => (
+                <button
+                  key={lbl}
+                  type="button"
+                  onClick={() => setPharmNotes((prev) => (prev ? `${prev}; ${lbl}` : lbl))}
+                  className="px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200 font-semibold hover:bg-blue-100 transition cursor-pointer"
+                >
+                  + {lbl}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -915,11 +1008,15 @@ function PrescriptionContent() {
                         </div>
 
                         <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
-                          {drug.isCommon && (
-                            <span className="text-[10px] text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-950/50 px-1 rounded border border-teal-200/50">
-                              ⭐ Top
+                          {deptConfig.preferredDrugIds.includes(drug.id) ? (
+                            <span className="text-[10px] text-teal-800 dark:text-teal-200 font-bold bg-teal-50 dark:bg-teal-950/60 px-1.5 rounded border border-teal-200 dark:border-teal-800">
+                              {deptConfig.shortLabel} Top
                             </span>
-                          )}
+                          ) : drug.isCommon ? (
+                            <span className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                              Common
+                            </span>
+                          ) : null}
                           <span className="px-1.5 py-0.2 rounded bg-slate-200/60 dark:bg-slate-700/60 font-medium">
                             {drug.form}
                           </span>
@@ -964,10 +1061,10 @@ function PrescriptionContent() {
 
         {/* ── 4. MODERN FLOATING PRESCRIPTION ACTION DOCK ── */}
         {rxLines.length > 0 && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[95%] max-w-5xl z-40 transition-all duration-200">
+          <div className="fixed bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] sm:w-[95%] max-w-5xl z-40 transition-all duration-200">
             {/* Expandable Prescription Review Drawer */}
             {showRxDrawer && (
-              <div className="mb-2 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl space-y-4 animate-in slide-in-from-bottom-2 duration-150">
+              <div className="mb-2 p-3.5 sm:p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl space-y-4 max-h-[65dvh] overflow-y-auto animate-in slide-in-from-bottom-2 duration-150">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
                     <Pill size={16} className="text-teal-600" />

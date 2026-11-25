@@ -56,8 +56,8 @@ export default function PharmacyQueuePage() {
     <PageShell title="Prescription Queue" subtitle="Dispense medications & Payment Clearance Gate">
       {/* Pharmacy Payment Modal */}
       {payingRx && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 border border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-6 space-y-4 border border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">Collect Pharmacy Payment</h3>
               <button onClick={() => setPayingRx(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm">✕</button>
@@ -69,7 +69,7 @@ export default function PharmacyQueuePage() {
             </div>
             <div className="space-y-3">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Payment Method:</label>
-              <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 {(["cash", "telebirr", "cbe_birr"] as const).map((m) => (
                   <button
                     key={m}
@@ -110,7 +110,7 @@ export default function PharmacyQueuePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
         <KpiCard label="Pending" value={rxList.length} accent={rxList.length > 0} />
         <KpiCard label="Dispensed today" value={dispensedList.length} />
         <KpiCard label="Total" value={rxList.length + dispensedList.length} />

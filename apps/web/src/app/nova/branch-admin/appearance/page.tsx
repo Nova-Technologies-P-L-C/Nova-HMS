@@ -277,7 +277,7 @@ export default function AppearanceCustomizerPage() {
                 Choose the visual contrast mode for the hospital system. Dark mode helps reduce eye fatigue during 24/7 night emergency shifts.
               </p>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   {
                     id: "light",
@@ -471,7 +471,7 @@ export default function AppearanceCustomizerPage() {
                 Controls vertical padding and row spacing. Compact fits more patients on busy triage monitors and doctor charts.
               </p>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   {
                     id: "compact",
@@ -542,7 +542,7 @@ export default function AppearanceCustomizerPage() {
                 Controls the curvature of buttons, cards, badges, and modals across all stations.
               </p>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {RADIUS_OPTIONS.map((r) => {
                   const active = draft.radius === r.value;
                   return (
@@ -597,7 +597,7 @@ export default function AppearanceCustomizerPage() {
                     value={draft.hospitalName}
                     onChange={(e) => handleIdentityChange("hospitalName", e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    placeholder="e.g. Nova Medical Center"
+                    placeholder="e.g. Ethiora Medical System"
                   />
                 </div>
                 <div className="space-y-1">
@@ -649,7 +649,7 @@ export default function AppearanceCustomizerPage() {
                     <span className="text-slate-400 font-medium">Ethiora</span>
                     <span className="text-slate-300">/</span>
                     <span className="font-bold text-slate-800 dark:text-slate-100 truncate">
-                      {draft.hospitalName || "Nova HMS"}
+                      {draft.hospitalName || "Ethiora HMS"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -666,11 +666,11 @@ export default function AppearanceCustomizerPage() {
                 </div>
 
                 {/* Mock Sidebar Slice & KPI Card Split */}
-                <div className="grid grid-cols-12 gap-3 items-stretch">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-stretch">
                   
                   {/* Mock Sidebar slice */}
                   <div
-                    className="col-span-5 rounded-xl p-3 border shadow-xs flex flex-col justify-between"
+                    className="sm:col-span-5 rounded-xl p-3 border shadow-xs flex flex-col justify-between"
                     style={{
                       backgroundColor: draft.sidebarBg,
                       borderColor: draft.sidebarTheme === "white" ? "#e2e8f0" : "#1e293b",
@@ -681,13 +681,12 @@ export default function AppearanceCustomizerPage() {
                       {/* Logo row */}
                       <div className="flex items-center gap-2 mb-3">
                         <div
-                          className="w-6 h-6 rounded flex items-center justify-center font-bold text-white text-[10px] shadow-xs"
+                          className="w-6 h-6 rounded bg-white p-0.5 flex items-center justify-center shadow-xs overflow-hidden border border-slate-200/80"
                           style={{
-                            backgroundColor: draft.primaryColor,
                             borderRadius: `${Math.min(draft.radius, 8)}px`,
                           }}
                         >
-                          {draft.logoBadge || "DM"}
+                          <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
                         </div>
                         <span
                           className={`text-xs font-bold truncate ${
@@ -735,7 +734,7 @@ export default function AppearanceCustomizerPage() {
                   </div>
 
                   {/* Mock Metric Cards */}
-                  <div className="col-span-7 space-y-2.5">
+                  <div className="sm:col-span-7 space-y-2.5">
                     {/* Primary Highlight KPI Card */}
                     <div
                       className="p-3 text-white shadow-sm flex flex-col justify-between"
@@ -788,6 +787,7 @@ export default function AppearanceCustomizerPage() {
                     </span>
                     <span className="text-[10px] text-slate-400">3 waiting</span>
                   </div>
+                  <div className="overflow-x-auto">
                   <table className="min-w-full text-left">
                     <thead>
                       <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-semibold uppercase text-slate-400">
@@ -822,6 +822,7 @@ export default function AppearanceCustomizerPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
                 {/* Mock Buttons Sandbox */}

@@ -7,6 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, Card, StatusBadge } from "@/components/nova/nova-ui";
 import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
+import { useNovaRole } from "@/components/nova/nova-role-context";
+import { getDepartmentConfig } from "@/lib/department-configs";
 import {
   Search,
   User,
@@ -48,8 +50,11 @@ function calculateAge(dobString?: string) {
 
 function EMRContent() {
   const params = useSearchParams();
+  const { doctorDepartment } = useNovaRole();
   const urlVisitId = params.get("visitId") ?? "";
   const urlPatientId = params.get("patientId") ?? "";
+  const urlDept = params.get("dept");
+  const deptConfig = useMemo(() => getDepartmentConfig(urlDept || doctorDepartment), [urlDept, doctorDepartment]);
 
   // Selected patient & visit states (initialized from URL query parameters)
   const [selectedPatientId, setSelectedPatientId] = useState<string>(urlPatientId);
@@ -174,10 +179,10 @@ function EMRContent() {
 
           {effectiveVisitId && (
             <Link
-              href={`/nova/doctor/consultation?visitId=${effectiveVisitId}`}
+              href={`/nova/doctor/consultation?visitId=${effectiveVisitId}&dept=${deptConfig.id}`}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium rounded-md shadow-xs transition"
             >
-              <Stethoscope size={13} /> Start Consultation →
+              <Stethoscope size={13} /> {deptConfig.sidebarLabels.consult} →
             </Link>
           )}
 

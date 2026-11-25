@@ -111,15 +111,28 @@ const DEFAULT_DOCTORS_ROSTER = [
     defaultCheckIn: "08:10 AM",
   },
   {
+    name: "Dr. Dawit Haile",
+    email: "dental@dmrh.gov.et",
+    phone: "+251 91 678 9013",
+    department: "Dental Clinic & Oral Surgery",
+    title: "Dental Surgeon",
+    roomNumber: "Room 105 — Dental Suite",
+    licenseNumber: "MD-ET-7104",
+    shift: { name: "Dental Operatory Shift", start: "08:00 AM", end: "04:30 PM", type: "Full Duty" as const },
+    defaultStatus: "available" as DoctorPresenceStatus,
+    defaultCheckIn: "08:00 AM",
+  },
+  {
     name: "Dr. Hana Alemu",
-    email: "hana.alemu@dmrh.gov.et",
+    email: "eye@dmrh.gov.et",
     phone: "+251 91 678 9012",
-    department: "Radiology & Imaging",
-    title: "Diagnostic Radiologist",
-    roomNumber: "Room 115 — Ultrasound & Imaging",
+    department: "Ophthalmology / Eye Clinic",
+    title: "Ophthalmologist",
+    roomNumber: "Room 106 — Eye Clinic",
     licenseNumber: "MD-ET-7182",
-    shift: { name: "Afternoon & Evening Duty", start: "01:00 PM", end: "09:00 PM", type: "Afternoon" as const },
-    defaultStatus: "expected" as DoctorPresenceStatus,
+    shift: { name: "Eye Clinic Duty", start: "08:00 AM", end: "04:30 PM", type: "Full Duty" as const },
+    defaultStatus: "available" as DoctorPresenceStatus,
+    defaultCheckIn: "08:15 AM",
   },
 ];
 
@@ -244,8 +257,9 @@ export const doctorRouter = router({
       "pediatrics": 10,
       "general surgery": 18,
       "ob/gyn": 14,
+      "dental": 20,
+      "ophthalmology": 12,
       "chronic disease": 16,
-      "radiology & imaging": 8,
     };
 
     const getRealAvgForDept = (dept: string): number => {
@@ -269,14 +283,32 @@ export const doctorRouter = router({
     dbDoctors.forEach((d, idx) => {
       const docName = d.user?.name || `Dr. ${d.title || "Physician"}`;
       const cached = cache[d.userId] || {};
-
-      // Match being-seen ticket
-      const activeTicket = beingSeenTickets[idx % Math.max(beingSeenTickets.length, 1)];
-      const waitingCount = Math.max(0, Math.floor(waitingTickets.length / Math.max(dbDoctors.length, 1)) + (idx === 0 ? 1 : 0));
-      const completedCount = Math.floor(doneTickets.length / Math.max(dbDoctors.length, 1)) + (idx === 0 ? 2 : 1);
-
       const defaultTemplate = DEFAULT_DOCTORS_ROSTER[idx % DEFAULT_DOCTORS_ROSTER.length]!;
       const docDept = d.department || defaultTemplate.department;
+
+      // Match real tickets assigned to this doctor (or unassigned in same dept)
+      const assignedToMe = waitingTickets.filter(
+        (t) =>
+          t.assignedDoctorId === d.userId ||
+          t.assignedDoctorId === d.id ||
+          (t.assignedDoctorName && t.assignedDoctorName.toLowerCase() === docName.toLowerCase())
+      );
+      const activeForMe =
+        beingSeenTickets.find(
+          (t) =>
+            t.assignedDoctorId === d.userId ||
+            t.assignedDoctorId === d.id ||
+            (t.assignedDoctorName && t.assignedDoctorName.toLowerCase() === docName.toLowerCase())
+        ) || beingSeenTickets[idx % Math.max(beingSeenTickets.length, 1)];
+      const waitingCount = assignedToMe.length > 0
+        ? assignedToMe.length
+        : waitingTickets.filter((t) => !t.assignedDoctorId && (t.department || "").toLowerCase().includes(docDept.toLowerCase().split(" ")[0] || "")).length;
+      const completedCount = doneTickets.filter(
+        (t) =>
+          t.assignedDoctorId === d.userId ||
+          t.assignedDoctorId === d.id ||
+          (t.assignedDoctorName && t.assignedDoctorName.toLowerCase() === docName.toLowerCase())
+      ).length;
       const realAvgMins = getRealAvgForDept(docDept);
 
       const item: DoctorPresenceItem = {
@@ -296,11 +328,11 @@ export const doctorRouter = router({
         breakNote: cached.breakNote || defaultTemplate.breakNote,
         activeTicketNumber:
           cached.status === "in-consultation" || (!cached.status && defaultTemplate.defaultStatus === "in-consultation")
-            ? activeTicket?.ticketNumber || "A-018"
+            ? activeForMe?.ticketNumber || undefined
             : undefined,
         activePatientName:
           cached.status === "in-consultation" || (!cached.status && defaultTemplate.defaultStatus === "in-consultation")
-            ? activeTicket?.visit?.patient?.nameEn || "Abebe Kebede"
+            ? activeForMe?.visit?.patient?.nameEn || undefined
             : undefined,
         waitingCount,
         completedTodayCount: completedCount,

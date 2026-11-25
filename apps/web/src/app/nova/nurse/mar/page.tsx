@@ -941,8 +941,8 @@ function MARContent() {
 
         {/* ── 5. CLINICAL REASON MODAL FOR HELD / REFUSED ── */}
         {reasonModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 max-w-md w-full max-h-[90dvh] overflow-y-auto shadow-2xl space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   {reasonModal.actionType === "held" ? (

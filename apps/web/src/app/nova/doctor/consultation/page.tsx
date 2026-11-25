@@ -34,49 +34,14 @@ import {
   HeartPulse,
   RotateCcw,
 } from "lucide-react";
-import { getDepartmentConfig, ALL_DEPARTMENTS, type DepartmentConfig } from "@/lib/department-configs";
+import {
+  getDepartmentConfig,
+  ALL_DEPARTMENTS,
+  doesTicketBelongToDepartment,
+} from "@/lib/department-configs";
 import { PatientHistoryViewer } from "@/components/nova/patient-history-viewer";
 import { useNovaRole } from "@/components/nova/nova-role-context";
 import { toast } from "sonner";
-
-// Common clinical ICD-10 quick diagnosis presets
-const COMMON_DIAGNOSES = [
-  { icd: "J06.9", name: "Acute Upper Respiratory Infection" },
-  { icd: "J02.9", name: "Acute Pharyngitis / Tonsillitis" },
-  { icd: "J18.9", name: "Community-Acquired Pneumonia" },
-  { icd: "I10", name: "Essential Primary Hypertension" },
-  { icd: "E11.9", name: "Type 2 Diabetes Mellitus" },
-  { icd: "K29.7", name: "Gastritis / Dyspepsia" },
-  { icd: "A09", name: "Infectious Gastroenteritis" },
-  { icd: "N39.0", name: "Urinary Tract Infection" },
-  { icd: "B54", name: "Unspecified Malaria" },
-  { icd: "A01.0", name: "Typhoid Fever" },
-  { icd: "M54.5", name: "Low Back Pain" },
-];
-
-// Common Review of Systems (ROS) chips
-const ROS_SYMPTOMS = [
-  "Fever",
-  "Cough",
-  "Dyspnea",
-  "Chest Pain",
-  "Headache",
-  "Vomiting",
-  "Diarrhea",
-  "Abdominal Pain",
-  "Fatigue",
-  "Dysuria",
-  "Skin Rash",
-];
-
-// Quick Follow-up intervals
-const FOLLOW_UP_OPTIONS = [
-  "Return in 3 days",
-  "Return in 1 week",
-  "Return in 2 weeks",
-  "Return in 1 month",
-  "PRN (If symptoms worsen)",
-];
 
 function calculateAge(dobString?: string) {
   if (!dobString) return "—";
@@ -123,6 +88,8 @@ function ConsultationContent() {
   // Structured Specialty Assessment Form State (JSON-configured per department)
   const [specialtyData, setSpecialtyData] = useState<Record<string, any>>({});
   const [showGeneralDiagnoses, setShowGeneralDiagnoses] = useState(false);
+  const [showGeneralExam, setShowGeneralExam] = useState(false);
+  const [queueScope, setQueueScope] = useState<"dept" | "all">("dept");
 
   // Initialize or update default specialty data whenever active department changes
   useEffect(() => {
@@ -135,6 +102,8 @@ function ConsultationContent() {
       });
       return next;
     });
+    // Reset default general physical exam visibility for Dental & Eye clinics
+    setShowGeneralExam(deptConfig.examMode !== "dental" && deptConfig.examMode !== "ophthalmic");
   }, [deptConfig]);
 
   const isDoctor = role === "Doctor";
@@ -172,15 +141,15 @@ function ConsultationContent() {
   const [abdomen, setAbdomen] = useState("Soft, non-tender, non-distended.");
   const [otherExam, setOtherExam] = useState("");
 
-  // Assessment (A)
-  const [icd, setIcd] = useState("J06.9");
-  const [diagnosis, setDiagnosis] = useState("Acute upper respiratory infection");
+  // Assessment (A) — synced to active specialty defaults
+  const [icd, setIcd] = useState(deptConfig.defaultDiagnosis.icd);
+  const [diagnosis, setDiagnosis] = useState(deptConfig.defaultDiagnosis.name);
   const [secondaryDiagnoses, setSecondaryDiagnoses] = useState("");
   const [clinicalAssessment, setClinicalAssessment] = useState("");
 
-  // Plan (P)
-  const [patientAdvice, setPatientAdvice] = useState("Adequate fluid intake, warm fluids, adequate rest.");
-  const [followUp, setFollowUp] = useState("Return in 3 days");
+  // Plan (P) — synced to active specialty defaults
+  const [patientAdvice, setPatientAdvice] = useState(deptConfig.defaultAdvice);
+  const [followUp, setFollowUp] = useState(deptConfig.followUpOptions[0] ?? "Return in 1 week");
   const [planRx, setPlanRx] = useState(true);
   const [planLab, setPlanLab] = useState(false);
   const [planRefer, setPlanRefer] = useState(false);
@@ -188,6 +157,18 @@ function ConsultationContent() {
 
   const [saved, setSaved] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+
+  // Update default diagnosis, advice, and follow-up when department switches on a fresh visit
+  useEffect(() => {
+    if (!visit?.diagnoses?.length) {
+      setIcd(deptConfig.defaultDiagnosis.icd);
+      setDiagnosis(deptConfig.defaultDiagnosis.name);
+    }
+    if (!visit?.notes?.length) {
+      setPatientAdvice(deptConfig.defaultAdvice);
+      setFollowUp(deptConfig.followUpOptions[0] ?? "Return in 1 week");
+    }
+  }, [deptConfig.id, visit?.id]);
 
   // Pre-fill existing draft notes and diagnosis if returning to a visit
   useEffect(() => {
@@ -285,13 +266,18 @@ function ConsultationContent() {
   };
 
   const compileExamString = () => {
-    const parts = [
-      `General: ${generalExam}`,
-      `HEENT: ${heent}`,
-      `Chest: ${chest}`,
-      `CVS: ${cvs}`,
-      `Abdomen: ${abdomen}`,
-    ];
+    const parts: string[] = [];
+    if (deptConfig.examMode !== "dental" && deptConfig.examMode !== "ophthalmic") {
+      parts.push(
+        `General: ${generalExam}`,
+        `HEENT: ${heent}`,
+        `Chest: ${chest}`,
+        `CVS: ${cvs}`,
+        `Abdomen: ${abdomen}`
+      );
+    } else if (showGeneralExam) {
+      parts.push(`General: ${generalExam}`);
+    }
     if (otherExam.trim()) parts.push(`Other Exam: ${otherExam.trim()}`);
     const specStr = compileSpecialtyString();
     if (specStr) parts.push("\n" + specStr);
@@ -398,8 +384,13 @@ function ConsultationContent() {
 
   const handleSelectQueueVisit = (vId: string) => {
     setActiveVisitId(vId);
-    window.history.pushState(null, "", `/nova/doctor/consultation?visitId=${vId}`);
+    window.history.pushState(null, "", `/nova/doctor/consultation?visitId=${vId}&dept=${deptConfig.id}`);
   };
+
+  const visibleQueue = useMemo(() => {
+    if (queueScope === "all") return queue;
+    return queue.filter((t) => doesTicketBelongToDepartment(t.department, deptConfig.id));
+  }, [queue, queueScope, deptConfig.id]);
 
   const isLoading = addNote.isPending || addDiagnosis.isPending || transferToBilling.isPending;
 
@@ -462,19 +453,28 @@ function ConsultationContent() {
             </Link>
             {planRx && (
               <Link
-                href={`/nova/doctor/prescription?visitId=${activeVisitId}`}
+                href={`/nova/doctor/prescription?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                 className="flex items-center justify-between w-full px-4 py-2 bg-teal-50 border border-teal-200 rounded-lg text-xs font-medium text-teal-700 hover:bg-teal-100"
               >
-                <span>Write Prescription</span>
+                <span>{deptConfig.sidebarLabels.prescription}</span>
                 <ArrowRight size={13} />
               </Link>
             )}
             {planLab && (
               <Link
-                href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                href={`/nova/doctor/lab-order?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                 className="flex items-center justify-between w-full px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100"
               >
-                <span>Order Lab Tests</span>
+                <span>{deptConfig.sidebarLabels.labOrder}</span>
+                <ArrowRight size={13} />
+              </Link>
+            )}
+            {planRefer && (
+              <Link
+                href={`/nova/doctor/referral?visitId=${activeVisitId}&dept=${deptConfig.id}`}
+                className="flex items-center justify-between w-full px-4 py-2 bg-purple-50 border border-purple-200 rounded-lg text-xs font-medium text-purple-700 hover:bg-purple-100"
+              >
+                <span>Create Transfer / Referral</span>
                 <ArrowRight size={13} />
               </Link>
             )}
@@ -565,22 +565,28 @@ function ConsultationContent() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-600" />
             </span>
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-              Waiting Queue ({queue.length})
+              {deptConfig.shortLabel} Queue ({visibleQueue.length})
             </span>
           </div>
 
-          <span className="text-[11px] text-slate-400">
-            Click any waiting patient to consult
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setQueueScope(queueScope === "dept" ? "all" : "dept")}
+              className="text-[11px] font-semibold text-teal-700 dark:text-teal-300 hover:underline cursor-pointer"
+            >
+              {queueScope === "dept" ? `Show All Clinic (${queue.length})` : `Show ${deptConfig.shortLabel} Only`}
+            </button>
+          </div>
         </div>
 
-        {queue.length === 0 ? (
+        {visibleQueue.length === 0 ? (
           <p className="text-xs text-slate-400 px-1 py-1">
-            No patients currently waiting in the OPD queue.
+            No patients waiting in {deptConfig.shortLabel}.
           </p>
         ) : (
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-            {queue.map((ticket) => {
+            {visibleQueue.map((ticket) => {
               const isSelected = ticket.visitId === activeVisitId;
               const p = ticket.visit.patient;
               return (
@@ -679,24 +685,30 @@ function ConsultationContent() {
               </div>
 
               {/* Quick Navigation actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Link
-                  href={`/nova/doctor/prescription?visitId=${activeVisitId}`}
+                  href={`/nova/doctor/prescription?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 rounded-md text-xs font-semibold transition"
                 >
-                  <Pill size={13} /> Prescribe
+                  <Pill size={13} /> {deptConfig.sidebarLabels.prescription}
                 </Link>
                 <Link
-                  href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                  href={`/nova/doctor/lab-order?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-md text-xs font-semibold transition"
                 >
-                  <FlaskConical size={13} /> Order Lab
+                  <FlaskConical size={13} /> {deptConfig.sidebarLabels.labOrder}
                 </Link>
                 <Link
-                  href={`/nova/doctor/emr?visitId=${activeVisitId}`}
+                  href={`/nova/doctor/referral?visitId=${activeVisitId}&dept=${deptConfig.id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-md text-xs font-semibold transition"
+                >
+                  <ArrowRight size={13} /> Transfer / Refer
+                </Link>
+                <Link
+                  href={`/nova/doctor/emr?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-md text-xs font-semibold transition"
                 >
-                  <FileText size={13} /> Patient EMR
+                  <FileText size={13} /> History
                 </Link>
               </div>
             </div>
@@ -865,13 +877,13 @@ function ConsultationContent() {
                   </div>
                 </div>
 
-                {/* Review of Systems (ROS) Quick Symptom Tags */}
+                {/* Quick Symptom Tags tailored by Specialty */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
-                    Review of Systems (Quick Tagging)
+                    Quick Symptoms ({deptConfig.shortLabel})
                   </label>
                   <div className="flex flex-wrap gap-1.5">
-                    {ROS_SYMPTOMS.map((sym) => {
+                    {deptConfig.rosSymptoms.map((sym) => {
                       const isChecked = selectedRos.includes(sym);
                       return (
                         <button
@@ -906,7 +918,21 @@ function ConsultationContent() {
               </div>
             </Card>
 
-            {/* 2. OBJECTIVE: Physical Examination & Organ Systems */}
+            {/* 2. OBJECTIVE: General Physical Exam (Collapsible for Dental & Eye clinics) */}
+            {(deptConfig.examMode === "dental" || deptConfig.examMode === "ophthalmic") && !showGeneralExam ? (
+              <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs">
+                <span className="text-slate-500 font-medium">
+                  General body exam hidden for {deptConfig.shortLabel} workflow
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowGeneralExam(true)}
+                  className="text-teal-700 dark:text-teal-400 font-semibold hover:underline cursor-pointer"
+                >
+                  + Add General Body Exam
+                </button>
+              </div>
+            ) : (
             <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
@@ -914,22 +940,33 @@ function ConsultationContent() {
                     O
                   </span>
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs uppercase tracking-wider">
-                    Objective (Physical Examination)
+                    Physical Examination
                   </h3>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGeneralExam("Alert, oriented, in no acute distress.");
-                    setHeent("Normocephalic, throat normal, no congestion.");
-                    setChest("Bilateral clear breath sounds, no wheeze/creps.");
-                    setCvs("S1, S2 audible, regular rate, no murmurs.");
-                    setAbdomen("Soft, non-tender, non-distended.");
-                  }}
-                  className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold hover:underline"
-                >
-                  Reset Standard Normal
-                </button>
+                <div className="flex items-center gap-3">
+                  {(deptConfig.examMode === "dental" || deptConfig.examMode === "ophthalmic") && (
+                    <button
+                      type="button"
+                      onClick={() => setShowGeneralExam(false)}
+                      className="text-[11px] text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+                    >
+                      Hide
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGeneralExam("Alert, oriented, in no acute distress.");
+                      setHeent("Normocephalic, throat normal, no congestion.");
+                      setChest("Bilateral clear breath sounds, no wheeze/creps.");
+                      setCvs("S1, S2 audible, regular rate, no murmurs.");
+                      setAbdomen("Soft, non-tender, non-distended.");
+                    }}
+                    className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold hover:underline"
+                  >
+                    Fill Normal
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -947,7 +984,7 @@ function ConsultationContent() {
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
-                      HEENT (Head, Eyes, Throat)
+                      Head, Eyes &amp; Throat (HEENT)
                     </label>
                     <input
                       type="text"
@@ -961,7 +998,7 @@ function ConsultationContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
-                      Respiratory / Chest
+                      Lungs / Chest
                     </label>
                     <input
                       type="text"
@@ -972,7 +1009,7 @@ function ConsultationContent() {
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
-                      Cardiovascular
+                      Heart (CVS)
                     </label>
                     <input
                       type="text"
@@ -996,18 +1033,19 @@ function ConsultationContent() {
 
                 <div>
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 block mb-1">
-                    Other Clinical Examination Findings
+                    Other Exam Notes
                   </label>
                   <input
                     type="text"
                     className={inputCls}
-                    placeholder="Musculoskeletal, skin, neurological findings..."
+                    placeholder="Skin, joints, nerves, or other findings..."
                     value={otherExam}
                     onChange={(e) => setOtherExam(e.target.value)}
                   />
                 </div>
               </div>
             </Card>
+            )}
 
             {/* ─── 2.5 SPECIALTY CLINICAL ASSESSMENT (Dynamic by Department JSON Config) ─── */}
             <Card className="p-4 border-slate-200 dark:border-slate-800 shadow-xs bg-white dark:bg-slate-900">
@@ -1170,47 +1208,99 @@ function ConsultationContent() {
                 </div>
               )}
 
-              {/* SPECIALTY: PEDIATRICS MUAC BADGE GUIDE */}
+              {/* SPECIALTY: PEDIATRICS DANGER SIGN & MUAC BADGE GUIDE */}
+              {deptConfig.id === "pediatrics" && specialtyData.dangerSigns && specialtyData.dangerSigns !== "None (Child alert & drinking)" && (
+                <div className="mb-3 p-2.5 rounded-lg border text-xs flex items-center justify-between bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <AlertTriangle size={14} /> Urgent Danger Sign: {specialtyData.dangerSigns}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-rose-600 text-white">
+                    Needs Urgent Care
+                  </span>
+                </div>
+              )}
+
               {deptConfig.id === "pediatrics" && specialtyData.muac && (
                 <div className="mb-3 p-2.5 rounded-lg border text-xs flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
                   <span className="font-semibold text-slate-700 dark:text-slate-300">
-                    Nutrition Triage Assessment (MUAC {specialtyData.muac} cm):
+                    Nutrition Check (MUAC {specialtyData.muac} cm):
                   </span>
                   {parseFloat(specialtyData.muac) < 11.5 ? (
                     <span className="px-2 py-0.5 rounded font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                      🚨 Severe Acute Malnutrition (SAM)
+                      Severe Malnutrition (SAM)
                     </span>
                   ) : parseFloat(specialtyData.muac) <= 12.5 ? (
                     <span className="px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                      ⚠️ Moderate Acute Malnutrition (MAM)
+                      Moderate Malnutrition (MAM)
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      ✓ Normal Nutrition Status
+                      Normal Nutrition
                     </span>
                   )}
                 </div>
               )}
 
-              {/* SPECIALTY: OB/GYN FETAL HEART RATE BADGE */}
+              {/* SPECIALTY: OB/GYN AUTO-EDD & FETAL HEART RATE BADGE */}
+              {deptConfig.id === "ob_gyn" && specialtyData.lmpDate && /^\d{4}-\d{2}-\d{2}$/.test(String(specialtyData.lmpDate).trim()) && (() => {
+                const lmp = new Date(String(specialtyData.lmpDate).trim());
+                if (isNaN(lmp.getTime())) return null;
+                const edd = new Date(lmp.getTime() + 280 * 24 * 60 * 60 * 1000);
+                const weeks = Math.max(0, Math.floor((Date.now() - lmp.getTime()) / (7 * 24 * 60 * 60 * 1000)));
+                return (
+                  <div className="mb-3 p-2.5 rounded-lg border text-xs flex items-center justify-between bg-pink-50/70 dark:bg-pink-950/20 border-pink-200 dark:border-pink-800">
+                    <span className="font-semibold text-pink-900 dark:text-pink-200">
+                      Estimated Due Date (EDD): <strong>{edd.toISOString().split("T")[0]}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded font-bold bg-white dark:bg-slate-900 text-pink-800 dark:text-pink-300 border border-pink-200 dark:border-pink-700">
+                      ~{weeks} Weeks Pregnant
+                    </span>
+                  </div>
+                );
+              })()}
+
               {deptConfig.id === "ob_gyn" && specialtyData.fetalHeartRate && (
                 <div className="mb-3 p-2.5 rounded-lg border text-xs flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
                   <span className="font-semibold text-slate-700 dark:text-slate-300">
-                    Fetal Well-being (FHR {specialtyData.fetalHeartRate} bpm):
+                    Baby Heartbeat ({specialtyData.fetalHeartRate} bpm):
                   </span>
                   {parseInt(specialtyData.fetalHeartRate, 10) >= 120 && parseInt(specialtyData.fetalHeartRate, 10) <= 160 ? (
                     <span className="px-2 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800">
-                      ✓ Normal Baseline (120–160 bpm)
+                      Normal (120–160 bpm)
                     </span>
                   ) : parseInt(specialtyData.fetalHeartRate, 10) < 120 ? (
                     <span className="px-2 py-0.5 rounded font-bold bg-rose-100 text-rose-800">
-                      🚨 Fetal Bradycardia (&lt;120 bpm)
+                      Too Slow (&lt;120 bpm)
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-800">
-                      ⚠️ Fetal Tachycardia (&gt;160 bpm)
+                      Too Fast (&gt;160 bpm)
                     </span>
                   )}
+                </div>
+              )}
+
+              {/* SPECIALTY: OPHTHALMOLOGY HIGH EYE PRESSURE ALERT */}
+              {deptConfig.id === "ophthalmology" && (Number(specialtyData.iopOD) > 21 || Number(specialtyData.iopOS) > 21) && (
+                <div className="mb-3 p-2.5 rounded-lg border text-xs flex items-center justify-between bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200">
+                  <span className="font-bold flex items-center gap-1.5">
+                    <AlertTriangle size={14} /> High Eye Pressure Detected (&gt;21 mmHg) — Check for Glaucoma
+                  </span>
+                  <span className="font-mono font-bold">
+                    OD: {specialtyData.iopOD || "—"} / OS: {specialtyData.iopOS || "—"}
+                  </span>
+                </div>
+              )}
+
+              {/* SPECIALTY: SURGERY PRE-OP READINESS BADGE */}
+              {deptConfig.id === "surgery" && (
+                <div className="mb-3 p-2.5 rounded-lg border text-xs flex flex-wrap items-center justify-between gap-2 bg-purple-50/60 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
+                  <span className="font-semibold text-purple-900 dark:text-purple-200">
+                    Pre-Op Status: <strong>{specialtyData.surgicalUrgency || "Planned"}</strong>
+                  </span>
+                  <span className="text-[11px] font-medium text-purple-800 dark:text-purple-300">
+                    {specialtyData.consentStatus || "Consent pending"} · NPO: {specialtyData.fastingHours ? `${specialtyData.fastingHours}h` : "Not set"}
+                  </span>
                 </div>
               )}
 
@@ -1320,7 +1410,7 @@ function ConsultationContent() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {(showGeneralDiagnoses ? COMMON_DIAGNOSES : deptConfig.quickDiagnoses).map((item) => (
+                  {(showGeneralDiagnoses ? getDepartmentConfig("general_opd").quickDiagnoses : deptConfig.quickDiagnoses).map((item) => (
                     <button
                       key={item.icd}
                       type="button"
@@ -1441,20 +1531,20 @@ function ConsultationContent() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                       <FlaskConical size={12} className="text-teal-600" />
-                      {deptConfig.code} Common Diagnostic Investigations:
+                      {deptConfig.shortLabel} Common Tests &amp; Procedures:
                     </span>
                     <Link
-                      href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                      href={`/nova/doctor/lab-order?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                       className="text-[10px] font-semibold text-teal-700 hover:underline"
                     >
-                      Full Catalog →
+                      All Tests →
                     </Link>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {deptConfig.quickLabTests.map((t) => (
                       <Link
                         key={t.code}
-                        href={`/nova/doctor/lab-order?visitId=${activeVisitId}&testCode=${t.code}`}
+                        href={`/nova/doctor/lab-order?visitId=${activeVisitId}&dept=${deptConfig.id}&testCode=${t.catalogId || t.code}`}
                         className="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:border-teal-400 hover:text-teal-700 flex items-center gap-1 shadow-2xs transition"
                       >
                         <Plus size={10} className="text-teal-600" />
@@ -1484,7 +1574,7 @@ function ConsultationContent() {
                     Follow-up Instructions
                   </label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
-                    {FOLLOW_UP_OPTIONS.map((opt) => (
+                    {deptConfig.followUpOptions.map((opt) => (
                       <button
                         key={opt}
                         type="button"
@@ -1607,21 +1697,31 @@ function ConsultationContent() {
               </p>
 
               <Link
-                href={`/nova/doctor/prescription?visitId=${activeVisitId}`}
+                href={`/nova/doctor/prescription?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                 className="flex items-center justify-between w-full px-3 py-2 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 rounded text-xs font-semibold hover:bg-teal-100 transition"
               >
                 <span className="flex items-center gap-1.5">
-                  <Pill size={13} /> Prescribe Medications
+                  <Pill size={13} /> {deptConfig.sidebarLabels.prescription}
                 </span>
                 <ChevronRight size={13} />
               </Link>
 
               <Link
-                href={`/nova/doctor/lab-order?visitId=${activeVisitId}`}
+                href={`/nova/doctor/lab-order?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                 className="flex items-center justify-between w-full px-3 py-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded text-xs font-semibold hover:bg-blue-100 transition"
               >
                 <span className="flex items-center gap-1.5">
-                  <FlaskConical size={13} /> Order Lab Investigations
+                  <FlaskConical size={13} /> {deptConfig.sidebarLabels.labOrder}
+                </span>
+                <ChevronRight size={13} />
+              </Link>
+
+              <Link
+                href={`/nova/doctor/referral?visitId=${activeVisitId}&dept=${deptConfig.id}`}
+                className="flex items-center justify-between w-full px-3 py-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded text-xs font-semibold hover:bg-amber-100 transition"
+              >
+                <span className="flex items-center gap-1.5">
+                  <ArrowRight size={13} /> Transfer / Refer Patient
                 </span>
                 <ChevronRight size={13} />
               </Link>
@@ -1631,17 +1731,17 @@ function ConsultationContent() {
                 className="flex items-center justify-between w-full px-3 py-2 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 rounded text-xs font-semibold hover:bg-purple-100 transition"
               >
                 <span className="flex items-center gap-1.5">
-                  <Bed size={13} /> Admit to Inpatient Ward
+                  <Bed size={13} /> {deptConfig.id === "surgery" ? "Book Ward / OR Bed" : "Admit to Ward"}
                 </span>
                 <ChevronRight size={13} />
               </Link>
 
               <Link
-                href={`/nova/doctor/emr?visitId=${activeVisitId}`}
+                href={`/nova/doctor/emr?visitId=${activeVisitId}&dept=${deptConfig.id}`}
                 className="flex items-center justify-between w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-xs font-semibold hover:bg-slate-200 transition"
               >
                 <span className="flex items-center gap-1.5">
-                  <FileText size={13} /> Full Medical History (EMR)
+                  <FileText size={13} /> Full Medical History
                 </span>
                 <ChevronRight size={13} />
               </Link>

@@ -21,7 +21,7 @@ export default function TenantManagement() {
       {showAdd && (
         <Card className="p-5 mb-6 border-teal-200">
           <h3 className="font-semibold text-slate-800 mb-4">Add new hospital tenant</h3>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <FormField label="Hospital name">
               <input className={inputCls} placeholder="Jimma General Hospital" />
             </FormField>
@@ -64,7 +64,7 @@ export default function TenantManagement() {
       {tenant && (
         <Card className="mt-6 p-5">
           <h3 className="font-semibold text-slate-800 mb-3">{tenant.name} — Details</h3>
-          <div className="grid grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             <div><p className="text-xs text-slate-500 mb-0.5">Region</p><p>{tenant.region}</p></div>
             <div><p className="text-xs text-slate-500 mb-0.5">Plan</p><p>{tenant.plan}</p></div>
             <div><p className="text-xs text-slate-500 mb-0.5">Status</p><StatusBadge status={tenant.status} /></div>

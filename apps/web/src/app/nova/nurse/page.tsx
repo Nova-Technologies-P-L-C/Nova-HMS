@@ -920,8 +920,8 @@ export default function NurseDashboard() {
 
         {/* ── 5. QUICK BEDSIDE VITALS MODAL ── */}
         {vitalsTarget && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 max-w-lg w-full max-h-[90dvh] overflow-y-auto shadow-2xl space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <Activity size={18} className="text-teal-600" />
@@ -943,7 +943,7 @@ export default function NurseDashboard() {
               </div>
 
               {/* Vitals Form Grid */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
                   <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Systolic BP (mmHg)
@@ -1038,8 +1038,8 @@ export default function NurseDashboard() {
 
         {/* ── 6. ASSIGN DUTY NURSE MODAL ── */}
         {nurseAssignTarget && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 max-w-md w-full max-h-[90dvh] overflow-y-auto shadow-2xl space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <UserCheck size={18} className="text-teal-600" />
@@ -1105,8 +1105,8 @@ export default function NurseDashboard() {
 
         {/* ── 7. DISCHARGE CONFIRMATION MODAL ── */}
         {dischargeTarget && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 max-w-md w-full max-h-[90dvh] overflow-y-auto shadow-2xl space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <LogOut size={18} className="text-red-500" />

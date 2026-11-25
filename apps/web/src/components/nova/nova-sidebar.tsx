@@ -13,6 +13,7 @@ import {
 import { useNovaRole } from "./nova-role-context";
 import { useNovaTheme } from "./nova-theme-context";
 import { useNovaSidebar } from "./nova-sidebar-context";
+import { getDepartmentConfig } from "@/lib/department-configs";
 import { type Role } from "@/lib/nova-mock-data";
 
 const NAV_BY_ROLE: Record<Role, { label: string; href: string; icon: React.ReactNode }[]> = {
@@ -148,8 +149,13 @@ const PERMISSION_NAV_MAP: {
 
 export default function NovaSidebar() {
   const pathname = usePathname();
-  const { role } = useNovaRole();
+  const { role, doctorDepartment } = useNovaRole();
   const { isCollapsed, toggleCollapsed, isMobileOpen, setIsMobileOpen } = useNovaSidebar();
+
+  const doctorDeptConfig = useMemo(
+    () => (role === "Doctor" ? getDepartmentConfig(doctorDepartment) : null),
+    [role, doctorDepartment]
+  );
 
   const { data: rolePermissionsList = [] } = useQuery({
     ...trpc.tenant.rolePermissions.queryOptions(),
@@ -190,8 +196,20 @@ export default function NovaSidebar() {
       baseNav.push({ label: "Dashboard", href: "/nova/branch-admin", icon: <Home size={16} /> });
     }
 
+    if (isDoctor && doctorDeptConfig) {
+      baseNav = baseNav.map((n: any) => {
+        if (n.href === "/nova/doctor") return { ...n, label: doctorDeptConfig.sidebarLabels.queue };
+        if (n.href === "/nova/doctor/emr") return { ...n, label: "Patient History" };
+        if (n.href === "/nova/doctor/consultation") return { ...n, label: doctorDeptConfig.sidebarLabels.consult };
+        if (n.href === "/nova/doctor/lab-order") return { ...n, label: doctorDeptConfig.sidebarLabels.labOrder };
+        if (n.href === "/nova/doctor/prescription") return { ...n, label: doctorDeptConfig.sidebarLabels.prescription };
+        if (n.href === "/nova/doctor/referral") return { ...n, label: "Transfer / Refer" };
+        return n;
+      });
+    }
+
     return baseNav;
-  }, [role, activeRoleRecord]);
+  }, [role, activeRoleRecord, doctorDeptConfig]);
 
   const { theme, isDark } = useNovaTheme();
   const isWhiteSidebar = theme.sidebarTheme === "white" && !isDark;
@@ -221,15 +239,14 @@ export default function NovaSidebar() {
       >
         <div className={`flex items-center gap-2.5 overflow-hidden ${isCollapsed ? "justify-center w-full" : ""}`}>
           <div
-            className="w-8 h-8 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center bg-white p-0.5 shrink-0 shadow-xs cursor-pointer overflow-hidden border border-slate-200/80"
             onClick={toggleCollapsed}
-            title={isCollapsed ? "Click to expand sidebar" : theme.hospitalName || "Nova Medical Center"}
+            title={isCollapsed ? "Click to expand sidebar" : theme.hospitalName || "Ethiora Medical System"}
             style={{
-              backgroundColor: theme.primaryColor,
               borderRadius: `${Math.min(theme.radius, 10)}px`,
             }}
           >
-            {theme.logoBadge || "N"}
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
           </div>
 
           {!isCollapsed && (
@@ -237,9 +254,9 @@ export default function NovaSidebar() {
               className={`font-semibold tracking-wide truncate text-sm transition-opacity duration-200 ${
                 isWhiteSidebar ? "text-slate-900" : "text-white"
               }`}
-              title={theme.hospitalName || "Nova Medical Center"}
+              title={theme.hospitalName || "Ethiora Medical System"}
             >
-              {theme.hospitalName || "Nova Medical Center"}
+              {theme.hospitalName || "Ethiora Medical System"}
             </span>
           )}
         </div>
@@ -285,9 +302,9 @@ export default function NovaSidebar() {
                 color: isWhiteSidebar ? theme.primaryColor : "#e2e8f0",
                 borderRadius: `${Math.min(theme.radius, 8)}px`,
               }}
-              title={role}
+              title={doctorDeptConfig ? `${role} · ${doctorDeptConfig.shortLabel}` : role}
             >
-              {role}
+              {doctorDeptConfig ? `${role} · ${doctorDeptConfig.shortLabel}` : role}
             </div>
           </div>
         ) : (

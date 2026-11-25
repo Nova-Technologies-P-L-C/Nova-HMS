@@ -17,8 +17,8 @@ export default function IDCardPage() {
 
   const handleShare = async () => {
     const shareData = {
-      title: `Nova HMS Health ID — ${PATIENT.name}`,
-      text: `Patient Health ID: ${PATIENT.healthId} (${PATIENT.name}) at Nova Medical Center`,
+      title: `Ethiora HMS Health ID — ${PATIENT.name}`,
+      text: `Patient Health ID: ${PATIENT.healthId} (${PATIENT.name}) at Ethiora Medical System`,
       url: window.location.href,
     };
 
@@ -29,7 +29,7 @@ export default function IDCardPage() {
         // User cancelled share
       }
     } else {
-      navigator.clipboard.writeText(`${PATIENT.healthId} — ${PATIENT.name} (Nova HMS)`);
+      navigator.clipboard.writeText(`${PATIENT.healthId} — ${PATIENT.name} (Ethiora HMS)`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -59,12 +59,12 @@ export default function IDCardPage() {
         {/* Top bar */}
         <div className="flex items-center justify-between mb-5 relative z-10">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center font-black text-white text-base shadow-sm">
-              E
+            <div className="w-9 h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+              <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <p className="font-bold text-sm text-white">Nova HMS</p>
-              <p className="text-[11px] text-teal-200">Nova Medical Center</p>
+              <p className="font-bold text-sm text-white">Ethiora HMS</p>
+              <p className="text-[11px] text-teal-200">Ethiora Medical System</p>
             </div>
           </div>
           {PATIENT.cbhi && (
@@ -102,7 +102,7 @@ export default function IDCardPage() {
         </div>
 
         {/* Real Dynamic QR Code */}
-        <div className="flex items-center gap-4 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 relative z-10">
           <div className="bg-white p-2 rounded-2xl shadow-lg border border-teal-400/30 shrink-0">
             <PatientQRCode patient={PATIENT} size={110} showControls={false} />
           </div>
@@ -111,13 +111,13 @@ export default function IDCardPage() {
               {t("Scan at hospital kiosk or doctor desk", "በሆስፒታሉ ኪዮስክ ወይም በዶክተሩ ጠረጴዛ ይቃኙ")}
             </p>
             <p className="font-mono text-xs font-bold text-white tracking-wider">{PATIENT.healthId}</p>
-            <p className="text-[11px] text-slate-300 mt-1">{PATIENT.kebele} · Nova Medical Center</p>
+            <p className="text-[11px] text-slate-300 mt-1">{PATIENT.kebele} · Ethiora Medical System</p>
           </div>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <button
           type="button"
           onClick={handlePrint}

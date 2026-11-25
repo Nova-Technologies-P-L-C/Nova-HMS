@@ -187,7 +187,7 @@ export default function QRScanner({ onScan, className = "", autoStart = true }: 
       name: p.name,
       dob: p.dob,
       cbhi: p.cbhi,
-      facility: "Nova Medical Center",
+      facility: "Ethiora Medical System",
     });
     handleSuccessfulScan(payload);
   };
@@ -314,7 +314,7 @@ export default function QRScanner({ onScan, className = "", autoStart = true }: 
             </span>
             <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium">Instant Test</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {PATIENTS.slice(0, 4).map((p) => (
               <button
                 key={p.id}

@@ -2,16 +2,18 @@ import Link from "next/link";
 
 export default function AboutPage() {
   return (
-    <div className="overflow-y-auto h-full bg-white">
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-slate-100">
+    <div className="overflow-y-auto min-h-[100dvh] bg-white">
+      <nav className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 py-3.5 sm:py-4 border-b border-slate-100">
         <Link href="/nova" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-teal-500 flex items-center justify-center font-bold text-white text-sm">E</div>
-          <span className="font-semibold text-slate-900">Ethiora HMS</span>
+          <div className="w-8 h-8 rounded-lg bg-white p-0.5 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
+          </div>
+          <span className="font-semibold text-slate-900 text-sm sm:text-base">Ethiora HMS</span>
         </Link>
-        <Link href="/nova/signup" className="px-4 py-1.5 bg-teal-600 text-white text-sm rounded hover:bg-teal-700 transition-colors">Request Demo</Link>
+        <Link href="/nova/signup" className="px-3.5 sm:px-4 py-1.5 bg-teal-600 text-white text-xs sm:text-sm rounded hover:bg-teal-700 transition-colors font-medium">Request Demo</Link>
       </nav>
 
-      <div className="max-w-3xl mx-auto px-8 py-16">
+      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-10 sm:py-16">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">About Ethiora HMS</h1>
         <p className="text-slate-600 text-base leading-relaxed mb-6">
           Ethiora HMS was built in response to a real challenge: Ethiopian hospitals — public referral centres, university hospitals, and private clinics alike — are managing complex workflows with paper, disconnected spreadsheets, and fragmented point solutions. The result is delayed care, lost records, and staff spending time on paperwork instead of patients.

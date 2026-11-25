@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { PageShell, Card, FormField, inputCls, btnPrimary, btnSecondary, StatusBadge } from "@/components/nova/nova-ui";
+import { useNovaRole } from "@/components/nova/nova-role-context";
+import { getDepartmentConfig, doesTicketBelongToDepartment } from "@/lib/department-configs";
 import {
   CheckCircle,
   FlaskConical,
@@ -38,7 +40,7 @@ import { toast } from "sonner";
 interface LabCatalogItem {
   id: string;
   name: string;
-  category: "Hematology" | "Biochemistry" | "Serology" | "Microbiology" | "Endocrine" | "Custom";
+  category: "Hematology" | "Biochemistry" | "Serology" | "Microbiology" | "Endocrine" | "Specialty" | "Custom";
   specimen: string;
   turnaround: string;
   isStat?: boolean;
@@ -96,6 +98,14 @@ const COMPREHENSIVE_LAB_CATALOG: LabCatalogItem[] = [
   { id: "ferritin", name: "Serum Ferritin & Iron Studies", category: "Endocrine", specimen: "Serum (SST)", turnaround: "2 hrs" },
   { id: "vit_d", name: "Vitamin D (25-OH Total)", category: "Endocrine", specimen: "Serum (SST)", turnaround: "3-4 hrs" },
   { id: "vit_b12", name: "Vitamin B12 & Serum Folate", category: "Endocrine", specimen: "Serum (SST)", turnaround: "3-4 hrs" },
+
+  // ─── SPECIALTY IMAGING & CLINIC PROCEDURES ───
+  { id: "dental_iopa", name: "Single Tooth X-Ray (IOPA)", category: "Specialty", specimen: "Dental X-Ray", turnaround: "10 min", isStat: true },
+  { id: "dental_opg", name: "Full Jaw Panoramic X-Ray (OPG)", category: "Specialty", specimen: "Dental X-Ray", turnaround: "15 min" },
+  { id: "eye_refraction", name: "Glasses & Vision Check (Autorefraction)", category: "Specialty", specimen: "Eye Clinic", turnaround: "10 min", isStat: true },
+  { id: "eye_tonometry", name: "Eye Pressure Test (Goldmann Tonometry)", category: "Specialty", specimen: "Eye Clinic", turnaround: "10 min", isStat: true },
+  { id: "anc_panel", name: "Full ANC Panel (CBC, Blood Group, HIV, VDRL, HBsAg)", category: "Specialty", specimen: "Blood / Serum", turnaround: "30 min", isStat: true },
+  { id: "ogtt", name: "Pregnancy Sugar Test (OGTT 75g)", category: "Biochemistry", specimen: "Serum (Timed)", turnaround: "2 hrs", fasting: true },
 ];
 
 const COMMON_INDICATIONS = [
@@ -125,9 +135,13 @@ function calculateAge(dobString?: string) {
 function LabOrderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { doctorDepartment } = useNovaRole();
   const rawVisitId = searchParams.get("visitId") ?? "";
+  const urlDept = searchParams.get("dept");
+  const urlTestCode = searchParams.get("testCode");
   const [selectedVisitId, setSelectedVisitId] = useState<string>(rawVisitId);
   const activeVisitId = selectedVisitId || rawVisitId;
+  const deptConfig = useMemo(() => getDepartmentConfig(urlDept || doctorDepartment), [urlDept, doctorDepartment]);
 
   const qc = useQueryClient();
 
@@ -164,8 +178,19 @@ function LabOrderContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // Pre-select test if navigated from Consultation quick-order chip (?testCode=...)
+  useEffect(() => {
+    if (!urlTestCode) return;
+    const match = COMPREHENSIVE_LAB_CATALOG.find(
+      (item) => item.id.toLowerCase() === urlTestCode.toLowerCase() || item.name.toLowerCase().includes(urlTestCode.toLowerCase())
+    );
+    if (match) {
+      setSelected((prev) => (prev.includes(match.name) ? prev : [...prev, match.name]));
+    }
+  }, [urlTestCode]);
+
   // Merge presets + database tariffs + doctor custom tests
-  // Prioritize most ordered tests on top!
+  // Prioritize Custom -> Active Doctor Specialty tests -> Most Ordered tests
   const fullCatalog = useMemo(() => {
     const map = new Map<string, LabCatalogItem>();
 
@@ -193,21 +218,26 @@ function LabOrderContent() {
       map.set(custom.name.toLowerCase().trim(), custom);
     }
 
+    const preferredSet = new Set(deptConfig.preferredLabIds);
     const items = Array.from(map.values());
-    // Sort items: Custom tests first, then Most Ordered / Common tests on top!
     return items.sort((a, b) => {
       if (a.category === "Custom" && b.category !== "Custom") return -1;
       if (b.category === "Custom" && a.category !== "Custom") return 1;
+      const aPref = preferredSet.has(a.id);
+      const bPref = preferredSet.has(b.id);
+      if (aPref && !bPref) return -1;
+      if (!aPref && bPref) return 1;
       if (a.isCommon && !b.isCommon) return -1;
       if (!a.isCommon && b.isCommon) return 1;
       return 0;
     });
-  }, [labTariffs, customTests]);
+  }, [labTariffs, customTests, deptConfig.preferredLabIds]);
 
   // Categories list with counts (simple 1-word clear labels)
   const categories = useMemo(() => {
     const counts: Record<string, number> = {
       All: fullCatalog.length,
+      Specialty: 0,
       Hematology: 0,
       Biochemistry: 0,
       Serology: 0,
@@ -222,6 +252,7 @@ function LabOrderContent() {
     }
     return [
       { key: "All", label: "All", count: counts.All },
+      ...(counts.Specialty > 0 ? [{ key: "Specialty", label: `${deptConfig.shortLabel} / Special`, count: counts.Specialty }] : []),
       { key: "Hematology", label: "Blood", count: counts.Hematology },
       { key: "Biochemistry", label: "Biochemistry", count: counts.Biochemistry },
       { key: "Serology", label: "Infections", count: counts.Serology },
@@ -229,7 +260,7 @@ function LabOrderContent() {
       { key: "Endocrine", label: "Hormones", count: counts.Endocrine },
       ...(customTests.length > 0 ? [{ key: "Custom", label: "Custom", count: counts.Custom }] : []),
     ];
-  }, [fullCatalog, customTests]);
+  }, [fullCatalog, customTests, deptConfig.shortLabel]);
 
   // Filtered tests based on search and active category
   const filteredTests = useMemo(() => {
@@ -415,23 +446,24 @@ function LabOrderContent() {
   const latestVitals = visit?.vitals?.[0];
   const existingLabOrders = visit?.labOrders || [];
 
-  // Next 2 waiting patients in line (compact switcher)
-  const nextPatients = queue
-    .filter((q) => q.visitId !== activeVisitId && q.status !== "done")
-    .slice(0, 2);
+  // Next 2 waiting patients in doctor's department (fallback to any waiting)
+  const deptWaiting = queue.filter(
+    (q) => q.visitId !== activeVisitId && q.status !== "done" && doesTicketBelongToDepartment(q.department, deptConfig.id)
+  );
+  const nextPatients = (deptWaiting.length > 0 ? deptWaiting : queue.filter((q) => q.visitId !== activeVisitId && q.status !== "done")).slice(0, 2);
 
   return (
     <PageShell
-      title="Lab Order"
-      subtitle="Select or add tests to send to the lab"
+      title={`${deptConfig.shortLabel} — ${deptConfig.sidebarLabels.labOrder}`}
+      subtitle={`Top tests for ${deptConfig.shortLabel} appear first`}
       action={
         <div className="flex items-center gap-2">
           {activeVisitId && (
             <Link
-              href={`/nova/doctor/consultation?visitId=${activeVisitId}`}
+              href={`/nova/doctor/consultation?visitId=${activeVisitId}&dept=${deptConfig.id}`}
               className="text-xs text-slate-600 dark:text-slate-300 hover:text-nova-primary flex items-center gap-1 font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg shadow-xs transition-colors"
             >
-              <ArrowLeft size={14} /> Consultation
+              <ArrowLeft size={14} /> {deptConfig.sidebarLabels.consult}
             </Link>
           )}
         </div>
@@ -797,11 +829,15 @@ function LabOrderContent() {
                       </div>
 
                       <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
-                        {test.isCommon && (
-                          <span className="text-[10px] text-teal-700 dark:text-teal-300 font-semibold bg-teal-50 dark:bg-teal-950/50 px-1 rounded border border-teal-200/50">
-                            ⭐ Top
+                        {deptConfig.preferredLabIds.includes(test.id) ? (
+                          <span className="text-[10px] text-teal-800 dark:text-teal-200 font-bold bg-teal-50 dark:bg-teal-950/60 px-1.5 rounded border border-teal-200 dark:border-teal-800">
+                            {deptConfig.shortLabel} Top
                           </span>
-                        )}
+                        ) : test.isCommon ? (
+                          <span className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                            Common
+                          </span>
+                        ) : null}
                         <span className="px-1.5 py-0.2 rounded bg-slate-200/60 dark:bg-slate-700/60 font-medium">
                           {test.category}
                         </span>
@@ -827,10 +863,10 @@ function LabOrderContent() {
 
         {/* ── 4. MODERN FLOATING REQUISITION ACTION DOCK ── */}
         {selected.length > 0 && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[95%] max-w-5xl z-40 transition-all duration-200">
+          <div className="fixed bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-1rem)] sm:w-[95%] max-w-5xl z-40 transition-all duration-200">
             {/* Expandable Requisition Inspector Drawer */}
             {showRequisitionDrawer && (
-              <div className="mb-2 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl space-y-4 animate-in slide-in-from-bottom-2 duration-150">
+              <div className="mb-2 p-3.5 sm:p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl space-y-4 max-h-[65dvh] overflow-y-auto animate-in slide-in-from-bottom-2 duration-150">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
                     <FlaskConical size={16} className="text-teal-600" />

@@ -1,4 +1,4 @@
-// Nova HMS — all mock/dummy data used across the frontend prototype
+// Ethiora HMS — all mock/dummy data used across the frontend prototype
 
 export const ROLES = [
   "Organizational Admin",
@@ -23,12 +23,12 @@ export type Role = (typeof ROLES)[number];
 export const MOCK_USER = {
   name: "Dr. Tigist Alemu",
   role: "Doctor" as Role,
-  hospital: "Nova Medical Center",
+  hospital: "Ethiora Medical System",
   avatar: "TA",
 };
 
 export const HOSPITALS = [
-  { id: "h1", name: "Nova Medical Center", region: "Amhara", status: "active", plan: "Full Clinical", patients: 1240, staff: 87, since: "2024-01-15" },
+  { id: "h1", name: "Ethiora Medical System", region: "Amhara", status: "active", plan: "Full Clinical", patients: 1240, staff: 87, since: "2024-01-15" },
   { id: "h2", name: "Jimma University Medical Center", region: "Oromia", status: "active", plan: "Enterprise Multi-Facility", patients: 3102, staff: 210, since: "2023-11-03" },
   { id: "h3", name: "Hawassa University Comprehensive", region: "Sidama", status: "trial", plan: "Basic OPD", patients: 340, staff: 32, since: "2026-08-01" },
   { id: "h4", name: "Gondar University Hospital", region: "Amhara", status: "active", plan: "Full Clinical", patients: 2180, staff: 145, since: "2024-03-22" },
@@ -277,9 +277,9 @@ export const CBHI_CLAIMS = [
 ];
 
 export const REFERRALS = [
-  { id: "REF001", patient: "Mulugeta Haile", from: "Nova Medical Center", to: "Tikur Anbessa Specialized Hospital", reason: "Cardiac evaluation", date: "2026-09-04", status: "in-transit", type: "out" },
-  { id: "REF002", patient: "Meseret Arega", from: "Motta Primary Hospital", to: "Nova Medical Center", reason: "High-risk obstetric case", date: "2026-09-05", status: "arrived", type: "in" },
-  { id: "REF003", patient: "Yohannes Desta", from: "Nova Medical Center", to: "Gondar University Hospital", reason: "Neurosurgery consult", date: "2026-09-03", status: "pending", type: "out" },
+  { id: "REF001", patient: "Mulugeta Haile", from: "Ethiora Medical System", to: "Tikur Anbessa Specialized Hospital", reason: "Cardiac evaluation", date: "2026-09-04", status: "in-transit", type: "out" },
+  { id: "REF002", patient: "Meseret Arega", from: "Motta Primary Hospital", to: "Ethiora Medical System", reason: "High-risk obstetric case", date: "2026-09-05", status: "arrived", type: "in" },
+  { id: "REF003", patient: "Yohannes Desta", from: "Ethiora Medical System", to: "Gondar University Hospital", reason: "Neurosurgery consult", date: "2026-09-03", status: "pending", type: "out" },
 ];
 
 export const BEDS = [

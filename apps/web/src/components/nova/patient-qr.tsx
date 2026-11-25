@@ -25,7 +25,7 @@ export function createPatientQRPayload(patient: PatientQRData): string {
     dob: patient.dob,
     cbhi: patient.cbhi,
     pin: patient.portalPin,
-    facility: patient.facility || "Nova Medical Center",
+    facility: patient.facility || "Ethiora Medical System",
     issued: new Date().toISOString().split("T")[0],
   });
 }
@@ -159,8 +159,8 @@ export default function PatientQRCode({
           <div class="card">
             <div class="header">
               <div>
-                <div class="title">Nova HMS · DMRH</div>
-                <div class="subtitle">Nova Medical Center</div>
+                <div class="title">Ethiora HMS · DMRH</div>
+                <div class="subtitle">Ethiora Medical System</div>
               </div>
 
             </div>
@@ -280,11 +280,11 @@ export function PatientIDCardVisual({
       {/* Top Header */}
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center font-black text-white text-base shadow-sm">
-            N
+          <div className="w-9 h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <p className="font-bold text-sm tracking-wide text-white">Nova HMS · DMRH</p>
+            <p className="font-bold text-sm tracking-wide text-white">Ethiora HMS · DMRH</p>
             <p className="text-[11px] text-teal-200">Patient Health ID Card</p>
           </div>
         </div>
@@ -301,7 +301,7 @@ export function PatientIDCardVisual({
       </div>
 
       {/* Grid: Details on left, Live QR Code on right */}
-      <div className="flex items-center justify-between gap-3 relative z-10">
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 relative z-10">
         <div className="space-y-1.5 text-xs">
           <div>
             <span className="text-[10px] text-teal-300/80 block uppercase tracking-wider">Health ID</span>
@@ -342,7 +342,7 @@ export function PatientIDCardVisual({
 
       {/* Footer bar */}
       <div className="mt-4 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] text-teal-200/70 relative z-10">
-        <span>Nova Medical Center</span>
+        <span>Ethiora Medical System</span>
         <span>Valid for All OPD & Specialty Care</span>
       </div>
     </div>

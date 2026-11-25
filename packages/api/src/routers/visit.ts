@@ -14,6 +14,8 @@ export const visitRouter = router({
       channel: z.enum(["walk_in", "online"]).default("walk_in"),
       department: z.string().default("OPD"),
       isEmergency: z.boolean().default(false),
+      assignedDoctorId: z.string().optional(),
+      assignedDoctorName: z.string().optional(),
       paymentMethod: z.enum(["cash", "telebirr", "cbe_birr", "card", "unpaid"]).default("unpaid"),
       paymentReference: z.string().default(""),
     }))
@@ -100,6 +102,8 @@ export const visitRouter = router({
           channel: input.channel,
           priorityScore,
           department: input.department,
+          assignedDoctorId: input.assignedDoctorId,
+          assignedDoctorName: input.assignedDoctorName,
           feeAmount,
           paymentStatus,
           paidAt: paymentStatus === "paid" ? new Date() : undefined,
@@ -210,6 +214,27 @@ export const visitRouter = router({
                 },
               },
             },
+            vitals: {
+              orderBy: { recordedAt: "desc" },
+              take: 1,
+              select: {
+                bpSystolic: true,
+                bpDiastolic: true,
+                heartRate: true,
+                temperature: true,
+                spo2: true,
+                weight: true,
+                height: true,
+              },
+            },
+            notes: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: {
+                chiefComplaint: true,
+                examination: true,
+              },
+            },
           },
         },
       },
@@ -220,21 +245,78 @@ export const visitRouter = router({
     });
   }),
 
-  // Update ticket status
+  // Update ticket status (and optionally route to a specific department & doctor)
   updateTicketStatus: tenantProcedure
     .input(z.object({
       ticketId: z.string(),
       status: z.enum(["waiting", "being-seen", "in-lab", "results-ready", "done", "urgent", "no-show"]),
+      department: z.string().optional(),
+      assignedDoctorId: z.string().nullable().optional(),
+      assignedDoctorName: z.string().nullable().optional(),
     }))
     .mutation(async ({ input }) => {
       return prisma.oPDTicket.update({
         where: { id: input.ticketId },
         data: {
           status: input.status,
+          ...(input.department ? { department: input.department } : {}),
+          ...(input.assignedDoctorId !== undefined ? { assignedDoctorId: input.assignedDoctorId } : {}),
+          ...(input.assignedDoctorName !== undefined ? { assignedDoctorName: input.assignedDoctorName } : {}),
           calledAt: input.status === "being-seen" ? new Date() : undefined,
           completedAt: input.status === "done" ? new Date() : null,
         },
       });
+    }),
+
+  // Transfer an active patient ticket to another specialty department/doctor inside the clinic
+  transferDepartment: tenantProcedure
+    .input(z.object({
+      visitId: z.string(),
+      department: z.string().min(1),
+      assignedDoctorId: z.string().nullable().optional(),
+      assignedDoctorName: z.string().nullable().optional(),
+      reason: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const visit = await prisma.visit.findFirstOrThrow({
+        where: { id: input.visitId, tenantId: ctx.tenantId },
+        include: { ticket: true, patient: true },
+      });
+
+      if (!visit.ticket) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No active queue ticket found for this visit" });
+      }
+
+      const updatedTicket = await prisma.oPDTicket.update({
+        where: { id: visit.ticket.id },
+        data: {
+          department: input.department,
+          assignedDoctorId: input.assignedDoctorId ?? null,
+          assignedDoctorName: input.assignedDoctorName ?? null,
+          status: "waiting",
+          completedAt: null,
+        },
+      });
+
+      await createHospitalNotification({
+        tenantId: ctx.tenantId,
+        targetRole: "Doctor",
+        type: "clinical",
+        title: `Internal Transfer → ${input.department}`,
+        body: `${visit.patient.nameEn} (#${visit.ticket.ticketNumber}) transferred to ${input.department}.${input.reason ? ` Note: ${input.reason}` : ""}`,
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+          action: `Transferred visit to ${input.department}`,
+          entity: "OPDTicket",
+          entityId: visit.ticket.id,
+        },
+      });
+
+      return updatedTicket;
     }),
 
   // Record vitals

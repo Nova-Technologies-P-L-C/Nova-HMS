@@ -16,10 +16,12 @@ export default function OnboardingPage() {
     setModules((prev) => prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-slate-50 flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-xl">
         <div className="text-center mb-8">
-          <div className="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center font-bold text-white text-lg mx-auto mb-3">N</div>
+          <div className="w-12 h-12 rounded-xl bg-white p-1 border border-slate-200 flex items-center justify-center mx-auto mb-3 shadow-xs overflow-hidden">
+            <img src="/images/ethiora-logo.jpg" alt="Ethiora Logo" className="w-full h-full object-contain" />
+          </div>
           <h1 className="text-xl font-bold text-slate-900">Set up your workspace</h1>
         </div>
 
@@ -31,16 +33,16 @@ export default function OnboardingPage() {
                 {i < step ? "✓" : i + 1}
               </div>
               <span className={`text-xs hidden sm:block ${i === step ? "text-teal-700 font-medium" : "text-slate-400"}`}>{s}</span>
-              {i < STEPS.length - 1 && <div className="w-8 h-px bg-slate-200 mx-1" />}
+              {i < STEPS.length - 1 && <div className="w-4 sm:w-8 h-px bg-slate-200 mx-1" />}
             </div>
           ))}
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
           {step === 0 && (
             <div className="space-y-4">
               <h2 className="font-semibold text-slate-800 mb-4">Hospital details</h2>
-              <div><label className="block text-xs text-slate-500 mb-1">Hospital name</label><input defaultValue="Nova Medical Center" className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" /></div>
+              <div><label className="block text-xs text-slate-500 mb-1">Hospital name</label><input defaultValue="Ethiora Medical System" className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" /></div>
               <div><label className="block text-xs text-slate-500 mb-1">Workspace slug</label><input defaultValue="debremarkos" className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" /></div>
               <div><label className="block text-xs text-slate-500 mb-1">Region</label>
                 <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400 bg-white"><option>Amhara</option><option>Oromia</option></select>
@@ -79,7 +81,7 @@ export default function OnboardingPage() {
             <div className="space-y-4">
               <h2 className="font-semibold text-slate-800 mb-4">Invite staff</h2>
               {[0, 1, 2].map((i) => (
-                <div key={i} className="grid grid-cols-2 gap-2">
+                <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <input className="px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400" placeholder="Email address" />
                   <select className="px-3 py-2 text-sm border border-slate-200 rounded focus:outline-none focus:border-teal-400 bg-white">
                     <option>Select role</option>
@@ -96,7 +98,7 @@ export default function OnboardingPage() {
             <div className="text-center py-6">
               <CheckCircle size={48} className="text-teal-500 mx-auto mb-4" />
               <h2 className="font-bold text-slate-800 text-lg mb-2">Workspace ready!</h2>
-              <p className="text-sm text-slate-500 mb-6">Nova Medical Center has been set up on Nova HMS. Invite emails have been sent to your staff.</p>
+              <p className="text-sm text-slate-500 mb-6">Ethiora Medical System has been set up on Ethiora HMS. Invite emails have been sent to your staff.</p>
               <button onClick={() => router.push("/nova/hospital-admin")} className="px-6 py-2.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors font-medium">
                 Open dashboard →
               </button>

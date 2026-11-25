@@ -311,8 +311,8 @@ function BillingDashboardContent() {
     >
       {/* Payment Receipt Modal */}
       {issuedReceipt && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 text-center space-y-4 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-6 text-center space-y-4 border border-slate-200 dark:border-slate-800">
             <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle size={32} />
             </div>
@@ -367,8 +367,8 @@ function BillingDashboardContent() {
 
       {/* Collect Payment Modal */}
       {singleTarget && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-5 space-y-4 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-5 space-y-4 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
@@ -405,7 +405,7 @@ function BillingDashboardContent() {
 
             <div className="space-y-2">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Payment Method:</label>
-              <div className="grid grid-cols-4 gap-1.5 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
                 {(["cash", "telebirr", "cbe_birr", "card"] as const).map((m) => (
                   <button
                     key={m}
